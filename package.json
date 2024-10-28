@@ -1,0 +1,73 @@
+{
+  "name": "@frostr/bifrost",
+  "version": "0.0.1",
+  "description": "Core library for the FROSTR protocol.",
+  "author": "Christopher Scott",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/frostr-org/bifrost"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "dist",
+    "src"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./lib": {
+      "import": "./dist/lib/index.js",
+      "types": "./dist/lib/index.d.ts",
+      "default": "./dist/lib/index.js"
+    },
+    "./util": {
+      "import": "./dist/util/index.js",
+      "types": "./dist/util/index.d.ts",
+      "default": "./dist/util/index.js"
+    }
+  },
+  "scripts": {
+    "build": "./script/build.sh",
+    "loader": "tsx --tsconfig ./test/tsconfig.json",
+    "keygen": "npm run loader test/keygen.ts",
+    "release": "npm test | faucet && npm build",
+    "scratch": "npm run loader test/scratch.ts",
+    "test": " npm run loader test/tape.ts"
+  },
+  "devDependencies": {
+    "@noble/hashes": "^1.7.1",
+    "@rollup/plugin-commonjs": "^28.0.2",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "@types/tape": "^5.8.1",
+    "@types/ws": "^8.5.14",
+    "faucet": "^0.0.4",
+    "rollup": "^4.34.0",
+    "tape": "^5.9.0",
+    "tslib": "^2.8.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "ws": "^8.18.0"
+  },
+  "dependencies": {
+    "@cmdcode/buff": "^2.2.5",
+    "@cmdcode/frost": "^1.1.2",
+    "@cmdcode/nostr-p2p": "^2.0.8",
+    "@noble/ciphers": "^1.2.1",
+    "@noble/curves": "^1.8.1",
+    "@nostr-dev-kit/ndk": "^2.11.0",
+    "zod": "^3.24.1"
+  }
+}

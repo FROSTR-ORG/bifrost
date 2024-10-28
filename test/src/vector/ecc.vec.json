@@ -1,0 +1,41 @@
+{
+  "pass": [{
+    "internal_secnonce" : "a0d47a67caa7cd836dc0f250a1a3184f6a819854639c841fd5b4434073cdf214",
+    "internal_pubnonce" : "02237cc9751fe5e3416c90c6789450ffbca2476a144dd55fff929af6a1c56f553c",
+    "internal_tweak"    : "3982f19bef1615bccfbb05e321c10e1d4cba3df0e841c2e41eeb6016347653c3",
+    "target_secnonce"   : "da576c03b9bde3403d7bf833c364266cb73bd6454bde4703f49fa356a84445d7",
+    "target_pubnonce"   : "023d22059067f0cb693fad1d94f5738a58bf31fb178490292371f53ebb46edf551"
+  }],
+  "fail": [{
+    "internal_secnonce" : "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "internal_pubnonce" : "02237cc9751fe5e3416c90c6789450ffbca2476a144dd55fff929af6a1c56f553c",
+    "internal_tweak"    : "3982f19bef1615bccfbb05e321c10e1d4cba3df0e841c2e41eeb6016347653c3",
+    "target_secnonce"   : "da576c03b9bde3403d7bf833c364266cb73bd6454bde4703f49fa356a84445d7",
+    "target_pubnonce"   : "023d22059067f0cb693fad1d94f5738a58bf31fb178490292371f53ebb46edf551",
+    "reason"            : "ecdsa secret keys must be less than the curve order"
+  },
+  {
+    "internal_secnonce" : "a0d47a67caa7cd836dc0f250a1a3184f6a819854639c841fd5b4434073cdf214",
+    "internal_pubnonce" : "02ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "internal_tweak"    : "3982f19bef1615bccfbb05e321c10e1d4cba3df0e841c2e41eeb6016347653c3",
+    "target_secnonce"   : "da576c03b9bde3403d7bf833c364266cb73bd6454bde4703f49fa356a84445d7",
+    "target_pubnonce"   : "023d22059067f0cb693fad1d94f5738a58bf31fb178490292371f53ebb46edf551",
+    "reason"            : "invalid secp256k1 point"
+  },
+  {
+    "internal_secnonce" : "00a0d47a67caa7cd836dc0f250a1a3184f6a819854639c841fd5b4434073cdf214",
+    "internal_pubnonce" : "02237cc9751fe5e3416c90c6789450ffbca2476a144dd55fff929af6a1c56f553c",
+    "internal_tweak"    : "3982f19bef1615bccfbb05e321c10e1d4cba3df0e841c2e41eeb6016347653c3",
+    "target_secnonce"   : "e3291ecc2bedb011be281b1cf9d36aaeaf11666e87866c7f728f04f9a35d0dab",
+    "target_pubnonce"   : "023d22059067f0cb693fad1d94f5738a58bf31fb178490292371f53ebb46edf551",
+    "reason"            : "ecdsa secret keys must be 32 bytes long"
+  },
+  {
+    "internal_secnonce" : "a0d47a67caa7cd836dc0f250a1a3184f6a819854639c841fd5b4434073cdf214",
+    "internal_pubnonce" : "237cc9751fe5e3416c90c6789450ffbca2476a144dd55fff929af6a1c56f553c",
+    "internal_tweak"    : "3982f19bef1615bccfbb05e321c10e1d4cba3df0e841c2e41eeb6016347653c3",
+    "target_secnonce"   : "da576c03b9bde3403d7bf833c364266cb73bd6454bde4703f49fa356a84445d7",
+    "target_pubnonce"   : "023d22059067f0cb693fad1d94f5738a58bf31fb178490292371f53ebb46edf551",
+    "reason"            : "ecdsa public keys must be 33 bytes long"
+  }]
+}

@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "@/*"                  : [ "src/*"             ],
+      "@/test/*"             : [ "test/src/*"        ],
+      "@frostr/bifrost"      : [ "src/index.js"      ],
+      "@frostr/bifrost/api"  : [ "src/api/index.js"  ],
+      "@frostr/bifrost/lib"  : [ "src/lib/index.js"  ],
+      "@frostr/bifrost/util" : [ "src/util/index.js" ]
+    },
+    "module": "NodeNext",
+    "target": "ESNext",
+    "moduleResolution": "NodeNext",
+    "importHelpers": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "useDefineForClassFields": false,
+    "skipLibCheck": true,
+    "strict": true,
+    "pretty": true,
+    "removeComments": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "exclude": [ "node_modules" ],
+  "include": [ "**/*.ts" ]
+}
