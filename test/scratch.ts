@@ -1,42 +1,34 @@
-// Create a set of shares.
+import { get_pubkey } from '@/client/lib/event.js'
+import { generate_seckey } from '@cmdcode/frost/lib'
+import { NostrClient } from '@cmdcode/nostr-node'
 
-import { Buff } from '@cmdcode/buff'
+const KINDS = [ 20004 ]
+const RELAYS : string[] = [
+  'wss://relay.nostrdice.com',
+  'njump.me',
+  'relay.snort.social'
+]
 
-import { combine_partial_sigs, create_dealer_pkg, create_psig_pkg, decode_group_pkg, decode_secret_pkg, encode_group_pkg, encode_secret_pkg, get_package_ctx, get_pubkey, get_session_ctx, verify_final_sig, verify_psig_pkg } from '@bifrost/lib'
+const alice_sk = generate_seckey().hex
+const alice_pk = get_pubkey(alice_sk)
 
-const seckey  = Buff.random(32).hex
-const pubkey  = get_pubkey(seckey)
-const message = Buff.random(32).hex
+const bob_sk = generate_seckey().hex
+const bob_pk = get_pubkey(alice_sk)
 
-console.log(seckey)
-console.log(message)
-console.log('master pubkey:', pubkey)
+const peers = [ alice_pk, bob_pk ]
 
-const pkg = create_dealer_pkg([ seckey ], 2, 3)
+const node_a = new NostrClient(KINDS, peers, RELAYS, alice_sk)
+const node_b = new NostrClient(KINDS, peers, RELAYS, bob_sk)
 
-console.log('pkg:', pkg)
+node_a.rpc.on('test', msg => {
+  console.log('alice recvd:', msg)
+})
 
-const encoded_group   = encode_group_pkg(pkg)
+node_b.rpc.on('test', msg => {
+  console.log('alice recvd:', msg)
+})
 
-console.log('group:', encoded_group)
+node_a.send('test', 'hello bob!', bob_pk)
 
-const encoded_secrets = pkg.secrets.map(e => encode_secret_pkg(e))
-
-console.log('secrets:', encoded_secrets)
-
-const decoded_group   = decode_group_pkg(encoded_group)
-const decoded_secrets = encoded_secrets.map(e => decode_secret_pkg(e))
-
-const ctx     = get_package_ctx(decoded_group, [ 1, 2 ], message)
-const signer1 = decoded_secrets[0]
-const signer2 = decoded_secrets[1]
-
-const psig1   = create_psig_pkg(ctx, signer1)
-const psig2   = create_psig_pkg(ctx, signer2)
-
-console.log('psig1 valid:', verify_psig_pkg(ctx, psig1))
-console.log('psig2 valid:', verify_psig_pkg(ctx, psig2))
-
-const sig = combine_partial_sigs(ctx, [ psig1, psig2 ])
-
-console.log('final sig valid:', verify_final_sig(ctx, message, sig))
+node_b.connect()
+node_a.connect()

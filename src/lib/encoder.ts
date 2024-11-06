@@ -7,6 +7,14 @@ import type {
   SecretPackage
 } from '@/types/index.js'
 
+/**
+ * TODO:
+ * 
+ * We need to encode / decode the following:
+ * - Secret shares.
+ * - Group information.
+ */
+
 export function encode_group_pkg (
   pkg : GroupPackage
 ) : string {

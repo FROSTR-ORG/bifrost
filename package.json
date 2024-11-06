@@ -1,7 +1,7 @@
 {
   "name": "@frostr/bifrost",
   "version": "0.0.1",
-  "description": "Core library for implementing the FROSTR signing protocol.",
+  "description": "Core library for the FROSTR protocol.",
   "author": "Christopher Scott",
   "license": "MIT",
   "repository": {
@@ -63,6 +63,11 @@
     "typescript": "^5.6.3"
   },
   "dependencies": {
-    "@cmdcode/buff": "^2.2.5"
+    "@cmdcode/buff": "^2.2.5",
+    "@cmdcode/frost": "^1.0.4",
+    "@noble/ciphers": "^1.0.0",
+    "@noble/curves": "^1.6.0",
+    "@nostr-dev-kit/ndk": "^2.10.5",
+    "zod": "^3.23.8"
   }
 }

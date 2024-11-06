@@ -1,78 +1,68 @@
-import { get_record }         from '@/util/helpers.js'
-import { create_commit_pkg }  from './proto.js'
-import { create_share_pkg }   from './shares.js'
-import { get_pubkey }         from './util.js'
+import {
+  create_commit_pkg,
+  create_ecdh_share,
+  generate_nonce,
+  get_pubkey
+} from '@cmdcode/frost/lib'
 
-import { sign_msg, verify_partial_sig } from './sign.js'
+import type {
+  KeyGroup,
+  SecretShare,
+  ShareSignature
+} from '@cmdcode/frost'
 
 import type {
   CommitPackage,
-  DealerPackage,
   GroupPackage,
-  GroupSessionCtx,
-  PartialSignature,
-  SecretPackage
+  SharePackage,
+  SignaturePackage
 } from '@/types/index.js'
-import { get_session_ctx } from './context.js'
 
-export function create_dealer_pkg (
-  seeds     : string[],
-  threshold : number,
-  share_ct  : number
-) : DealerPackage {
-  const share_pkg = create_share_pkg(seeds, threshold, share_ct)
-  const group_pk  = share_pkg.group_pubkey
+export function create_group_pkg (
+  group : KeyGroup
+) : GroupPackage {
+  // Create commitments
+  const commits : CommitPackage[] = group.shares.map(e => {
+    const { idx, binder_pn, hidden_pn } = create_commit_pkg(e)
+    const share_pk = get_pubkey(e.seckey)
+    return { idx, binder_pn, hidden_pn, share_pk }
+  })
 
-  const commits : CommitPackage[] = []
-  const secrets : SecretPackage[] = []
+  const pubkey    = group.pubkey
+  const threshold = group.commits.length
 
-  for (const share of share_pkg.sec_shares) {
-    const idx       = share.idx
-    const share_sk  = share.seckey
-    const share_pk  = get_pubkey(share_sk)
-    const nonce_pkg = create_commit_pkg(share)
-    const { binder_sn, hidden_sn } = nonce_pkg.secnonce
-    const { binder_pn, hidden_pn } = nonce_pkg.pubnonce
-    commits.push({ idx, binder_pn, hidden_pn, share_pk })
-    secrets.push({ idx, binder_sn, hidden_sn, share_sk })
-  }
-
-  return { commits, group_pk, secrets, threshold }
+  return { commits, pubkey, threshold }
 }
 
-// export function rotate_dealer_pkg (
-//   group_pkg   : GroupPackage,
-//   secret_pkgs : SecretPackage[]
-// ) : DealerPackage {
-//   // Generate new shares.
-
-// }
-
-export function get_package_ctx (
-  pkg     : GroupPackage,
-  indexes : number[],
-  message : string,
-  tweaks? : string[]
-) {
-  const { commits, group_pk } = pkg
-  const filtered = commits.filter(e => indexes.includes(e.idx))
-  return get_session_ctx(group_pk, filtered, message, tweaks)
+export function create_share_pkg (
+  share : SecretShare
+) : SharePackage {
+  const { idx, seckey } = share
+  const binder_sn = generate_nonce(seckey).hex
+  const hidden_sn = generate_nonce(seckey).hex
+  return { idx, binder_sn, hidden_sn, share_sk: seckey }
 }
 
 export function create_psig_pkg (
-  ctx  : GroupSessionCtx,
-  spkg : SecretPackage
-) {
-  const { idx, share_sk, binder_sn, hidden_sn } = spkg
-  const secnonce = { idx, binder_sn, hidden_sn }
-  const secshare = { idx, seckey: share_sk }
-  return sign_msg(ctx, secshare, secnonce)
+  share_psig : ShareSignature
+) : SignaturePackage {
+  const { idx, psig, pubkey } = share_psig
+  return { idx, psig, pubkey }
 }
 
-export function verify_psig_pkg (
-  ctx  : GroupSessionCtx,
-  psig : PartialSignature
+export function create_ecdh_pkg (
+  members : number[],
+  peer_pk : string,
+  share   : SecretShare
 ) {
-  const pnonce = get_record(ctx.pub_nonces, psig.idx)
-  return verify_partial_sig(ctx, pnonce, psig.pubkey, psig.psig)
+  const { idx, pubkey } = create_ecdh_share(members, share, peer_pk)
+  return { idx, pubkey }
 }
+
+// export function verify_psig_pkg (
+//   ctx  : GroupSessionCtx,
+//   psig : PartialSignature
+// ) {
+//   const pnonce = get_record(ctx.pub_nonces, psig.idx)
+//   return verify_partial_sig(ctx, pnonce, psig.pubkey, psig.psig)
+// }

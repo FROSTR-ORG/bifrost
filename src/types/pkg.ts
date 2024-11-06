@@ -1,4 +1,4 @@
-export interface SecretPackage {
+export interface SharePackage {
   idx       : number
   binder_sn : string
   hidden_sn : string
@@ -14,10 +14,17 @@ export interface CommitPackage {
 
 export interface GroupPackage {
   commits   : CommitPackage[]
-  group_pk  : string
+  pubkey    : string
   threshold : number
 }
 
-export interface DealerPackage extends GroupPackage {
-  secrets : SecretPackage[]
+export interface SignaturePackage {
+  idx    : number
+  psig   : string
+  pubkey : string
+}
+
+export interface KeySet {
+  group  : GroupPackage,
+  shares : SharePackage[]
 }
