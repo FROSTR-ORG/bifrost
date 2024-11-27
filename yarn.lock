@@ -10,14 +10,25 @@
     "@noble/hashes" "^1.3.3"
     "@scure/base" "^1.1.5"
 
-"@cmdcode/frost@^1.0.4":
-  version "1.0.4"
-  resolved "https://registry.yarnpkg.com/@cmdcode/frost/-/frost-1.0.4.tgz#357ce8c675e2f3bcd549f6b1dad6e9df960d81e0"
-  integrity sha512-AtJgseE0nyzqnuwLlr7fBOsmY5kWNB5/4GXHc2qkicU93RpOc3GfOs7xZUsMFTOasMeV+HgiKwnrhR4neL11Aw==
+"@cmdcode/frost@^1.0.5":
+  version "1.0.5"
+  resolved "https://registry.yarnpkg.com/@cmdcode/frost/-/frost-1.0.5.tgz#c9d59dd3e461df14cfd884f8d624108469a1e9aa"
+  integrity sha512-n06Fqcv6AW81KNac6ivzAYQ6h1bwWstaW6I1gIwO2TambfNk1L1IvD3zb2puyJVTmgf9NqXjYGUpFm3aYSGRoQ==
   dependencies:
     "@cmdcode/buff" "^2.2.5"
     "@noble/curves" "^1.6.0"
     "@noble/hashes" "^1.5.0"
+
+"@cmdcode/nostr-p2p@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@cmdcode/nostr-p2p/-/nostr-p2p-1.0.0.tgz#e30259a1df471fa54864dc7c40e09509d2471de1"
+  integrity sha512-FcDO7zVEqrKZispxru1VqoUmkHfe8IBOd5cpcwRjOhsaL2mvmQAe/aFikojd2L7E8kJDYuHylGHgQMq37Htjtw==
+  dependencies:
+    "@cmdcode/buff" "^2.2.5"
+    "@noble/ciphers" "^1.0.0"
+    "@noble/curves" "^1.6.0"
+    "@nostr-dev-kit/ndk" "^2.10.5"
+    zod "^3.23.8"
 
 "@esbuild/aix-ppc64@0.23.1":
   version "0.23.1"
@@ -470,6 +481,13 @@
   version "0.0.33"
   resolved "https://registry.yarnpkg.com/@types/through/-/through-0.0.33.tgz#14ebf599320e1c7851e7d598149af183c6b9ea56"
   integrity sha512-HsJ+z3QuETzP3cswwtzt2vEIiHBk/dCcHGhbmG5X3ecnwFD/lPrMpliGXxSCg03L9AhrdwA4Oz/qfspkDW+xGQ==
+  dependencies:
+    "@types/node" "*"
+
+"@types/ws@^8.5.13":
+  version "8.5.13"
+  resolved "https://registry.yarnpkg.com/@types/ws/-/ws-8.5.13.tgz#6414c280875e2691d0d1e080b05addbf5cb91e20"
+  integrity sha512-osM/gWBTPKgHV8XkTunnegTRIsvF6owmf5w+JtAfOw472dptdm0dlGv4xCt6GwQRcC2XVOvvRE/0bAoQcL2QkA==
   dependencies:
     "@types/node" "*"
 
@@ -1951,6 +1969,11 @@ wrappy@1:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/wrappy/-/wrappy-1.0.2.tgz#b5243d8f3ec1aa35f1364605bc0d1036e30ab69f"
   integrity sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==
+
+ws@^8.18.0:
+  version "8.18.0"
+  resolved "https://registry.yarnpkg.com/ws/-/ws-8.18.0.tgz#0d7505a6eafe2b0e712d232b42279f53bc289bbc"
+  integrity sha512-8VbfWfHLbbwu3+N6OKsOMpBdT4kXPDDB9cJk2bJ6mh9ucxdlnNvH1e+roYkKmN9Nxw2yjz7VzeO9oOz2zJ04Pw==
 
 xtend@~4.0.1:
   version "4.0.2"

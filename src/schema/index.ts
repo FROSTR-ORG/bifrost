@@ -1,4 +1,5 @@
-import * as base from './base.js'
-import * as req  from './req.js'
+import base from './base.js'
+import pkg  from './pkg.js'
+import req  from './req.js'
 
-export default { base, req }
+export default { base, pkg, req }

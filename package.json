@@ -25,11 +25,6 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./api": {
-      "import": "./dist/api/index.js",
-      "types": "./dist/api/index.d.ts",
-      "default": "./dist/api/index.js"
-    },
     "./lib": {
       "import": "./dist/lib/index.js",
       "types": "./dist/lib/index.d.ts",
@@ -49,22 +44,26 @@
     "test": " yarn load test/tape.ts | tap-spec"
   },
   "devDependencies": {
+    "@noble/hashes": "^1.5.0",
     "@rollup/plugin-commonjs": "^28.0.1",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^15.3.0",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^12.1.1",
     "@types/tape": "^5.6.4",
+    "@types/ws": "^8.5.13",
     "rollup": "^4.24.0",
     "tap-spec": "^5.0.0",
     "tape": "^5.9.0",
     "tslib": "^2.8.0",
     "tsx": "^4.19.1",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "ws": "^8.18.0"
   },
   "dependencies": {
     "@cmdcode/buff": "^2.2.5",
-    "@cmdcode/frost": "^1.0.4",
+    "@cmdcode/frost": "^1.0.5",
+    "@cmdcode/nostr-p2p": "^1.0.0",
     "@noble/ciphers": "^1.0.0",
     "@noble/curves": "^1.6.0",
     "@nostr-dev-kit/ndk": "^2.10.5",

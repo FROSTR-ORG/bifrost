@@ -9,7 +9,7 @@
       "@frostr/bifrost"      : [ "src/index.js"      ],
       "@frostr/bifrost/api"  : [ "src/api/index.js"  ],
       "@frostr/bifrost/lib"  : [ "src/lib/index.js"  ],
-      "@frostr/bifrost/util" : [ "src/util/index.js" ]
+      "@frostr/bifrost/util" : [ "util/index.js" ]
     },
     "module": "NodeNext",
     "target": "ESNext",

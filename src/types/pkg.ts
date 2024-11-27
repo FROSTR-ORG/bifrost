@@ -1,15 +1,22 @@
+export interface ECDHPackage {
+  idx      : number
+  members  : number[]
+  peer_pk  : string
+  pubshare : string
+}
+
 export interface SharePackage {
   idx       : number
   binder_sn : string
   hidden_sn : string
-  share_sk  : string
+  seckey    : string
 }
 
 export interface CommitPackage {
   idx       : number
   binder_pn : string
   hidden_pn : string
-  share_pk  : string
+  pubkey    : string
 }
 
 export interface GroupPackage {
@@ -18,10 +25,22 @@ export interface GroupPackage {
   threshold : number
 }
 
+export interface SessionPackage {
+  binder  : string
+  members : number[]
+  sid     : string
+  stamp   : number
+}
+
 export interface SignaturePackage {
   idx    : number
   psig   : string
   pubkey : string
+}
+
+export interface SignMessagePackage extends SignaturePackage {
+  message : string
+  session : SessionPackage
 }
 
 export interface KeySet {

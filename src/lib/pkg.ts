@@ -1,3 +1,5 @@
+import { assert } from '@/util/assert.js'
+
 import {
   create_commit_pkg,
   create_ecdh_share,
@@ -18,14 +20,23 @@ import type {
   SignaturePackage
 } from '@/types/index.js'
 
+export function get_commit_pkg (
+  group : GroupPackage,
+  idx   : number
+) : CommitPackage {
+  const commit = group.commits.find(e => e.idx === idx)
+  assert.exists(commit, 'commit package not found for index: ' + idx)
+  return commit
+}
+
 export function create_group_pkg (
   group : KeyGroup
 ) : GroupPackage {
   // Create commitments
   const commits : CommitPackage[] = group.shares.map(e => {
     const { idx, binder_pn, hidden_pn } = create_commit_pkg(e)
-    const share_pk = get_pubkey(e.seckey)
-    return { idx, binder_pn, hidden_pn, share_pk }
+    const pubkey = get_pubkey(e.seckey)
+    return { idx, binder_pn, hidden_pn, pubkey }
   })
 
   const pubkey    = group.pubkey
@@ -40,7 +51,7 @@ export function create_share_pkg (
   const { idx, seckey } = share
   const binder_sn = generate_nonce(seckey).hex
   const hidden_sn = generate_nonce(seckey).hex
-  return { idx, binder_sn, hidden_sn, share_sk: seckey }
+  return { idx, binder_sn, hidden_sn, seckey }
 }
 
 export function create_psig_pkg (
@@ -55,8 +66,7 @@ export function create_ecdh_pkg (
   peer_pk : string,
   share   : SecretShare
 ) {
-  const { idx, pubkey } = create_ecdh_share(members, share, peer_pk)
-  return { idx, pubkey }
+  return create_ecdh_share(members, share, peer_pk)
 }
 
 // export function verify_psig_pkg (
