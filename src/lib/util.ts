@@ -1,5 +1,5 @@
 import { GroupPackage } from '@/types/index.js'
-import { assert } from '@/util/assert.js'
+import { Assert }       from '@/util/index.js'
 
 export function get_group_indexes (
   group : GroupPackage
@@ -10,7 +10,7 @@ export function get_group_indexes (
 export function get_author_pubkeys (
   group : GroupPackage
 ) : string[] {
-  return group.commits.map(e => e.pubkey.slice(2))
+  return group.commits.map(e => e.pubkey)
 }
 
 export function get_member_indexes (
@@ -20,6 +20,13 @@ export function get_member_indexes (
   const indexes = group.commits
     .filter(e => pubkeys.includes(e.pubkey))
     .map(e => e.idx)
-  assert.ok(indexes.length === pubkeys.length, 'index count does not match pubkey count')
+  Assert.ok(indexes.length === pubkeys.length, 'index count does not match pubkey count')
   return indexes
+}
+
+export function normalize_pubkey (pubkey : string) {
+  Assert.is_hex(pubkey)
+  return (pubkey.length === 64)
+    ? pubkey
+    : pubkey.slice(2)
 }

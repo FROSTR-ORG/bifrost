@@ -1,6 +1,7 @@
 import { get_pubkey }          from '@cmdcode/frost/lib'
 import { create_session_psig } from '@/lib/sign.js'
-import { assert }              from '@/util/assert.js'
+import { normalize_pubkey }    from '@/lib/util.js'
+import { Assert }              from '@/util/assert.js'
 
 import {
   create_ecdh_pkg,
@@ -67,10 +68,10 @@ export default class ShareSigner /*implements ShareSignerAPI*/ {
   }
 
   get pubkey () {
-    return this._pubkey.slice(2)
+    return normalize_pubkey(this._pubkey)
   }
 
-  create_ecdh_pkg (
+  gen_ecdh_pkg (
     members : number[],
     peer_pk : string
   ) : ECDHPackage {
@@ -79,7 +80,7 @@ export default class ShareSigner /*implements ShareSignerAPI*/ {
     return { idx: pkg.idx, members, peer_pk, pubshare: pkg.pubkey }
   }
 
-  psign_event (
+  sign_event (
     session : SessionPackage,
     event   : UnsignedEvent
   ) {
@@ -88,12 +89,12 @@ export default class ShareSigner /*implements ShareSignerAPI*/ {
     // Generate event id.
     const id = get_event_id(event)
     // Assert that received event id is valid.
-    assert.ok(id === event.id, 'event id failed validation check')
+    Assert.ok(id === event.id, 'event id failed validation check')
     // Return a partial signature package.
-    return this.psign_msg(session, id)
+    return this.sign_msg(session, id)
   }
 
-  psign_msg (
+  sign_msg (
     session : SessionPackage,
     message : string,
     tweaks? : string[]

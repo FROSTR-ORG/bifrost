@@ -1,18 +1,28 @@
-import { parse_message }      from '@cmdcode/nostr-p2p/lib'
-import { derive_ecdh_secret } from '@cmdcode/frost/lib'
+import { parse_message } from '@cmdcode/nostr-p2p/lib'
 
-import type { EventMessage } from '@cmdcode/nostr-p2p'
+import type {
+  EventMessage,
+  TypedMessage
+} from '@cmdcode/nostr-p2p'
+
+import type { ECDHPackage, SignaturePackage } from '@/types/index.js'
 
 import Schema from '@/schema/index.js'
 
-export function parse_ecdh_response (
-  responses : EventMessage[]
-) {
+export function parse_ecdh_message (
+  msg : EventMessage
+) : TypedMessage<ECDHPackage> {
   const schema = Schema.pkg.ecdh_pkg
-  const shares = responses.map(e => {
-    const parsed = parse_message(e, schema)
-    if (parsed === null) throw new Error('response failed validation')
-    return { idx: parsed.dat.idx, pubkey: parsed.dat.pubshare }
-  })
-  return derive_ecdh_secret(shares)
+  const parsed = parse_message(msg, schema)
+  if (parsed === null) throw new Error('response failed validation')
+  return parsed
+}
+
+export function parse_psig_message (
+  msg : EventMessage
+) : TypedMessage<SignaturePackage> {
+  const schema = Schema.pkg.sign_msg_pkg
+  const parsed = parse_message(msg, schema)
+  if (parsed === null) throw new Error('response failed validation')
+  return parsed
 }

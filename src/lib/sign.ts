@@ -1,5 +1,3 @@
-import { assert } from '@/util/assert.js'
-
 import {
   combine_partial_sigs,
   sign_msg,

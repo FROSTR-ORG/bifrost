@@ -1,5 +1,5 @@
 import { Buff }   from '@cmdcode/buff'
-import { assert } from '@/util/index.js'
+import { Assert } from '@/util/index.js'
 
 import {
   deserialize_commit_pkg,
@@ -12,14 +12,16 @@ import type {
   SharePackage,
 } from '@/types/index.js'
 
+import * as CONST from '@/const.js'
+
 export function encode_group_pkg (
   pkg : GroupPackage
 ) : string {
-  const thd  = Buff.num(pkg.threshold, 4)
-  const gpk  = Buff.hex(pkg.pubkey,   33)
+  const thd  = Buff.num(pkg.threshold, CONST.GROUP_THOLD_SIZE)
+  const gpk  = Buff.hex(pkg.pubkey, CONST.GROUP_PUBKEY_SIZE)
   const com  = pkg.commits.map(e => serialize_commit_pkg(e))
   const data = Buff.join([ gpk, thd, ...com ])
-  assert.size(data, 37 + (com.length * 103))
+  Assert.size(data, CONST.GROUP_DATA_SIZE + (com.length * CONST.COMMIT_DATA_SIZE))
   return data.to_bech32m('bfgroup')
 }
 
@@ -27,28 +29,28 @@ export function decode_group_pkg (
   str : string
 ) : GroupPackage {
   const stream = Buff.bech32m(str).stream
-  const pubkey = stream.read(33).hex
-  const threshold = stream.read(4).num
-  assert.ok(stream.size % 103 === 0, 'commit data is malformed')
-  const count   = stream.size / 103
+  const pubkey = stream.read(CONST.COMMIT_PUBKEY_SIZE).hex
+  const threshold = stream.read(CONST.GROUP_THOLD_SIZE).num
+  Assert.ok(stream.size % CONST.COMMIT_DATA_SIZE === 0, 'commit data is malformed')
+  const count   = stream.size / CONST.COMMIT_DATA_SIZE
   const commits : CommitPackage[] = []
   for (let i = 0; i < count; i++) {
-    const cbytes = stream.read(103)
+    const cbytes = stream.read(CONST.COMMIT_DATA_SIZE)
     commits.push(deserialize_commit_pkg(cbytes))
   }
-  assert.size(stream.data, 0)
+  Assert.size(stream.data, 0)
   return { commits, pubkey, threshold }
 }
 
 export function encode_share_pkg (
   pkg : SharePackage
 ) : string {
-  const idx  = Buff.num(pkg.idx, 4)
-  const ssk  = Buff.hex(pkg.seckey,    32)
-  const bsn  = Buff.hex(pkg.binder_sn, 32)
-  const hsn  = Buff.hex(pkg.hidden_sn, 32)
+  const idx  = Buff.num(pkg.idx,       CONST.SHARE_INDEX_SIZE)
+  const ssk  = Buff.hex(pkg.seckey,    CONST.SHARE_SECKEY_SIZE)
+  const bsn  = Buff.hex(pkg.binder_sn, CONST.SHARE_SNONCE_SIZE)
+  const hsn  = Buff.hex(pkg.hidden_sn, CONST.SHARE_SNONCE_SIZE)
   const data = Buff.join([ idx, ssk, bsn, hsn ])
-  assert.size(data, 100)
+  Assert.size(data, CONST.SHARE_DATA_SIZE)
   return data.to_bech32m('bfshare')
 }
 
@@ -56,11 +58,11 @@ export function decode_share_pkg (
   str : string
 ) : SharePackage {
   const stream = Buff.bech32m(str).stream
-  assert.size(stream.data, 100)
-  const idx       = stream.read(4).num
-  const seckey    = stream.read(32).hex
-  const binder_sn = stream.read(32).hex
-  const hidden_sn = stream.read(32).hex
-  assert.size(stream.data, 0)
+  Assert.size(stream.data, CONST.SHARE_DATA_SIZE)
+  const idx       = stream.read(CONST.SHARE_INDEX_SIZE).num
+  const seckey    = stream.read(CONST.SHARE_SECKEY_SIZE).hex
+  const binder_sn = stream.read(CONST.SHARE_SNONCE_SIZE).hex
+  const hidden_sn = stream.read(CONST.SHARE_SNONCE_SIZE).hex
+  Assert.size(stream.data, 0)
   return { idx, binder_sn, hidden_sn, seckey }
 }

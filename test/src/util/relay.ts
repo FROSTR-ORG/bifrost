@@ -105,7 +105,7 @@ export class WSSRelay {
     return this._wss
   }
 
-  connect () {
+  async connect () {
     this._wss = new WebSocketServer({ port: this._port })
 
     console.log('[ relay ] running on port:', this._port)
@@ -120,14 +120,18 @@ export class WSSRelay {
       this.conn += 1
     })
 
-    this._emitter.emit('connected')
-    
-    if (this._purge !== null) {
-      console.log(`[ relay ] purging events every ${this._purge} seconds`)
-      setInterval(() => {
-        this._cache = []
-      }, this._purge * 1000)
-    }
+    return new Promise(res => {
+      this.wss.on('listening', () => {
+        if (this._purge !== null) {
+          console.log(`[ relay ] purging events every ${this._purge} seconds`)
+          setInterval(() => {
+            this._cache = []
+          }, this._purge * 1000)
+        }
+        this._emitter.emit('connected')
+        res(this)
+      })
+    })
   }
 
   onconnect (cb : () => void) {

@@ -1,7 +1,7 @@
-import * as API from './api/index.js'
-import * as Lib from './lib/index.js'
+import * as API   from './api/index.js'
+import * as Lib   from './lib/index.js'
+import * as CONST from './const.js'
 
-import CONST  from './const.js'
 import Schema from './schema/index.js'
 
 import FrostNode   from './class/client.js'

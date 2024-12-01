@@ -2,7 +2,7 @@ import { Buff, Bytes } from '@cmdcode/buff'
 import { ZodSchema } from 'zod'
 import { validate_schema } from './helpers.js'
 
-export namespace assert {
+export namespace Assert {
   export function ok (value : unknown, message ?: string) : asserts value {
     if (value === false) throw new Error(message ?? 'Assertion failed!')
   }
@@ -38,5 +38,17 @@ export namespace assert {
   ) : asserts input is NonNullable<T> {
     exists(input)
     validate_schema(input, schema, err_msg ?? null)
+  }
+
+  export function is_hex (
+    input : unknown
+  ) : asserts input is string {
+    if (
+      typeof input !== 'string'            ||
+      input.match(/[^a-fA-F0-9]/) !== null ||
+      input.length % 2 !== 0
+    ) {
+      throw new Error('invalid hex:' + input)
+    }
   }
 }

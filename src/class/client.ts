@@ -1,10 +1,21 @@
 import { NostrNode, TypedMessage } from '@cmdcode/nostr-p2p'
-import { parse_message, Validate }                from '@cmdcode/nostr-p2p/lib'
-import { get_member_indexes }      from '@/lib/util.js'
-import { combine_session_psigs }   from '@/lib/sign.js'
-import { derive_ecdh_secret }      from '@cmdcode/frost/lib'
+import { Validate }                from '@cmdcode/nostr-p2p/lib'
 import { create_session_pkg }      from '@/lib/session.js'
-import { Parse, parse_data }              from '@/util/index.js'
+
+import {
+  combine_ecdh_pkgs,
+  combine_psig_pkgs
+} from '@/lib/pkg.js'
+
+import {
+  parse_ecdh_message, 
+  parse_psig_message
+} from '@/lib/parse.js'
+
+import {
+  get_member_indexes,
+  normalize_pubkey
+} from '@/lib/util.js'
 
 import type {
   ECDHPackage,
@@ -16,7 +27,6 @@ import type {
 
 import Schema      from '@/schema/index.js'
 import ShareSigner from './signer.js'
-import { parse_ecdh_response } from '@/lib/parse.js'
 
 interface ClientConfig {
 
@@ -50,23 +60,21 @@ export default class FrostNode {
     this._signer = new ShareSigner(group_pkg, share_pkg, options)
 
     const peer_pks = group_pkg.commits
-      .map(e => e.pubkey.slice(2))
+      .map(e => e.pubkey)
       .filter(e => e !== this.signer.pubkey)
 
     console.log('peers:', peer_pks)
 
-    this._node   = new NostrNode(relays, share_pkg.seckey, { peer_pks })
+    this._node = new NostrNode(relays, share_pkg.seckey, { peer_pks })
 
     this.node.rpc.on('/req/ecdh', (msg) => {
       console.log('received msg:', msg.tag, msg.id)
-      const schema = Schema.pkg.ecdh_pkg
-      const parsed = parse_message(msg, schema)
-      if (parsed !== null) {
-        this._handle_ecdh_req(parsed)
-      }
+      const parsed = parse_ecdh_message(msg)
+      this._handle_ecdh_req(parsed)
     })
   
-    this.node.rpc.on('/req/sign/msg', (msg) => {
+    this.node.rpc.on('/req/sign', (msg) => {
+      console.log(msg)
       if (Validate.message(msg, Schema.pkg.sign_msg_pkg)) {
         this._handle_sign_msg_req(msg)
       }
@@ -105,63 +113,88 @@ export default class FrostNode {
     const { members, peer_pk } = msg.dat
     // TODO: Verify ECDH request.
     console.log('handling ecdh req for peer pk:', peer_pk)
-    const pkg = this.signer.create_ecdh_pkg(members, peer_pk)
+    const pkg = this.signer.gen_ecdh_pkg(members, peer_pk)
     const tag = '/res/ecdh'
     this.node.send(tag, JSON.stringify(pkg), msg.ctx.pubkey, msg.id)
   }
 
   _handle_sign_msg_req (msg : TypedMessage<SignMessagePackage>) {
     const { session, message } = msg.dat
-    const pkg = this.signer.psign_msg(session, message)
-    const tag = '/res/msg/sign'
+    console.log('recv msg:', msg.dat)
+    const pkg = this.signer.sign_msg(session, message)
+    const tag = '/res/sign'
     this.node.send(tag, JSON.stringify(pkg), msg.ctx.pubkey, msg.id)
   }
 
   async connect () : Promise<void> {
-    this.node.connect()
+    return new Promise(res => {
+      this.node.event.once('init', () => res())
+      this.node.connect()
+    })
   }
 
   async req_ecdh (
     peers  : string[],
     pubkey : string
   ) {
-    // We should have a map of encrypted blobs as a cache.
+    // TODO: Refactor FROST library so that we don't have to do this anymore.
+    peers  = peers.map(e => normalize_pubkey(e))
+    pubkey = normalize_pubkey(pubkey)
+    // Check if we have the shared secret in cache.
     const encrypted = this.cache.ecdh.get(pubkey)
+    // If the cache has a secret:
     if (encrypted !== undefined) {
+      // Return the decrypted secret.
       return this.signer.unwrap(encrypted, pubkey)
     } else {
+      // Get the member indices for each peer.
       const members = get_member_indexes(this.group, peers)
-      const prs     = peers.map(e => e.slice(2))
-      const pkg     = this.signer.create_ecdh_pkg(members, pubkey)
+      // Generate an ECDH request package.
+      const pkg     = this.signer.gen_ecdh_pkg(members, pubkey)
+      // Serialize the package as a string.
       const req     = JSON.stringify(pkg)
-      const res     = await this.node.req('/req/ecdh', req, prs)
+      // Send a request to the peer nodes.
+      const res     = await this.node.req('/req/ecdh', req, peers)
+      // Return early if the response fails.
       if (!res.ok) return res
-      const secret  = parse_ecdh_response(res.inbox)
+      // Parse the response packages.
+      const pkgs    = res.inbox.map(e => parse_ecdh_message(e).dat)
+      // Derive the secret from the packages.
+      const secret  = combine_ecdh_pkgs(pkgs)
+      // Wrap the secret with encryption.
       const content = this.signer.wrap(secret, pubkey)
+      // Store the encrypted secret in cache.
       this.cache.ecdh.set(pubkey, content)
+      // Return the shared secret.
       return secret
     }
   }
 
-  async sign_msg (
+  async req_sig (
     peers    : string[],
     message  : string,
     session ?: SessionPackage
   ) {
+    // Normalize the peer public keys.
+    peers = peers.map(e => normalize_pubkey(e))
+    // Get the member index for each peer.
     const members = get_member_indexes(this.group, peers)
+    // If an existing signing session is not defined:
     if (session === undefined) {
+      // Create a new signing session package.
       session = create_session_pkg(this.group, members, message)
     }
     // Generate a signed event request (includes psig and sid).
-    const psig = this.signer.psign_msg(session, message)
+    const psig = this.signer.sign_msg(session, message)
+    // Serialize the package into a string.
     const req  = JSON.stringify({ members, psig })
     // Send this request to other nodes, and await their response.
-    const res = await this.node.req('/req/sign/msg', req, peers)
-    //
+    const res = await this.node.req('/req/sign', req, peers)
+    // If the response fails, return early.
     if (!res.ok) return res
+    //
+    const shares = res.inbox.map(e => parse_psig_message(e).dat)
     // Aggregate responses and extract the signature.
-    const sig = combine_session_psigs(this.group, message, res.inbox, session)
-    // Then return signature.
-    return sig
+    return combine_psig_pkgs(this.group, message, shares, session)
   }
 }

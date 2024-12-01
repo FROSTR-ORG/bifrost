@@ -39,6 +39,7 @@
   "scripts": {
     "build": "./script/build.sh",
     "load": "tsx --tsconfig ./test/tsconfig.json",
+    "keygen": "yarn load test/keygen.ts",
     "release": "yarn test && yarn build",
     "scratch": "yarn load test/scratch.ts",
     "test": " yarn load test/tape.ts | tap-spec"
