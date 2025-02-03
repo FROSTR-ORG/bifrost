@@ -1,32 +1,30 @@
 import { z } from 'zod'
 import base  from './base.js'
 
-const members = base.num.array()
+const members = base.hex32.array()
 
-const session_pkg = z.object({
-  binder  : base.hex32,
+const session = z.object({
   members,
+  message : base.hex32,
   sid     : base.hex32,
   stamp   : base.stamp
 })
 
-const ecdh_pkg = z.object({
+const ecdh = z.object({
   idx      : base.num,
+  keyshare : base.hex,
   members,
-  peer_pk  : base.hex,
-  pubshare : base.hex
+  peer_pk  : base.hex
 })
 
-const sign_msg_pkg = z.object({
+const sign = session.extend({
   idx     : base.num,
-  message : base.str,
   psig    : base.hex,
-  pubkey  : base.hex,
-  session : session_pkg
+  pubkey  : base.hex
 })
 
 export default {
-  ecdh_pkg,
-  session_pkg,
-  sign_msg_pkg
+  ecdh,
+  session,
+  sign
 }

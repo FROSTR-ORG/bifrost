@@ -5,12 +5,12 @@ import {
 } from '@cmdcode/frost/lib'
 
 import {
-  get_ext_session_ctx,
-  get_session_share,
+  get_member_ctx,
+  get_member_share,
   verify_session_pkg
 } from '@/lib/session.js'
 
-import type { GroupSessionCtx } from '@cmdcode/frost'
+import type { GroupSessionCtx, ShareSignature } from '@cmdcode/frost'
 
 import type {
   GroupPackage,
@@ -19,41 +19,39 @@ import type {
   SignaturePackage
 } from '@/types/index.js'
 
-export function sign_message_ctx (
+export function create_share_psig (
   ctx   : GroupSessionCtx,
   share : SharePackage
-) : SignaturePackage {
+) : ShareSignature {
   const { idx, binder_sn, hidden_sn, seckey } = share
   const secshare = { idx, seckey }
   const secnonce = { idx, binder_sn, hidden_sn }
   return sign_msg(ctx, secshare, secnonce)
 }
 
-export function create_session_psig (
+export function create_psig_pkg (
   group   : GroupPackage,
   session : SessionPackage,
   share   : SharePackage,
-  message : string,
   tweaks? : string[]
 ) : SignaturePackage {
-  const ctx  = get_ext_session_ctx(group, message, session, tweaks)
-  const ssk  = get_session_share(session, share)
-  return sign_message_ctx(ctx, ssk)
+  const mbr_ctx   = get_member_ctx(group, session, tweaks)
+  const mbr_share = get_member_share(group, session, share)
+  const mbr_psig  = create_share_psig(mbr_ctx, mbr_share)
+  return { ...session, ...mbr_psig }
 }
 
-export function verify_session_psig (
-  group   : GroupPackage,
-  session : SessionPackage,
-  message : string,
-  psig    : SignaturePackage,
+export function verify_psig_pkg (
+  group : GroupPackage,
+  psig  : SignaturePackage,
   tweaks? : string[]
 ) : string | null {
   // Check if the session package is valid:
-  if (!verify_session_pkg(group, message, session)) {
+  if (!verify_session_pkg(group, psig)) {
     return 'session package invalid'
   }
   // Get the context for the signing session.
-  const ctx = get_ext_session_ctx(group, message, session, tweaks)
+  const ctx = get_member_ctx(group, psig, tweaks)
   // Fetch the matching public nonce package for the partial signature.
   const pns = group.commits.find(e => e.idx === psig.idx)
   // Iterate though each validation check, return null if everyting passes.
@@ -68,13 +66,16 @@ export function verify_session_psig (
   }
 }
 
-export function combine_session_psigs (
+export function combine_psig_pkgs (
   group   : GroupPackage,
-  message : string,
   psigs   : SignaturePackage[],
-  session : SessionPackage,
   tweaks? : string[]
 ) {
-  const ctx = get_ext_session_ctx(group, message, session, tweaks)
-  return combine_partial_sigs(ctx, psigs)
+  if (psigs.every(e => e.sid === psigs[0].sid)) {
+    console.log('combine_psig_pkgs:', psigs)
+    const ctx = get_member_ctx(group, psigs[0], tweaks)
+    return combine_partial_sigs(ctx, psigs)
+  } else {
+    throw new Error('all psig packages must have the same session id')
+  }
 }

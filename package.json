@@ -38,36 +38,37 @@
   },
   "scripts": {
     "build": "./script/build.sh",
-    "load": "tsx --tsconfig ./test/tsconfig.json",
-    "keygen": "yarn load test/keygen.ts",
-    "release": "yarn test && yarn build",
-    "scratch": "yarn load test/scratch.ts",
-    "test": " yarn load test/tape.ts | tap-spec"
+    "loader": "tsx --tsconfig ./test/tsconfig.json",
+    "keygen": "npm run loader test/keygen.ts",
+    "release": "npm test && npm build",
+    "scratch": "npm run loader test/scratch.ts",
+    "test": " npm run loader test/tape.ts"
   },
   "devDependencies": {
-    "@noble/hashes": "^1.5.0",
-    "@rollup/plugin-commonjs": "^28.0.1",
+    "@noble/hashes": "^1.7.1",
+    "@rollup/plugin-commonjs": "^28.0.2",
     "@rollup/plugin-json": "^6.1.0",
-    "@rollup/plugin-node-resolve": "^15.3.0",
+    "@rollup/plugin-node-resolve": "^16.0.0",
     "@rollup/plugin-terser": "^0.4.4",
-    "@rollup/plugin-typescript": "^12.1.1",
-    "@types/tape": "^5.6.4",
-    "@types/ws": "^8.5.13",
-    "rollup": "^4.24.0",
-    "tap-spec": "^5.0.0",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "@types/tape": "^5.8.1",
+    "@types/ws": "^8.5.14",
+    "faucet": "^0.0.4",
+    "rollup": "^4.34.0",
     "tape": "^5.9.0",
-    "tslib": "^2.8.0",
-    "tsx": "^4.19.1",
-    "typescript": "^5.6.3",
+    "tslib": "^2.8.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
     "ws": "^8.18.0"
   },
   "dependencies": {
     "@cmdcode/buff": "^2.2.5",
     "@cmdcode/frost": "^1.0.5",
-    "@cmdcode/nostr-p2p": "^1.0.0",
-    "@noble/ciphers": "^1.0.0",
-    "@noble/curves": "^1.6.0",
-    "@nostr-dev-kit/ndk": "^2.10.5",
-    "zod": "^3.23.8"
-  }
+    "@cmdcode/nostr-p2p": "^2.0.5",
+    "@noble/ciphers": "^1.2.1",
+    "@noble/curves": "^1.8.1",
+    "@nostr-dev-kit/ndk": "^2.11.0",
+    "zod": "^3.24.1"
+  },
+  "packageManager": "yarn@4.6.0+sha512.5383cc12567a95f1d668fbe762dfe0075c595b4bfff433be478dbbe24e05251a8e8c3eb992a986667c1d53b6c3a9c85b8398c35a960587fbd9fa3a0915406728"
 }

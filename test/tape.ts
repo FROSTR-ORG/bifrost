@@ -1,45 +1,43 @@
 import tape from 'tape'
 
+import { sleep }             from '@cmdcode/nostr-p2p/util'
+import { parse_test_vector } from '@/test/lib/parse.js'
+import { NostrRelay }        from '@/test/lib/relay.js'
+
+import type { TestGroupContext } from '@/test/types.js'
+
 import ecdh_test_case from './src/case/ecdh.test.js'
 import sign_test_case from './src/case/sign.test.js'
-import { FrostNode } from '@/index.js'
-import { WSSRelay }  from './src/util/relay.js'
 
-import {
-  decode_group_pkg,
-  decode_share_pkg
-} from '@frostr/bifrost/api'
-
-import PKG from './src/vector/pkg.json' assert { type: 'json' }
-
-const GROUP   = decode_group_pkg(PKG.group)
-
-const SHARE_1 = decode_share_pkg(PKG.shares[0])
-const SHARE_2 = decode_share_pkg(PKG.shares[1])
-const SHARE_3 = decode_share_pkg(PKG.shares[2])
+import VECTOR from './src/vector/pkg.json' assert { type: 'json' }
+import { import_test_nodes } from './src/lib/node.js'
 
 const RELAYS  = [ 'ws://localhost:8002' ]
 
-tape('Bifrost Test Suite', async t => {
+tape('Nostr P2P Test Suite', async t => {
 
-  const relay = new WSSRelay(8002)
+  const vec   = parse_test_vector(VECTOR)
+  const pkg   = import_test_nodes(RELAYS, vec)
+  const relay = new NostrRelay(8002)
+  
+  const ctx : TestGroupContext = { ...pkg, relays: RELAYS, tape: t }
 
-  const nodes = [
-    new FrostNode(RELAYS, GROUP, SHARE_1),
-    new FrostNode(RELAYS, GROUP, SHARE_2),
-    new FrostNode(RELAYS, GROUP, SHARE_3)
-  ]
-
-  await relay.connect()
-
-  await Promise.all(nodes.map(e => e.connect()))
-
-  // await ecdh_test_case(t, nodes)
-  await sign_test_case(t, nodes)
-
-  t.teardown(() => {
-    relay.close()
-    process.exit()
+  t.test('starting relay and nodes', async t => {
+    ctx.nodes.values().forEach(e => e.client.on('bounced', (res) => {
+      console.log('bounced:', res)
+    }))
+    await relay.start()
+    await Promise.all(ctx.nodes.values().map(e => e.connect()))
+    t.pass('relay and nodes started')
   })
 
+  //await ecdh_test_case(ctx)
+  await sign_test_case(ctx)
+
+  t.test('stopping relay and nodes', async t => {
+    await sleep(1000) 
+    await Promise.all(ctx.nodes.values().map(node => node.close()))
+    relay.close()
+    t.pass('relay and nodes stopped')
+  })
 })

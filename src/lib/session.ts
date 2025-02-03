@@ -1,6 +1,8 @@
 import { Buff } from '@cmdcode/buff'
 import { now }  from '@/util/index.js'
 
+import { get_commit_by_pubkey } from './group.js'
+
 import {
   get_commit_prefix,
   get_pubkey,
@@ -12,126 +14,86 @@ import {
 import type {
   CommitPackage,
   GroupPackage,
+  SessionConfig,
   SessionPackage,
-  SharePackage
+  SharePackage,
 } from '@/types/index.js'
 
-/**
- * Get the prefix string for a signature group.
- * 
- * @param group   The data packet for the signing group.
- * @param message The message to be signed (encoded in hex).
- * @returns       The prefix for the group (encoded in hex).
- */
-export function get_session_prefix (
-  group   : GroupPackage,
-  message : string
-) : string {
-  const { commits, pubkey } = group
-  return get_commit_prefix(commits, pubkey, message).hex
-}
-
-/**
- * Create a session package for orchestrating a new signature session.
- * 
- * @param group   The data packet for the signing group.
- * @param members A list of participating member indexes.
- * @param message The message to be signed (encoded in hex).
- * @param auxrand (optional) aux data for generating the session id.
- * @param stamp   (optional) creation timestamp for the session.
- * @returns       A session data packet.
- */
 export function create_session_pkg (
   group    : GroupPackage,
-  members  : number[],
+  members  : string[],
   message  : string,
-  auxrand ?: string,
   stamp    : number = now()
 ) : SessionPackage {
-  const sid  = (typeof auxrand === 'string')
-    ? Buff.hex(auxrand, 32).digest
-    : Buff.random(32)
-  const mbrs = Buff.json(members)
-  const pfix = get_session_prefix(group, message)
-  const stmp = Buff.num(stamp, 4)
-  const pimg = Buff.join([ pfix, sid, stmp, mbrs ])
-  const hash = pimg.digest.hex
-  return { binder: hash, members, sid: sid.hex, stamp }
+  const session = { members, message, stamp }
+  const prefix  = get_session_prefix(group, session)
+  const sid     = Buff.hex(prefix).digest.hex
+  return { members, message, stamp, sid }
 }
 
-/**
- * Verify an existing session package.
- * 
- * @param group   The data packet for the signing group.
- * @param message The message to be signed (encoded in hex).
- * @param session The data packet for the signing session.
- * @returns       A boolean signalling if the session is valid.
- */
 export function verify_session_pkg (
   group   : GroupPackage,
-  message : string,
   session : SessionPackage
 ) {
-  const { binder, members, sid, stamp } = session
-  const mbrs   = Buff.json(members)
-  const stmp   = Buff.num(stamp, 4)
-  const prefix = get_session_prefix(group, message)
-  const pimg   = Buff.join([ prefix, sid, stmp, mbrs ])
-  const hash   = pimg.digest.hex
-  return hash === binder
+  const prefix = get_session_prefix(group, session)
+  const sid    = Buff.hex(prefix).digest.hex
+  return sid === session.sid
 }
 
-/**
- * Get the tweaked commits for a signing session.
- * @param commits A list of (untweaked) nonce commits for the signing group.
- * @param session The data packet for the signing session.
- * @returns       A list of tweaked nonce commits for the signing session.
- */
-export function get_session_commits (
-  commits : CommitPackage[],
-  session : SessionPackage
-) {
-  return commits.map(e => {
-    const { idx, pubkey, binder_pn: bpn, hidden_pn: hpn } = e
-    const pimg  = Buff.join([ idx, pubkey, bpn, hpn, session.binder ])
-    const tweak = pimg.digest
-    const binder_pn = tweak_pubkey(bpn, tweak)
-    const hidden_pn = tweak_pubkey(hpn, tweak)
-    return { idx, pubkey, binder_pn, hidden_pn}
+export function get_member_commits (
+  group   : GroupPackage,
+  session : SessionConfig
+) : CommitPackage[] {
+  const prefix = get_session_prefix(group, session)
+  return session.members.map(pubkey => {
+    const commit    = get_commit_by_pubkey(group.commits, pubkey)
+    const mbr_bind  = get_session_binder(prefix, commit.idx)
+    const binder_pn = tweak_pubkey(commit.binder_pn, mbr_bind)
+    const hidden_pn = tweak_pubkey(commit.hidden_pn, mbr_bind)
+    return { ...commit, binder_pn, hidden_pn }
   })
 }
 
-export function get_session_share (
-  session : SessionPackage,
+export function get_member_share (
+  group   : GroupPackage,
+  session : SessionConfig,
   share   : SharePackage
 ) {
-  const { idx, seckey, binder_sn: bsn, hidden_sn: hsn } = share
-  const spk   = get_pubkey(seckey)
-  const bpn   = get_pubkey(bsn)
-  const hpn   = get_pubkey(hsn)
-  const pimg  = Buff.join([ idx, spk, bpn, hpn, session.binder ])
-  const tweak = pimg.digest
-  const binder_sn = tweak_seckey(bsn, tweak)
-  const hidden_sn = tweak_seckey(hsn, tweak)
-  return { idx, seckey, binder_sn, hidden_sn }
+  const prefix    = get_session_prefix(group, session)
+  const commit    = get_commit_by_pubkey(group.commits, share.pubkey)
+  const mbr_bind  = get_session_binder(prefix, commit.idx)
+  const binder_sn = tweak_seckey(share.binder_sn, mbr_bind)
+  const hidden_sn = tweak_seckey(share.hidden_sn, mbr_bind)
+  const binder_pn = get_pubkey(binder_sn)
+  const hidden_pn = get_pubkey(hidden_sn)
+  return { ...share, binder_sn, hidden_sn, binder_pn, hidden_pn }
 }
 
-/**
- * Get the extended signing session context
- * for the provided message and signing group.
- * 
- * @param group   The data packet for the signing group.
- * @param message The message to be signed (encoded in hex).
- * @param session The data packet for the signing session.
- * @param tweaks  (optional) tweaks to the group pubkey.
- * @returns       A session context object for the signing group.
- */
-export function get_ext_session_ctx (
+export function get_member_ctx (
   group   : GroupPackage,
-  message : string,
   session : SessionPackage,
   tweaks? : string[]
 ) {
-  const commits = get_session_commits(group.commits, session)
-  return get_session_ctx(group.pubkey, commits, message, tweaks)
+  const commits = get_member_commits(group, session)
+  return get_session_ctx(group.pubkey, commits, session.message, tweaks)
+}
+
+export function get_session_prefix (
+  group   : GroupPackage,
+  session : SessionConfig
+) : string {
+  const grp  = get_commit_prefix(group.commits, group.pubkey, session.message)
+  const mbrs = session.members.map(e => Buff.bytes(e))
+  const ts   = Buff.num(session.stamp, 4)
+  return Buff.join([ ts, ...mbrs, grp ]).hex
+}
+
+export function get_session_binder (
+  prefix : string | Uint8Array,
+  index  : number
+) : string {
+  const pfx = Buff.bytes(prefix)
+  const idx = Buff.num(index, 4)
+  const pre = Buff.join([ idx, pfx ])
+  return pre.digest.hex
 }

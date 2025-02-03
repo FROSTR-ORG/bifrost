@@ -1,4 +1,6 @@
 export * from './encoder.js'
-export * from './pkg.js'
+export * from './ecdh.js'
+export * from './group.js'
 export * from './session.js'
+export * from './sign.js'
 export * from './util.js'

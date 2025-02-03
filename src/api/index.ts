@@ -1,2 +1,2 @@
-export * from './encoder.js'
-export * from './generate.js'
+export * from './ecdh.js'
+export * from './sign.js'

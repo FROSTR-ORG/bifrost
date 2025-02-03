@@ -1,12 +1,18 @@
-export interface ECDHPackage {
-  idx      : number
-  members  : number[]
-  peer_pk  : string
-  pubshare : string
+import type { SessionConfig } from '@/types/node.js'
+
+export interface DealerPackage {
+  group  : GroupPackage,
+  shares : SharePackage[]
 }
 
-export interface SharePackage {
-  idx       : number
+export interface ECDHPackage {
+  idx      : number
+  keyshare : string
+  members  : string[]
+  peer_pk  : string
+}
+
+export interface SharePackage extends CommitPackage {
   binder_sn : string
   hidden_sn : string
   seckey    : string
@@ -25,25 +31,12 @@ export interface GroupPackage {
   threshold : number
 }
 
-export interface SessionPackage {
-  binder  : string
-  members : number[]
-  sid     : string
-  stamp   : number
+export interface SessionPackage extends SessionConfig {
+  sid : string
 }
 
-export interface SignaturePackage {
-  idx    : number
-  psig   : string
-  pubkey : string
-}
-
-export interface SignMessagePackage extends SignaturePackage {
-  message : string
-  session : SessionPackage
-}
-
-export interface KeySet {
-  group  : GroupPackage,
-  shares : SharePackage[]
+export interface SignaturePackage extends SessionPackage {
+  idx     : number
+  psig    : string
+  pubkey  : string
 }

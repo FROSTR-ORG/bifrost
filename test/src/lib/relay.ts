@@ -9,6 +9,8 @@ import { WebSocket, WebSocketServer } from 'ws'
 const DEBUG   = process.env['DEBUG']   === 'true'
 const VERBOSE = process.env['VERBOSE'] === 'true' || DEBUG
 
+console.log('output mode:', DEBUG ? 'debug' : VERBOSE ? 'verbose' : 'silent')
+
 /* ================ [ Interfaces ] ================ */
 
 interface EventFilter {
@@ -32,8 +34,9 @@ interface SignedEvent {
 }
 
 interface Subscription {
-  instance : Instance, 
   filters  : EventFilter[]
+  instance : ClientSession, 
+  sub_id   : string
 }
 
 /* ================ [ Schema ] ================ */
@@ -69,7 +72,7 @@ const sub_schema = z.tuple([ str ]).rest(filter_schema)
 
 /* ================ [ Server Class ] ================ */
 
-export class WSSRelay {
+export class NostrRelay {
   private readonly _emitter : EventEmitter
   private readonly _port    : number
   private readonly _purge   : number | null
@@ -105,13 +108,13 @@ export class WSSRelay {
     return this._wss
   }
 
-  async connect () {
+  async start () {
     this._wss = new WebSocketServer({ port: this._port })
 
-    console.log('[ relay ] running on port:', this._port)
+    DEBUG && console.log('[ relay ] running on port:', this._port)
 
     this.wss.on('connection', socket => {
-      const instance = new Instance(this, socket)
+      const instance = new ClientSession(this, socket)
 
       socket.on('message', msg  => instance._handler(msg.toString()))
       socket.on('error',   err  => instance._onerr(err))
@@ -123,7 +126,7 @@ export class WSSRelay {
     return new Promise(res => {
       this.wss.on('listening', () => {
         if (this._purge !== null) {
-          console.log(`[ relay ] purging events every ${this._purge} seconds`)
+          DEBUG && console.log(`[ relay ] purging events every ${this._purge} seconds`)
           setInterval(() => {
             this._cache = []
           }, this._purge * 1000)
@@ -149,23 +152,27 @@ export class WSSRelay {
 
 /* ================ [ Instance Class ] ================ */
 
-class Instance {
+class ClientSession {
 
-  private readonly _pid    : string
-  private readonly _relay  : WSSRelay
+  private readonly _sid    : string
+  private readonly _relay  : NostrRelay
   private readonly _socket : WebSocket
   private readonly _subs   : Set<string>
 
   constructor (
-    relay  : WSSRelay,
+    relay  : NostrRelay,
     socket : WebSocket
   ) {
-    this._pid    = Math.random().toString().slice(2, 8)
     this._relay  = relay
+    this._sid    = Math.random().toString().slice(2, 8)
     this._socket = socket
     this._subs   = new Set()
 
     this.log.client('client connected')
+  }
+
+  get sid () {
+    return this._sid
   }
 
   get relay () {
@@ -182,7 +189,7 @@ class Instance {
       this.remSub(subId)
     }
     this.relay.conn -= 1
-    this.log.client(`[ ${this._pid} ]`, 'client disconnected with code:', code)
+    this.log.client(`[ ${this._sid} ]`, 'client disconnected with code:', code)
   }
 
   _handler (message : string) {
@@ -234,10 +241,10 @@ class Instance {
     this.send([ 'OK', event.id, true, '' ])
     this.relay.store(event)
 
-    for (const [ sub_id, { instance, filters } ] of this.relay.subs.entries()) {
+    for (const { filters, instance, sub_id } of this.relay.subs.values()) {
       for (const filter of filters) {
         if (match_filter(event, filter)) {
-          this.log.debug('event matched subscription:', sub_id, event.id)
+          instance.log.client(`event matched subscription: ${sub_id}`)
           instance.send(['EVENT', sub_id, event])
         }
       }
@@ -264,7 +271,8 @@ class Instance {
           if (match_filter(event, filter)) {
             // Send the event to the client.
             this.send(['EVENT', sub_id, event])
-            this.log.debug('event matched subscription:', sub_id, event.id)
+            this.log.client(`event matched in cache: ${event.id}`)
+            this.log.client(`event matched subscription: ${sub_id}`)
           }
           // Update the limit count.
           if (limit_count !== undefined) limit_count -= 1
@@ -278,18 +286,19 @@ class Instance {
 
   get log () {
     return {
-      client : (...msg : any[]) =>            console.log(`[ client ][ ${this._pid} ]`, ...msg),
-      debug  : (...msg : any[]) => DEBUG   && console.log(`[ debug  ][ ${this._pid} ]`, ...msg),
-      info   : (...msg : any[]) => VERBOSE && console.log(`[ info   ][ ${this._pid} ]`, ...msg),
+      client : (...msg : any[]) => VERBOSE && console.log(`[ client ][ ${this._sid} ]`, ...msg),
+      debug  : (...msg : any[]) => DEBUG   && console.log(`[ debug  ][ ${this._sid} ]`, ...msg),
+      info   : (...msg : any[]) => VERBOSE && console.log(`[ info   ][ ${this._sid} ]`, ...msg),
     }
   }
 
   addSub (
-    subId      : string,
+    sub_id     : string,
     ...filters : EventFilter[]
   ) {
-    this.relay.subs.set(subId, { instance: this, filters })
-    this._subs.add(subId)
+    const uid = `${this.sid}/${sub_id}`
+    this.relay.subs.set(uid, { filters, instance: this, sub_id })
+    this._subs.add(sub_id)
   }
 
   remSub (subId : string) {

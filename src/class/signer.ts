@@ -1,66 +1,47 @@
-import { get_pubkey }          from '@cmdcode/frost/lib'
-import { create_session_psig } from '@/lib/sign.js'
-import { normalize_pubkey }    from '@/lib/util.js'
-import { Assert }              from '@/util/assert.js'
-
-import {
-  create_ecdh_pkg,
-  get_commit_pkg
-} from '@/lib/pkg.js'
+import { get_pubkey }       from '@cmdcode/frost/lib'
+import { create_ecdh_pkg }  from '@/lib/ecdh.js'
+import { create_psig_pkg }  from '@/lib/sign.js'
+import { normalize_pubkey } from '@/lib/util.js'
 
 import {
   decrypt_content,
   encrypt_content,
-  get_event_id,
-  get_shared_secret,
-  Validate
+  get_shared_secret
 } from '@cmdcode/nostr-p2p/lib'
 
-import type { UnsignedEvent } from '@cmdcode/nostr-p2p'
-
 import type {
-  CommitPackage,
+  BifrostSignerConfig,
   ECDHPackage,
   GroupPackage,
   SessionPackage,
   SharePackage,
-  SignMessagePackage
+  SignaturePackage
 } from '@/types/index.js'
 
-interface SignerConfig {
-
+const SIGNER_CONFIG : () => BifrostSignerConfig = () => {
+  return {}
 }
 
-const DEFAULT_CONFIG : SignerConfig = {
+export default class BifrostSigner /*implements ShareSignerAPI*/ {
 
-}
-
-export default class ShareSigner /*implements ShareSignerAPI*/ {
-
-  private readonly _conf   : SignerConfig
-  private readonly _commit : CommitPackage
+  private readonly _config : BifrostSignerConfig
   private readonly _group  : GroupPackage
   private readonly _pubkey : string
   private readonly _share  : SharePackage 
 
   constructor (
-    group_pkg : GroupPackage,
-    share_pkg : SharePackage,
-    options?  : SignerConfig
+    group    : GroupPackage,
+    share    : SharePackage,
+    options? : Partial<BifrostSignerConfig>
   ) {
-    this._commit = get_commit_pkg(group_pkg, share_pkg.idx)
-    this._conf   = { ...DEFAULT_CONFIG, ...options }
-    this._group  = group_pkg
-    this._share  = share_pkg
+    this._config = { ...SIGNER_CONFIG(), ...options }
+    this._group  = group
+    this._share  = share
     this._pubkey = get_pubkey(this._share.seckey)
   }
 
-  get commit () {
-    return this._commit
-  }
-
-  get conf () {
-    return this._conf
+  get config () {
+    return this._config
   }
 
   get group () {
@@ -71,38 +52,19 @@ export default class ShareSigner /*implements ShareSignerAPI*/ {
     return normalize_pubkey(this._pubkey)
   }
 
-  gen_ecdh_pkg (
-    members : number[],
-    peer_pk : string
+  gen_ecdh_share (
+    members : string[],
+    pubkey  : string
   ) : ECDHPackage {
     // Go through the ecdh share ceremony
-    const pkg = create_ecdh_pkg(members, peer_pk, this._share)
-    return { idx: pkg.idx, members, peer_pk, pubshare: pkg.pubkey }
+    return create_ecdh_pkg(this._group, members, pubkey, this._share)
   }
 
-  sign_event (
+  sign_session (
     session : SessionPackage,
-    event   : UnsignedEvent
-  ) {
-    // Verify schema.
-    Validate.unsigned_event(event)
-    // Generate event id.
-    const id = get_event_id(event)
-    // Assert that received event id is valid.
-    Assert.ok(id === event.id, 'event id failed validation check')
-    // Return a partial signature package.
-    return this.sign_msg(session, id)
-  }
-
-  sign_msg (
-    session : SessionPackage,
-    message : string,
     tweaks? : string[]
-  ) : SignMessagePackage {
-    const group = this._group
-    const share = this._share
-    const pkg   = create_session_psig(group, session, share, message, tweaks)
-    return { ...pkg, message, session }
+  ) : SignaturePackage {
+    return create_psig_pkg(this._group, session, this._share, tweaks)
   }
 
   unwrap (

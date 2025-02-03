@@ -1,13 +1,72 @@
-import { Buff }   from '@cmdcode/buff'
-import { Assert } from '@/util/index.js'
+import { Buff }       from '@cmdcode/buff'
+import { get_pubkey } from '@cmdcode/frost/lib'
+import { Assert }     from '@/util/index.js'
 
 import type {
-  CommitPackage
+  CommitPackage,
+  GroupPackage,
+  SharePackage,
 } from '@/types/index.js'
 
 import * as CONST from '@/const.js'
 
-export function serialize_commit_pkg (
+export function encode_group_pkg (
+  pkg : GroupPackage
+) : string {
+  const thd  = Buff.num(pkg.threshold, CONST.GROUP_THOLD_SIZE)
+  const gpk  = Buff.hex(pkg.pubkey, CONST.GROUP_PUBKEY_SIZE)
+  const com  = pkg.commits.map(e => serialize_commit_pkg(e))
+  const data = Buff.join([ gpk, thd, ...com ])
+  Assert.size(data, CONST.GROUP_DATA_SIZE + (com.length * CONST.COMMIT_DATA_SIZE))
+  return data.to_bech32m('bfgroup')
+}
+
+export function decode_group_pkg (
+  str : string
+) : GroupPackage {
+  const stream = Buff.bech32m(str).stream
+  const pubkey = stream.read(CONST.COMMIT_PUBKEY_SIZE).hex
+  const threshold = stream.read(CONST.GROUP_THOLD_SIZE).num
+  Assert.ok(stream.size % CONST.COMMIT_DATA_SIZE === 0, 'commit data is malformed')
+  const count   = stream.size / CONST.COMMIT_DATA_SIZE
+  const commits : CommitPackage[] = []
+  for (let i = 0; i < count; i++) {
+    const cbytes = stream.read(CONST.COMMIT_DATA_SIZE)
+    commits.push(deserialize_commit_pkg(cbytes))
+  }
+  Assert.size(stream.data, 0)
+  return { commits, pubkey, threshold }
+}
+
+export function encode_share_pkg (
+  pkg : SharePackage
+) : string {
+  const idx  = Buff.num(pkg.idx,       CONST.SHARE_INDEX_SIZE)
+  const ssk  = Buff.hex(pkg.seckey,    CONST.SHARE_SECKEY_SIZE)
+  const bsn  = Buff.hex(pkg.binder_sn, CONST.SHARE_SNONCE_SIZE)
+  const hsn  = Buff.hex(pkg.hidden_sn, CONST.SHARE_SNONCE_SIZE)
+  const data = Buff.join([ idx, ssk, bsn, hsn ])
+  Assert.size(data, CONST.SHARE_DATA_SIZE)
+  return data.to_bech32m('bfshare')
+}
+
+export function decode_share_pkg (
+  str : string
+) : SharePackage {
+  const stream = Buff.bech32m(str).stream
+  Assert.size(stream.data, CONST.SHARE_DATA_SIZE)
+  const idx       = stream.read(CONST.SHARE_INDEX_SIZE).num
+  const seckey    = stream.read(CONST.SHARE_SECKEY_SIZE).hex
+  const binder_sn = stream.read(CONST.SHARE_SNONCE_SIZE).hex
+  const hidden_sn = stream.read(CONST.SHARE_SNONCE_SIZE).hex
+  Assert.size(stream.data, 0)
+  const pubkey    = get_pubkey(seckey)
+  const binder_pn = get_pubkey(binder_sn)
+  const hidden_pn = get_pubkey(hidden_sn)
+  return { idx, binder_pn, binder_sn, hidden_pn, hidden_sn, pubkey, seckey }
+}
+
+function serialize_commit_pkg (
   pkg : CommitPackage
 ) : Uint8Array {
   const idx = Buff.num(pkg.idx,       CONST.COMMIT_INDEX_SIZE)
@@ -17,7 +76,7 @@ export function serialize_commit_pkg (
   return Buff.join([ idx, spk, bpn, hpn ])
 }
 
-export function deserialize_commit_pkg (
+function deserialize_commit_pkg (
   data : Uint8Array
 ) : CommitPackage {
   const stream    = new Buff(data).stream

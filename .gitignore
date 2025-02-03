@@ -26,6 +26,8 @@ node_modules/
 
 # Yarn Integrity file
 .yarn-integrity
+.yarnrc-yml
+.yarn
 
 # NPM config
 .npmrc
