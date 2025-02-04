@@ -1,10 +1,5 @@
 import type { SessionConfig } from '@/types/node.js'
 
-export interface DealerPackage {
-  group  : GroupPackage,
-  shares : SharePackage[]
-}
-
 export interface ECDHPackage {
   idx      : number
   keyshare : string
@@ -18,6 +13,10 @@ export interface SharePackage extends CommitPackage {
   seckey    : string
 }
 
+export interface MemberSharePackage extends SharePackage {
+  bind_hash : string
+}
+
 export interface CommitPackage {
   idx       : number
   binder_pn : string
@@ -25,10 +24,19 @@ export interface CommitPackage {
   pubkey    : string
 }
 
+export interface MemberCommitPackage extends CommitPackage {
+  bind_hash : string
+}
+
 export interface GroupPackage {
   commits   : CommitPackage[]
   pubkey    : string
   threshold : number
+}
+
+export interface DealerPackage {
+  group  : GroupPackage
+  shares : SharePackage[]
 }
 
 export interface SessionPackage extends SessionConfig {

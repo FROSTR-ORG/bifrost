@@ -23,10 +23,3 @@ export function get_member_indexes (
   Assert.ok(indexes.length === pubkeys.length, 'index count does not match pubkey count')
   return indexes
 }
-
-export function normalize_pubkey (pubkey : string) {
-  Assert.is_hex(pubkey)
-  return (pubkey.length === 64)
-    ? pubkey
-    : pubkey.slice(2)
-}

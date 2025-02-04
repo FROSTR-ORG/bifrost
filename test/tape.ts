@@ -1,6 +1,7 @@
 import tape from 'tape'
 
 import { sleep }             from '@cmdcode/nostr-p2p/util'
+import { import_test_nodes } from '@/test/lib/node.js'
 import { parse_test_vector } from '@/test/lib/parse.js'
 import { NostrRelay }        from '@/test/lib/relay.js'
 
@@ -10,11 +11,10 @@ import ecdh_test_case from './src/case/ecdh.test.js'
 import sign_test_case from './src/case/sign.test.js'
 
 import VECTOR from './src/vector/pkg.json' assert { type: 'json' }
-import { import_test_nodes } from './src/lib/node.js'
 
 const RELAYS  = [ 'ws://localhost:8002' ]
 
-tape('Nostr P2P Test Suite', async t => {
+tape('Bifrost Test Suite', async t => {
 
   const vec   = parse_test_vector(VECTOR)
   const pkg   = import_test_nodes(RELAYS, vec)

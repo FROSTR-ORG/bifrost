@@ -1,6 +1,7 @@
 import BifrostSigner from './signer.js'
 
-import { NostrNode } from '@cmdcode/nostr-p2p'
+import { NostrNode }   from '@cmdcode/nostr-p2p'
+import { parse_error } from '@cmdcode/nostr-p2p/util'
 
 import * as API from '@/api/index.js'
 
@@ -10,8 +11,7 @@ import type {
   GroupPackage,
   SharePackage,
 } from '@/types/index.js'
-import { parse_ecdh_message, parse_psig_message } from '@/lib/parse.js'
-import { parse_error } from '@cmdcode/nostr-p2p/util'
+import { parse_ecdh_message, parse_session_message } from '@/lib/parse.js'
 
 const NODE_CONFIG : () => BifrostNodeConfig = () => {
   return {}
@@ -22,7 +22,6 @@ export default class BifrostNode {
   private readonly _cache  : BifrostNodeCache
   private readonly _client : NostrNode
   private readonly _config : BifrostNodeConfig
-  private readonly _group  : GroupPackage
   private readonly _peers  : string[]
   private readonly _signer : BifrostSigner
 
@@ -34,7 +33,6 @@ export default class BifrostNode {
   ) {
     this._cache  = { ecdh : new Map() }
     this._config = { ...NODE_CONFIG(), ...options }
-    this._group  = group
     this._signer = new BifrostSigner(group, share, options)
 
     this._peers = group.commits
@@ -53,7 +51,7 @@ export default class BifrostNode {
             return API.ecdh_handler_api(this, parsed)
           }
           case '/sign/req': {
-            const parsed = parse_psig_message(msg)
+            const parsed = parse_session_message(msg)
             return API.sign_handler_api(this, parsed)
           }
         }
@@ -76,11 +74,15 @@ export default class BifrostNode {
   }
 
   get group () {
-    return this._group
+    return this._signer.group
   }
 
   get peers () {
     return this._peers
+  }
+
+  get pubkey () {
+    return this.signer.pubkey
   }
 
   get req () {

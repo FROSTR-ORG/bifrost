@@ -9,6 +9,7 @@ import type {
 } from '@/types/index.js'
 
 import * as CONST from '@/const.js'
+import { normalize_pubkey } from './crypto.js'
 
 export function encode_group_pkg (
   pkg : GroupPackage
@@ -60,7 +61,7 @@ export function decode_share_pkg (
   const binder_sn = stream.read(CONST.SHARE_SNONCE_SIZE).hex
   const hidden_sn = stream.read(CONST.SHARE_SNONCE_SIZE).hex
   Assert.size(stream.data, 0)
-  const pubkey    = get_pubkey(seckey)
+  const pubkey    = normalize_pubkey(get_pubkey(seckey))
   const binder_pn = get_pubkey(binder_sn)
   const hidden_pn = get_pubkey(hidden_sn)
   return { idx, binder_pn, binder_sn, hidden_pn, hidden_sn, pubkey, seckey }

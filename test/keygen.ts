@@ -1,15 +1,19 @@
-import { generate_key_set } from '@/api/generate.js'
-
+import { Buff } from '@cmdcode/buff'
 import {
+  generate_dealer_pkg,
   encode_group_pkg,
   encode_share_pkg
-} from '@/api/encoder.js'
+} from '@frostr/bifrost/lib'
 
-const keyset = generate_key_set(2,3)
+const labels    = [ 'alice', 'bob', 'carol' ]
+const secrets   = labels.map(e => Buff.str(e).digest.hex)
+const threshold = 2
 
-console.dir(keyset, { depth: null })
+const dealer_pkg = generate_dealer_pkg(threshold, labels.length, secrets)
 
-const group  = encode_group_pkg(keyset.group)
-const shares = keyset.shares.map(e => encode_share_pkg(e))
+console.dir(dealer_pkg, { depth: null })
+
+const group  = encode_group_pkg(dealer_pkg.group)
+const shares = dealer_pkg.shares.map((e, idx) => [ labels[idx], encode_share_pkg(e) ])
 
 console.log(JSON.stringify({ group, shares }, null, 2))

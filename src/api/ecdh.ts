@@ -3,7 +3,7 @@ import BifrostNode from '@/class/client.js'
 import { SignedMessage }      from '@cmdcode/nostr-p2p'
 import { parse_ecdh_message } from '@/lib/parse.js'
 import { combine_ecdh_pkgs }  from "@/lib/ecdh.js"
-import { normalize_pubkey }   from '@/lib/util.js'
+import { normalize_pubkey }   from '@/lib/crypto.js'
 import { Assert }             from '@/util/assert.js'
 
 import type { ApiResponse, ECDHPackage } from '@/types/index.js'

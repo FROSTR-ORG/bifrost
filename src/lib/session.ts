@@ -6,14 +6,18 @@ import { get_commit_by_pubkey } from './group.js'
 import {
   get_commit_prefix,
   get_pubkey,
-  get_session_ctx,
-  tweak_pubkey,
-  tweak_seckey
+  get_session_ctx
 } from '@cmdcode/frost/lib'
 
+import {
+  tweak_pubnonce,
+  tweak_secnonce
+} from './crypto.js'
+
 import type {
-  CommitPackage,
   GroupPackage,
+  MemberCommitPackage,
+  MemberSharePackage,
   SessionConfig,
   SessionPackage,
   SharePackage,
@@ -34,7 +38,7 @@ export function create_session_pkg (
 export function verify_session_pkg (
   group   : GroupPackage,
   session : SessionPackage
-) {
+) : boolean {
   const prefix = get_session_prefix(group, session)
   const sid    = Buff.hex(prefix).digest.hex
   return sid === session.sid
@@ -43,14 +47,14 @@ export function verify_session_pkg (
 export function get_member_commits (
   group   : GroupPackage,
   session : SessionConfig
-) : CommitPackage[] {
+) : MemberCommitPackage[] {
   const prefix = get_session_prefix(group, session)
   return session.members.map(pubkey => {
     const commit    = get_commit_by_pubkey(group.commits, pubkey)
-    const mbr_bind  = get_session_binder(prefix, commit.idx)
-    const binder_pn = tweak_pubkey(commit.binder_pn, mbr_bind)
-    const hidden_pn = tweak_pubkey(commit.hidden_pn, mbr_bind)
-    return { ...commit, binder_pn, hidden_pn }
+    const bind_hash = get_session_binder(prefix, commit.idx)
+    const binder_pn = tweak_pubnonce(commit.binder_pn, bind_hash)
+    const hidden_pn = tweak_pubnonce(commit.hidden_pn, bind_hash)
+    return { ...commit, binder_pn, hidden_pn, bind_hash }
   })
 }
 
@@ -58,15 +62,14 @@ export function get_member_share (
   group   : GroupPackage,
   session : SessionConfig,
   share   : SharePackage
-) {
+) : MemberSharePackage {
   const prefix    = get_session_prefix(group, session)
-  const commit    = get_commit_by_pubkey(group.commits, share.pubkey)
-  const mbr_bind  = get_session_binder(prefix, commit.idx)
-  const binder_sn = tweak_seckey(share.binder_sn, mbr_bind)
-  const hidden_sn = tweak_seckey(share.hidden_sn, mbr_bind)
+  const bind_hash = get_session_binder(prefix, share.idx)
+  const binder_sn = tweak_secnonce(share.binder_sn, bind_hash)
+  const hidden_sn = tweak_secnonce(share.hidden_sn, bind_hash)
   const binder_pn = get_pubkey(binder_sn)
   const hidden_pn = get_pubkey(hidden_sn)
-  return { ...share, binder_sn, hidden_sn, binder_pn, hidden_pn }
+  return { ...share, binder_sn, hidden_sn, binder_pn, hidden_pn, bind_hash }
 }
 
 export function get_member_ctx (

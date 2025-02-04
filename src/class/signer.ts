@@ -1,13 +1,18 @@
-import { get_pubkey }       from '@cmdcode/frost/lib'
-import { create_ecdh_pkg }  from '@/lib/ecdh.js'
-import { create_psig_pkg }  from '@/lib/sign.js'
-import { normalize_pubkey } from '@/lib/util.js'
+import { Buff }            from '@cmdcode/buff'
+import { schnorr }         from '@noble/curves/secp256k1'
+import { create_ecdh_pkg } from '@/lib/ecdh.js'
+import { create_psig_pkg } from '@/lib/sign.js'
 
 import {
   decrypt_content,
   encrypt_content,
   get_shared_secret
 } from '@cmdcode/nostr-p2p/lib'
+
+import {
+  parse_share_pkg,
+  parse_group_pkg
+} from '@/lib/parse.js'
 
 import type {
   BifrostSignerConfig,
@@ -26,7 +31,6 @@ export default class BifrostSigner /*implements ShareSignerAPI*/ {
 
   private readonly _config : BifrostSignerConfig
   private readonly _group  : GroupPackage
-  private readonly _pubkey : string
   private readonly _share  : SharePackage 
 
   constructor (
@@ -35,9 +39,8 @@ export default class BifrostSigner /*implements ShareSignerAPI*/ {
     options? : Partial<BifrostSignerConfig>
   ) {
     this._config = { ...SIGNER_CONFIG(), ...options }
-    this._group  = group
-    this._share  = share
-    this._pubkey = get_pubkey(this._share.seckey)
+    this._group  = parse_group_pkg(group)
+    this._share  = parse_share_pkg(share)
   }
 
   get config () {
@@ -49,7 +52,7 @@ export default class BifrostSigner /*implements ShareSignerAPI*/ {
   }
 
   get pubkey () {
-    return normalize_pubkey(this._pubkey)
+    return this._share.pubkey
   }
 
   gen_ecdh_share (
@@ -58,6 +61,14 @@ export default class BifrostSigner /*implements ShareSignerAPI*/ {
   ) : ECDHPackage {
     // Go through the ecdh share ceremony
     return create_ecdh_pkg(this._group, members, pubkey, this._share)
+  }
+
+  sign_bip340 (
+    message : string,
+    auxrand? : string | Uint8Array
+  ) : string {
+    const sig = schnorr.sign(message, this._share.seckey, auxrand)
+    return new Buff(sig).hex
   }
 
   sign_session (

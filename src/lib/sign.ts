@@ -26,7 +26,8 @@ export function create_share_psig (
   const { idx, binder_sn, hidden_sn, seckey } = share
   const secshare = { idx, seckey }
   const secnonce = { idx, binder_sn, hidden_sn }
-  return sign_msg(ctx, secshare, secnonce)
+  const psig     = sign_msg(ctx, secshare, secnonce)
+  return { ...psig, pubkey: share.pubkey }
 }
 
 export function create_psig_pkg (
@@ -38,12 +39,13 @@ export function create_psig_pkg (
   const mbr_ctx   = get_member_ctx(group, session, tweaks)
   const mbr_share = get_member_share(group, session, share)
   const mbr_psig  = create_share_psig(mbr_ctx, mbr_share)
+  console.log('mbr_psig:', mbr_psig)
   return { ...session, ...mbr_psig }
 }
 
 export function verify_psig_pkg (
-  group : GroupPackage,
-  psig  : SignaturePackage,
+  group   : GroupPackage,
+  psig    : SignaturePackage,
   tweaks? : string[]
 ) : string | null {
   // Check if the session package is valid:
@@ -71,11 +73,8 @@ export function combine_psig_pkgs (
   psigs   : SignaturePackage[],
   tweaks? : string[]
 ) {
-  if (psigs.every(e => e.sid === psigs[0].sid)) {
-    console.log('combine_psig_pkgs:', psigs)
-    const ctx = get_member_ctx(group, psigs[0], tweaks)
-    return combine_partial_sigs(ctx, psigs)
-  } else {
-    throw new Error('all psig packages must have the same session id')
-  }
+
+  const ctx = get_member_ctx(group, psigs[0], tweaks)
+  console.log('combine_psig_pkgs:', psigs)
+  return combine_partial_sigs(ctx, psigs)
 }

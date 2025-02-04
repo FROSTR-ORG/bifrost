@@ -1,9 +1,8 @@
 import { create_key_group } from '@cmdcode/frost/lib'
-import { normalize_pubkey } from './util.js'
+import { normalize_pubkey } from './crypto.js'
 import { Assert }           from '@/util/assert.js'
 
 import {
-  create_commit_pkg,
   generate_nonce,
   get_pubkey
 } from '@cmdcode/frost/lib'
@@ -16,22 +15,31 @@ import type {
 import type {
   CommitPackage,
   DealerPackage,
-  GroupPackage,
   SharePackage,
 } from '@/types/index.js'
 
-export function gen_dealer_pkg (
+export function generate_dealer_pkg (
   threshold   : number,
   share_count : number,
   secrets     : string[] = []
 ) : DealerPackage {
   // Generate a group of secret shares.
-  const pkg    = create_key_group(threshold, share_count, secrets)
-  // Create group package.
-  const group  = create_group_pkg(pkg)
-  // Create share packages.
-  const shares = pkg.shares.map(e => create_share_pkg(e))
-  // Return packages.
+  const key_group = create_key_group(threshold, share_count, secrets)
+  // Create dealer package.
+  return create_dealer_pkg(key_group)
+}
+
+export function create_dealer_pkg (
+  key_group : KeyGroup
+) : DealerPackage {
+  // Create commitments
+  const shares    = key_group.shares.map(e => create_share_pkg(e))
+  const commits   = shares.map(e => {
+    return { idx: e.idx, binder_pn: e.binder_pn, hidden_pn: e.hidden_pn, pubkey: e.pubkey }
+  })
+  const pubkey    = normalize_pubkey(key_group.pubkey)
+  const threshold = key_group.shares.length
+  const group     = { commits, pubkey, threshold }
   return { group, shares }
 }
 
@@ -52,23 +60,6 @@ export function get_commit_by_idx (
   const commit = commits.find(e => e.idx === idx)
   Assert.exists(commit, 'commit package not found for idx: ' + idx)
   return commit
-}
-
-export function create_group_pkg (
-  group : KeyGroup
-) : GroupPackage {
-  // Create commitments
-  const commits : CommitPackage[] = group.shares.map(e => {
-    const { idx, binder_pn, hidden_pn } = create_commit_pkg(e)
-    let pubkey = get_pubkey(e.seckey)
-        pubkey = normalize_pubkey(pubkey)
-    return { idx, binder_pn, hidden_pn, pubkey }
-  })
-
-  const pubkey    = normalize_pubkey(group.pubkey)
-  const threshold = group.commits.length
-
-  return { commits, pubkey, threshold }
 }
 
 export function create_share_pkg (
