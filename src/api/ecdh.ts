@@ -2,11 +2,11 @@ import BifrostNode from '@/class/client.js'
 
 import { SignedMessage }       from '@cmdcode/nostr-p2p'
 import { parse_ecdh_message }  from '@/lib/parse.js'
-import { combine_ecdh_pkgs }   from "@/lib/ecdh.js"
+import { combine_ecdh_pkgs }   from '@/lib/ecdh.js'
+import { get_member_indexes }  from '@/lib/util.js'
 import { Assert, parse_error } from '@/util/index.js'
 
 import type { ApiResponse, ECDHPackage } from '@/types/index.js'
-import { get_member_indexes } from '@/lib/util.js'
 
 export function ecdh_handler_api (
   node : BifrostNode,
@@ -24,8 +24,8 @@ export function ecdh_handler_api (
 
 export function ecdh_request_api (node : BifrostNode) {
   return async (
-    peers   : string[],
-    ecdh_pk : string
+    ecdh_pk : string,
+    peers   : string[]
   ) : Promise<ApiResponse<string>> => {
     try {
       // Check if we have the shared secret in cache.

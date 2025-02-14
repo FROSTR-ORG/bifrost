@@ -2,9 +2,13 @@ import BifrostNode from '@/class/client.js'
 
 import { parse_error }        from '@cmdcode/nostr-p2p/util'
 import { parse_psig_message } from '@/lib/parse.js'
-import { create_session_pkg } from '@/lib/session.js'
 import { get_member_indexes } from '@/lib/util.js'
 import { Assert }             from '@/util/assert.js'
+
+import {
+  create_session_pkg,
+  get_session_ctx
+} from '@/lib/session.js'
 
 import {
   combine_signature_pkgs,
@@ -50,7 +54,7 @@ export function sign_request_api (node : BifrostNode) {
       // If the response fails, return early.
       if (!res.sub.ok) throw new Error('failed to collect signatures')
       // Initialize the list of response packages.
-      const ctx   = node.signer.get_session_ctx(session, tweaks)
+      const ctx   = get_session_ctx(node.group, session, tweaks)
       const psigs = [ psig ]
       // Parse the response packages.
       res.sub.inbox.forEach(e => {

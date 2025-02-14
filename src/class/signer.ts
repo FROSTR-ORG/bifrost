@@ -20,7 +20,6 @@ import type {
   BifrostSignerConfig,
   ECDHPackage,
   GroupPackage,
-  SessionContext,
   SessionPackage,
   SharePackage,
   SignaturePackage
@@ -67,15 +66,8 @@ export default class BifrostSigner /*implements ShareSignerAPI*/ {
     return create_ecdh_pkg(members, ecdh_pk, this._share)
   }
 
-  get_session_ctx (
-    session : SessionPackage,
-    tweaks? : string[]
-  ) : SessionContext {
-    return get_session_ctx(this._group, session, tweaks)
-  }
-
-  sign_bip340 (
-    message : string,
+  sign_message (
+    message  : string,
     auxrand? : string | Uint8Array
   ) : string {
     const sig = schnorr.sign(message, this._share.seckey, auxrand)

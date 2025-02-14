@@ -17,7 +17,7 @@ export default function (
 
   tape.test('ECDH Test', async t => {
     try {
-      const res = await Alice.req.ecdh([ Bob.pubkey ], ECDH_PUBKEY)
+      const res = await Alice.req.ecdh(ECDH_PUBKEY, [ Bob.pubkey ])
       if (!res.ok) {
         t.fail(res.err)
       } else {
