@@ -40,9 +40,9 @@
     "build": "./script/build.sh",
     "loader": "tsx --tsconfig ./test/tsconfig.json",
     "keygen": "npm run loader test/keygen.ts",
-    "release": "npm test | faucet && npm build",
+    "release": "npm test | faucet && npm run build",
     "scratch": "npm run loader test/scratch.ts",
-    "test": " npm run loader test/tape.ts"
+    "test": "npm run loader test/tape.ts"
   },
   "devDependencies": {
     "@noble/hashes": "^1.7.1",
@@ -54,6 +54,7 @@
     "@types/tape": "^5.8.1",
     "@types/ws": "^8.5.14",
     "faucet": "^0.0.4",
+    "nostr-tools": "^2.10.4",
     "rollup": "^4.34.0",
     "tape": "^5.9.0",
     "tslib": "^2.8.1",
@@ -67,8 +68,6 @@
     "@cmdcode/nostr-p2p": "^2.0.8",
     "@noble/ciphers": "^1.2.1",
     "@noble/curves": "^1.8.1",
-    "@nostr-dev-kit/ndk": "^2.11.0",
     "zod": "^3.24.1"
-  },
-  "packageManager": "yarn@4.6.0+sha512.5383cc12567a95f1d668fbe762dfe0075c595b4bfff433be478dbbe24e05251a8e8c3eb992a986667c1d53b6c3a9c85b8398c35a960587fbd9fa3a0915406728"
+  }
 }

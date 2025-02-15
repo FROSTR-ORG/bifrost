@@ -9,11 +9,11 @@ import member_unit_case  from './src/case/unit/member.test.js'
 import sign_unit_case    from './src/case/unit/sign.test.js'
 
 tape('Bifrost Test Suite', async t => {
-    encode_unit_case(t)
-    group_unit_case(t)
-    tweak_unit_case(t)
-    session_unit_case(t)
-    member_unit_case(t)
-    sign_unit_case(t)
-    e2e_test_cases(t)
+  encode_unit_case(t)
+  group_unit_case(t)
+  tweak_unit_case(t)
+  session_unit_case(t)
+  member_unit_case(t)
+  sign_unit_case(t)
+  e2e_test_cases(t)
 })
