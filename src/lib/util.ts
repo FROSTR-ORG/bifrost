@@ -26,6 +26,15 @@ export function get_peer_pubkeys (
     .map(e => normalize_pubkey(e.pubkey, 'bip340'))
 }
 
+export function select_random_peers (
+  peers : string[],
+  thold : number
+) : string[] {
+  const rnd = () => Math.random() > 0.5 ? 1 : -1
+  const idx = Math.min(peers.length, thold - 1)
+  return peers.sort(rnd).slice(0, idx)
+}
+
 export function get_member_indexes (
   group   : GroupPackage,
   pubkeys : string[]
