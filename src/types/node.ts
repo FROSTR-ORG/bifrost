@@ -3,7 +3,7 @@ export interface BifrostNodeCache {
 }
 
 export interface BifrostNodeConfig {
-
+  blacklist : string[]
 }
 
 export interface BifrostSignerConfig {

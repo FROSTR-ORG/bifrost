@@ -29,7 +29,7 @@ const SIGNER_CONFIG : () => BifrostSignerConfig = () => {
   return {}
 }
 
-export default class BifrostSigner /*implements ShareSignerAPI*/ {
+export default class BifrostSigner {
 
   private readonly _config : BifrostSignerConfig
   private readonly _group  : GroupPackage

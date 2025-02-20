@@ -1,6 +1,14 @@
-import { GroupPackage } from '@/types/index.js'
-import { Assert }       from '@/util/index.js'
-import { normalize_pubkey } from './crypto.js'
+import { Assert } from '@/util/index.js'
+
+import {
+  get_pubkey,
+  normalize_pubkey
+} from './crypto.js'
+
+import type {
+  GroupPackage,
+  SharePackage
+} from '@/types/index.js'
 
 export function get_group_indexes (
   group : GroupPackage
@@ -8,10 +16,14 @@ export function get_group_indexes (
   return group.commits.map(e => e.idx)
 }
 
-export function get_author_pubkeys (
-  group : GroupPackage
+export function get_peer_pubkeys (
+  group : GroupPackage,
+  share : SharePackage
 ) : string[] {
-  return group.commits.map(e => e.pubkey)
+  const pubkey = get_pubkey(share.seckey, 'ecdsa')
+  return group.commits
+    .filter(e => e.pubkey !== pubkey)
+    .map(e => normalize_pubkey(e.pubkey, 'bip340'))
 }
 
 export function get_member_indexes (

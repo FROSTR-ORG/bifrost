@@ -1,9 +1,16 @@
 import BifrostSigner from './signer.js'
 
-import { NostrNode }   from '@cmdcode/nostr-p2p'
-import { parse_error } from '@cmdcode/nostr-p2p/util'
+import { NostrNode }        from '@cmdcode/nostr-p2p'
+import { parse_error }      from '@cmdcode/nostr-p2p/util'
+import { normalize_pubkey } from '@/lib/crypto.js'
+import { get_peer_pubkeys } from '@/lib/util.js'
 
-import * as API from '@/api/index.js'
+import {
+  parse_ecdh_message,
+  parse_session_message
+} from '@/lib/parse.js'
+
+import type { SignedMessage } from '@cmdcode/nostr-p2p'
 
 import type {
   BifrostNodeCache,
@@ -11,11 +18,13 @@ import type {
   GroupPackage,
   SharePackage,
 } from '@/types/index.js'
-import { parse_ecdh_message, parse_session_message } from '@/lib/parse.js'
-import { normalize_pubkey } from '@/lib/crypto.js'
+
+import * as API from '@/api/index.js'
 
 const NODE_CONFIG : () => BifrostNodeConfig = () => {
-  return {}
+  return {
+    blacklist : []
+  }
 }
 
 export default class BifrostNode {
@@ -34,21 +43,18 @@ export default class BifrostNode {
   ) {
     this._cache  = { ecdh : new Map() }
     this._config = { ...NODE_CONFIG(), ...options }
+    this._peers  = get_peer_pubkeys(group, share)
     this._signer = new BifrostSigner(group, share, options)
-
-    this._peers = group.commits
-      .map(e => e.pubkey)
-      .filter(e => e !== this.signer.pubkey)
-      .map(e => normalize_pubkey(e, 'bip340'))
 
     this._client = new NostrNode(relays, share.seckey, {
       filter : { authors : this._peers }
     })
 
     this._client.on('message', (msg) => {
-      try {
-        switch (msg.tag) {
-          case '/ecdh/req': {
+      if (this._filter(msg)) return
+        try {
+          switch (msg.tag) {
+            case '/ecdh/req': {
             const parsed = parse_ecdh_message(msg)
             return API.ecdh_handler_api(this, parsed)
           }
@@ -61,6 +67,15 @@ export default class BifrostNode {
         this.client.emit('bounced', [ msg.env.id, parse_error(err) ])
       }
     })
+  }
+
+  _filter (msg : SignedMessage) {
+    const blist = this.config.blacklist
+    if (blist.includes(msg.env.pubkey)) {
+      return true
+    } else {
+      return false
+    }
   }
 
   get cache () {
