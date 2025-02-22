@@ -1,11 +1,15 @@
 import BifrostNode from '@/class/client.js'
 
 import { finalize_message }   from '@cmdcode/nostr-p2p/lib'
-import { parse_ecdh_message } from '@/lib/parse.js'
 import { combine_ecdh_pkgs }  from '@/lib/ecdh.js'
-import { get_member_indexes } from '@/lib/util.js'
+import { parse_ecdh_message } from '@/lib/parse.js'
 
 import { Assert, copy_obj, parse_error } from '@/util/index.js'
+
+import {
+  get_member_indexes,
+  select_random_peers
+} from '@/lib/util.js'
 
 import type { SignedMessage }            from '@cmdcode/nostr-p2p'
 import type { ApiResponse, ECDHPackage } from '@/types/index.js'
@@ -50,10 +54,15 @@ export async function ecdh_handler_api (
 }
 
 export function ecdh_request_api (node : BifrostNode) {
+
   return async (
     ecdh_pk : string,
-    peers   : string[]
+    peers?  : string[]
   ) : Promise<ApiResponse<string>> => {
+    // Get the threshold for the group.
+    const thold = node.group.threshold
+    // Randomly select peers.
+    const selected  = select_random_peers(peers ??= node.peers.send, thold)
     // Check if we have the shared secret in cache.
     const encrypted = node.cache.ecdh.get(ecdh_pk)
     // If the cache has a secret:
@@ -62,7 +71,7 @@ export function ecdh_request_api (node : BifrostNode) {
       return { ok: true, data: node.signer.unwrap(encrypted, ecdh_pk) }
     }
     // Get the indexes of the members.
-    const members  = get_member_indexes(node.group, [ node.pubkey, ...peers ])
+    const members  = get_member_indexes(node.group, [ node.pubkey, ...selected ])
     // Generate an ECDH request package.
     const self_pkg = node.signer.gen_ecdh_share(members, ecdh_pk)
 
@@ -70,7 +79,7 @@ export function ecdh_request_api (node : BifrostNode) {
 
     try {
       // Send the request to the peers.
-      msgs = await create_ecdh_request(node, peers, self_pkg)
+      msgs = await create_ecdh_request(node, selected, self_pkg)
       // Emit the response.
       node.emit('/ecdh/sender/res', copy_obj(msgs))
     } catch (err) {

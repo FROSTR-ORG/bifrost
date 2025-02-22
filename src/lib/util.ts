@@ -1,14 +1,7 @@
-import { Assert } from '@/util/index.js'
+import { Assert }         from '@/util/index.js'
+import { convert_pubkey } from './crypto.js'
 
-import {
-  get_pubkey,
-  convert_pubkey
-} from './crypto.js'
-
-import type {
-  GroupPackage,
-  SharePackage
-} from '@/types/index.js'
+import type { GroupPackage } from '@/types/index.js'
 
 /**
  * Get the indexes of the members in the group.
@@ -20,23 +13,6 @@ export function get_group_indexes (
   group : GroupPackage
 ) : number[] {
   return group.commits.map(e => e.idx)
-}
-
-/**
- * Get the peer pubkeys for a given group and share package.
- * 
- * @param group - The group package.
- * @param share - The share package.
- * @returns The peer pubkeys.
- */
-export function get_peer_pubkeys (
-  group : GroupPackage,
-  share : SharePackage
-) : string[] {
-  const pubkey = get_pubkey(share.seckey, 'ecdsa')
-  return group.commits
-    .filter(e => e.pubkey !== pubkey)
-    .map(e => convert_pubkey(e.pubkey, 'bip340'))
 }
 
 /**

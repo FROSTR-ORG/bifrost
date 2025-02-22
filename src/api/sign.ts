@@ -2,9 +2,9 @@ import BifrostNode from '@/class/client.js'
 
 import { finalize_message }   from '@cmdcode/nostr-p2p/lib'
 import { parse_psig_message } from '@/lib/parse.js'
-import { get_member_indexes } from '@/lib/util.js'
+import { get_member_indexes, select_random_peers } from '@/lib/util.js'
 
-import { Assert, copy_obj, parse_error } from '@/util/index.js'
+import { Assert, copy_obj, now, parse_error } from '@/util/index.js'
 
 import {
   create_session_pkg,
@@ -21,8 +21,17 @@ import type { SignedMessage } from '@cmdcode/nostr-p2p'
 import type {
   ApiResponse,
   SessionPackage,
-  SignaturePackage
+  SignaturePackage,
+  SignRequestConfig
 } from '@/types/index.js'
+
+const SIGN_REQ_CONFIG : (node : BifrostNode) => SignRequestConfig = (node) => {
+  return {
+    peers  : node.peers.send,
+    stamp  : now(),
+    tweaks : []
+  }
+}
 
 export async function sign_handler_api (
   node : BifrostNode,
@@ -63,19 +72,24 @@ export async function sign_handler_api (
 export function sign_request_api (node : BifrostNode) {
   return async (
     message : string,
-    peers   : string[],
-    stamp?  : number,
-    tweaks? : string[]
+    options : Partial<SignRequestConfig> = {}
   ) : Promise<ApiResponse<string>> => {
-    // Generate a signed event request (includes psig and sid).
-    const members = get_member_indexes(node.group, [ node.pubkey, ...peers ])
-    const session = create_session_pkg(node.group, members, message, stamp)
-
+    //
+    const config   = { ...SIGN_REQ_CONFIG(node), ...options }
+    // Get the threshold for the group.
+    const thold    = node.group.threshold
+    // Randomly select peers.
+    const selected = select_random_peers(config.peers ??= node.peers.send, thold)
+    // Get the indexes of the members.
+    const members  = get_member_indexes(node.group, [ node.pubkey, ...selected ])
+    // Create the session package.
+    const session  = create_session_pkg(node.group, members, message, config.stamp)
+    // Initialize the list of response packages.
     let msgs : SignedMessage<SignaturePackage>[] | null = null
 
     try {
       // Create the request.
-      msgs = await create_sign_request(node, peers, session)
+      msgs = await create_sign_request(node, selected, session)
       // Emit the response.
       node.emit('/sign/sender/res', copy_obj(msgs))
     } catch (err) {
@@ -92,7 +106,7 @@ export function sign_request_api (node : BifrostNode) {
     try {
       Assert.ok(msgs !== null, 'no responses from peers')
       // Finalize the response.
-      const sig = finalize_sign_response(node, msgs, session, tweaks ?? [])
+      const sig = finalize_sign_response(node, msgs, session, config.tweaks)
       // Emit the response.
       node.emit('/sign/sender/sig', [ sig, msgs ])
       // Return the signature.

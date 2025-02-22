@@ -1,8 +1,8 @@
 import { TestNetwork } from '@/test/types.js'
 import { parse_error } from '@cmdcode/nostr-p2p/util'
+import { get_pubkey }  from '@/lib/crypto.js'
 
 import type { Test } from 'tape'
-import { get_pubkey } from '@/lib/crypto.js'
 
 const ECDH_SECKEY = '9e1aa53570f21eb33373b526853b409bb735d085b0238326d3014dbdd39cbcb0'
 const ECDH_PUBKEY = get_pubkey(ECDH_SECKEY, 'bip340')
@@ -13,11 +13,10 @@ export default function (
   tape : Test
 ) {
   const Alice = ctx.nodes.get('alice')!
-  const Bob   = ctx.nodes.get('bob')!
 
   tape.test('ECDH Test', async t => {
     try {
-      const res = await Alice.req.ecdh(ECDH_PUBKEY, [ Bob.pubkey ])
+      const res = await Alice.req.ecdh(ECDH_PUBKEY)
       if (!res.ok) {
         t.fail(res.err)
       } else {

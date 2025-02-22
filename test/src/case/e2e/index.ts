@@ -25,19 +25,11 @@ export default function (tape : Test) {
 
   tape.test('starting relay and nodes', async t => {
     // ctx.nodes.values().forEach(e => {
-    //   e.client.on('message', (msg) => {
-    //     console.log('message:', msg)
-    //   })
-    //   e.client.on('bounced', (res) => {
-    //     console.log('bounced:', res)
-    //   })
-    //   e.client.on('error', (err) => {
-    //     console.log('error:', err)
-    //   })
-    //   e.client.on('ready', () => {
-    //     console.log('node connected:', e.pubkey)
+    //   e.on('*', (...params) => {
+    //     console.log(params)
     //   })
     // })
+
     await relay.start()
     await Promise.all(ctx.nodes.values().map(e => e.connect()))
     t.pass('relay and nodes started')

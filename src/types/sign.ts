@@ -11,6 +11,12 @@ export interface SessionConfig {
   stamp   : number
 }
 
+export interface SignRequestConfig {
+  peers  : string[]
+  stamp  : number
+  tweaks : string[]
+}
+
 export interface SessionPackage extends SessionConfig {
   gid : string
   sid : string

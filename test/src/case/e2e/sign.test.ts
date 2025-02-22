@@ -12,12 +12,11 @@ export default function (
   tape : Test
 ) {
   const Alice    = ctx.nodes.get('alice')!
-  const Bob      = ctx.nodes.get('bob')!
   const group_pk = Alice.group.group_pk
 
   tape.test('Signature Test', async t => {
     try {
-      const res = await Alice.req.sign(MESSAGE, [ Bob.pubkey ])
+      const res = await Alice.req.sign(MESSAGE)
       if (!res.ok) {
         t.fail(res.err)
       } else {

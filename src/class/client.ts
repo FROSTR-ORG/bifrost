@@ -1,10 +1,9 @@
 import EventEmitter  from './emitter.js'
 import BifrostSigner from './signer.js'
 
-import { NostrNode }        from '@cmdcode/nostr-p2p'
-import { parse_error }      from '@cmdcode/nostr-p2p/util'
-import { convert_pubkey }   from '@/lib/crypto.js'
-import { get_peer_pubkeys } from '@/lib/util.js'
+import { NostrNode }      from '@cmdcode/nostr-p2p'
+import { parse_error }    from '@cmdcode/nostr-p2p/util'
+import { convert_pubkey } from '@/lib/crypto.js'
 
 import {
   parse_ecdh_message,
@@ -18,6 +17,7 @@ import type {
   BifrostNodeConfig,
   BifrostNodeEvent,
   GroupPackage,
+  PeerPolicy,
   SharePackage,
 } from '@/types/index.js'
 
@@ -25,9 +25,9 @@ import * as API from '@/api/index.js'
 
 const NODE_CONFIG : () => BifrostNodeConfig = () => {
   return {
-    blacklist  : [],
     debug      : false,
-    middleware : {}
+    middleware : {},
+    policies   : []
   }
 }
 
@@ -36,7 +36,7 @@ export default class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   private readonly _cache  : BifrostNodeCache
   private readonly _client : NostrNode
   private readonly _config : BifrostNodeConfig
-  private readonly _peers  : string[]
+  private readonly _peers  : PeerPolicy[]
   private readonly _signer : BifrostSigner
 
   constructor (
@@ -46,17 +46,21 @@ export default class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     options? : Partial<BifrostNodeConfig>
   ) {
     super()
-    this._cache  = { ecdh : new Map() }
-    this._config = { ...NODE_CONFIG(), ...options }
-    this._peers  = get_peer_pubkeys(group, share)
+    this._cache  = get_node_cache(options)
+    this._config = get_node_config(options)
     this._signer = new BifrostSigner(group, share, options)
+    this._peers  = get_peer_policies(this)
 
     this._client = new NostrNode(relays, share.seckey, {
-      filter : { authors : this._peers }
+      filter : { authors : this.peers.all }
     })
 
     this._client.on('message', (msg) => {
-      if (this._filter(msg)) return
+      // Emit the message event.
+      this.emit('message', msg)
+      // Return early if the message is not allowed.
+      if (!this._filter(msg)) return
+      // Handle the message.
       try {
         switch (msg.tag) {
           case '/ecdh/req': {
@@ -79,11 +83,11 @@ export default class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   }
 
   _filter (msg : SignedMessage) {
-    const blist = this.config.blacklist
-    if (blist.includes(msg.env.pubkey)) {
-      return true
-    } else {
+    if (!this.peers.recv.includes(msg.env.pubkey)) {
+      this.emit('bounced', [ 'unauthorized', msg ])
       return false
+    } else {
+      return true
     }
   }
 
@@ -108,7 +112,11 @@ export default class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   }
 
   get peers () {
-    return this._peers
+    return {
+      all   : this._peers.map(e => e[0]),
+      send  : this._peers.filter(e => e[1]).map(e => e[0]),
+      recv  : this._peers.filter(e => e[2]).map(e => e[0])
+    }
   }
 
   get pubkey () {
@@ -127,10 +135,48 @@ export default class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   }
 
   async connect () : Promise<BifrostNode> {
-    return this.client.connect().then(() => this)
+    await this.client.connect()
+    this.emit('ready', this)
+    return this
   }
 
   async close () : Promise<BifrostNode> {
-    return this.client.close().then(() => this)
+    await this.client.close()
+    this.emit('closed', this)
+    return this
   }
+}
+
+function get_node_config (
+  opt : Partial<BifrostNodeConfig> = {}
+) : BifrostNodeConfig {
+  return { ...NODE_CONFIG(), ...opt }
+}
+
+function get_node_cache (
+  opt : Partial<BifrostNodeConfig> = {}
+) : BifrostNodeCache {
+  return {
+    ecdh : opt.cache?.ecdh ?? new Map()
+  }
+}
+
+function get_peer_policies (node : BifrostNode) : PeerPolicy[] {
+  // Get the pubkey of the node.
+  const pubkey = node.pubkey
+  // Get the peers of the group.
+  const peers  = node.group.commits
+    .map(e => convert_pubkey(e.pubkey, 'bip340'))
+    .filter(e => e !== pubkey)
+  // Define a list of policies.
+  let policies : PeerPolicy[] = []
+  // For each peer, configure a policy.
+  for (const peer of peers) {
+    // Check if the policy is configured.
+    const config = node.config.policies.find(e => e[0] === peer)
+    // If the policy is not configured, set the default policy.
+    policies.push(config ?? [ peer, true, true ])
+  }
+  // Return the list of policies.
+  return policies
 }
