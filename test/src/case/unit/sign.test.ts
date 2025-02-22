@@ -15,10 +15,10 @@ import {
 
 import {
   combine_signature_pkgs,
-  create_signature_pkg,
+  create_psig_pkg,
   generate_dealer_pkg,
-  normalize_pubkey,
-  verify_signature_pkg
+  convert_pubkey,
+  verify_psig_pkg
 } from '@frostr/bifrost/lib'
 
 import type { Test } from 'tape'
@@ -34,8 +34,8 @@ export default function (tape : Test) {
       const ctx = get_session_ctx(group, session)
       const psigs = session.members.map(idx => {
         const share = shares.find(e => e.idx === idx)!
-        const psig  = create_signature_pkg(ctx, share)
-        const err   = verify_signature_pkg(ctx, psig)
+        const psig  = create_psig_pkg(ctx, share)
+        const err   = verify_psig_pkg(ctx, psig)
         if (err !== null) {
           t.fail(err + ': ' + psig.idx)
         } else {
@@ -44,7 +44,7 @@ export default function (tape : Test) {
         return psig
       })
       const group_sig = combine_signature_pkgs(ctx, psigs)
-      const group_pk  = normalize_pubkey(group.group_pk, 'bip340')
+      const group_pk  = convert_pubkey(group.group_pk, 'bip340')
       const is_valid  = schnorr.verify(group_sig, session.message, group_pk)
       t.true(is_valid, 'group signature is valid')
     } catch (err) {
@@ -66,8 +66,8 @@ export default function (tape : Test) {
       const ctx = get_session_ctx(group, session)
       const psigs = session.members.map(idx => {
         const share = shares.find(e => e.idx === idx)!
-        const psig  = create_signature_pkg(ctx, share)
-        const err   = verify_signature_pkg(ctx, psig)
+        const psig  = create_psig_pkg(ctx, share)
+        const err   = verify_psig_pkg(ctx, psig)
         if (err !== null) {
           t.fail(err + ': ' + psig.idx)
         } else {
@@ -76,7 +76,7 @@ export default function (tape : Test) {
         return psig
       })
       const group_sig = combine_signature_pkgs(ctx, psigs)
-      const group_pk  = normalize_pubkey(group.group_pk, 'bip340')
+      const group_pk  = convert_pubkey(group.group_pk, 'bip340')
       const is_valid  = schnorr.verify(group_sig, session.message, group_pk)
       t.true(is_valid, 'group signature is valid')
     } catch (err) {
@@ -93,7 +93,7 @@ export default function (tape : Test) {
       content    : 'hello world',
       kind       : 1,
       tags       : [],
-      pubkey     : normalize_pubkey(group.group_pk, 'bip340'),
+      pubkey     : convert_pubkey(group.group_pk, 'bip340'),
       created_at : now()
     }
 
@@ -104,8 +104,8 @@ export default function (tape : Test) {
       const ctx     = get_session_ctx(group, session)
       const psigs   = session.members.map(idx => {
         const share = shares.find(e => e.idx === idx)!
-        const psig  = create_signature_pkg(ctx, share)
-        const err   = verify_signature_pkg(ctx, psig)
+        const psig  = create_psig_pkg(ctx, share)
+        const err   = verify_psig_pkg(ctx, psig)
         if (err !== null) {
           t.fail(err + ': ' + psig.idx)
         } else {

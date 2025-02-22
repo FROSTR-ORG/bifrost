@@ -3,7 +3,7 @@ import { schnorr }              from '@noble/curves/secp256k1'
 import { get_pubkey }           from '@/lib/crypto.js'
 import { create_ecdh_pkg }      from '@/lib/ecdh.js'
 import { get_session_ctx }      from '@/lib/session.js'
-import { create_signature_pkg } from '@/lib/sign.js'
+import { create_psig_pkg } from '@/lib/sign.js'
 
 import {
   decrypt_content,
@@ -79,7 +79,7 @@ export default class BifrostSigner {
     tweaks? : string[]
   ) : SignaturePackage {
     const ctx = get_session_ctx(this._group, session, tweaks)
-    return create_signature_pkg(ctx, this._share)
+    return create_psig_pkg(ctx, this._share)
   }
 
   unwrap (

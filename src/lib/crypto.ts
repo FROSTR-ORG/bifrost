@@ -2,16 +2,21 @@ import { Buff }   from '@cmdcode/buff'
 import { Assert } from '@/util/index.js'
 
 import { secp256k1, schnorr }  from '@noble/curves/secp256k1'
-import { Field } from '@noble/curves/abstract/modular'
+import { Field }               from '@noble/curves/abstract/modular'
 
 type ECCPoint = ReturnType<typeof secp256k1.ProjectivePoint.fromHex>
 
-const GP = secp256k1.ProjectivePoint.BASE
 const _N = secp256k1.CURVE.n
-
 const FD = Field(_N, 32, true)
+const GP = secp256k1.ProjectivePoint.BASE
 
-
+/**
+ * Get the secret key from the given secret.
+ * 
+ * @param secret - The secret to get the secret key from.
+ * @param even_y - Whether the y-coordinate should be even.
+ * @returns The secret key.
+ */
 export function get_seckey (
   secret : string | Uint8Array,
   even_y : boolean = false
@@ -34,6 +39,13 @@ export function get_seckey (
   }
 }
 
+/**
+ * Get the public key from the given secret key.
+ * 
+ * @param seckey - The secret key to get the public key from.
+ * @param format - The format of the public key.
+ * @returns The public key.
+ */
 export function get_pubkey (
   seckey : string | Uint8Array,
   format : 'bip340' | 'ecdsa'
@@ -45,16 +57,25 @@ export function get_pubkey (
   // Return the public key.
   const pk = pt.toHex(true)
   // Normalize the public key.
-  return normalize_pubkey(pk, format)
+  return convert_pubkey(pk, format)
 }
 
+/**
+ * Tweak the given secret key with the given tweak.
+ * 
+ * @param seckey - The secret key to tweak.
+ * @param tweak  - The tweak to apply to the secret key.
+ * @param even_y - Whether the y-coordinate should be even.
+ * @returns The tweaked secret key.
+ */
 export function tweak_seckey (
   seckey : string | Uint8Array,
   tweak  : string | Uint8Array,
   even_y : boolean = false
 ) : string {
-  // Convert the secret key and tweak to bigints.
+  // Convert the secret key to bigint.
   const sk  = serialize_bytes(seckey).big
+  // Convert the tweak to bigint.
   const twk = serialize_bytes(tweak).big
   // Add the key and tweak, modulo the curve order.
   const tweaked_sk = FD.add(sk, twk)
@@ -64,6 +85,14 @@ export function tweak_seckey (
   return get_seckey(new_secret, even_y)
 }
 
+/**
+ * Tweak the given public key with the given tweak.
+ * 
+ * @param pubkey - The public key to tweak.
+ * @param tweak  - The tweak to apply to the public key.
+ * @param even_y - Whether the y-coordinate should be even.
+ * @returns The tweaked public key.
+ */
 export function tweak_pubkey (
   pubkey : string | Uint8Array,
   tweak  : string | Uint8Array,
@@ -86,23 +115,38 @@ export function tweak_pubkey (
   // Convert the tweaked point to a hex string.
   const pk = tweaked_pt.toHex(true)
   // Return the normalized public key.
-  return normalize_pubkey(pk, format)
+  return convert_pubkey(pk, format)
 }
 
+/**
+ * Verify the given secret key.
+ * 
+ * @param seckey - The secret key to verify.
+ */
 export function verify_seckey (
   seckey : string | Uint8Array
 ) : asserts seckey is string {
+  // Convert the secret key to bytes.
   const sk = serialize_bytes(seckey)
+  // Assert the secret key is valid.
   Assert.size(sk, 32,    'ecdsa secret keys must be 32 bytes long')
   Assert.ok(sk.big < _N, 'ecdsa secret keys must be less than the curve order')
   Assert.ok(sk.big > 0,  'ecdsa secret keys must be greater than zero')
 }
 
+/**
+ * Verify the given public key.
+ * 
+ * @param pubkey - The public key to verify.
+ * @param format - The format of the public key.
+ */
 export function verify_pubkey (
   pubkey : string | Uint8Array,
   format : 'bip340' | 'ecdsa'
 ) {
+  // Convert the public key to bytes.
   const pk = serialize_bytes(pubkey)
+  // Assert the public key format is valid.
   if (format === 'bip340') {
     Assert.size(pk, 32, 'bip340 public keys must be 32 bytes long')
   } else if (format === 'ecdsa') {
@@ -110,9 +154,18 @@ export function verify_pubkey (
   } else {
     throw new Error('invalid format: ' + format)
   }
+  // Verify the point.
   verify_point(pk)
 }
 
+/**
+ * Verify the given signature.
+ * 
+ * @param signature - The signature to verify.
+ * @param message   - The message to verify the signature against.
+ * @param pubkey    - The public key to verify the signature against.
+ * @param format    - The format of the public key.
+ */
 export function verify_signature (
   signature : string | Uint8Array,
   message   : string | Uint8Array,
@@ -127,6 +180,12 @@ export function verify_signature (
     : secp256k1.verify(sig, msg, pk)
 }
 
+/**
+ * Verify the given pubkey is a valid point
+ * on the secp256k1 curve.
+ * 
+ * @param pubkey - The pubkey to verify.
+ */
 export function verify_point (
   pubkey : string | Uint8Array
 ) : asserts pubkey is string {
@@ -138,6 +197,11 @@ export function verify_point (
   }
 }
 
+/**
+ * Verify the given public key has an even y-coordinate.
+ * 
+ * @param pubkey - The public key to verify.
+ */
 export function verify_even_y (
   pubkey : string | Uint8Array
 ) : asserts pubkey is string {
@@ -145,17 +209,30 @@ export function verify_even_y (
   Assert.ok(pt.hasEvenY(), 'pubkey must have an even y-coordinate')
 }
 
+/**
+ * Lift the given public key to an ECC point.
+ * 
+ * @param pubkey - The public key to lift.
+ * @returns The lifted public key.
+ */
 export function lift_pubkey (
   pubkey : string | Uint8Array
 ) : ECCPoint {
   try {
-    const pk = normalize_pubkey(pubkey, 'ecdsa')
+    const pk = convert_pubkey(pubkey, 'ecdsa')
     return secp256k1.ProjectivePoint.fromHex(pk)
   } catch (err) {
     throw new Error('invalid pubkey: ' + pubkey)
   }
 }
 
+/**
+ * Serialize the given public key.
+ * 
+ * @param pubkey - The public key to serialize.
+ * @param format - The format of the public key.
+ * @returns The serialized public key.
+ */
 export function serialize_pubkey (
   pubkey : string | Uint8Array,
   format : 'bip340' | 'ecdsa'
@@ -174,7 +251,14 @@ export function serialize_pubkey (
   }
 }
 
-export function normalize_pubkey (
+/**
+ * Convert the given public key to the given format.
+ * 
+ * @param pubkey - The public key to convert.
+ * @param format - The format of the public key.
+ * @returns The converted public key.
+ */
+export function convert_pubkey (
   pubkey : string | Uint8Array,
   format : 'bip340' | 'ecdsa'
 ) {
@@ -182,6 +266,12 @@ export function normalize_pubkey (
   return pk.hex
 }
 
+/**
+ * Get the format of the given public key.
+ * 
+ * @param pubkey - The public key to get the format of.
+ * @returns The format of the public key.
+ */
 export function get_pubkey_format (
   pubkey : string | Uint8Array
 ) : 'bip340' | 'ecdsa' {
@@ -191,9 +281,13 @@ export function get_pubkey_format (
   throw new Error('invalid pubkey: ' + String(pubkey))
 }
 
-export function serialize_bytes (
-  bytes : string | Uint8Array
-) : Buff {
+/**
+ * Serialize the given bytes into a buffer object.
+ * 
+ * @param bytes - The bytes to serialize.
+ * @returns The serialized bytes as a buffer object.
+ */
+export function serialize_bytes (bytes : string | Uint8Array) : Buff {
   try {
     return Buff.bytes(bytes)
   } catch (err) {

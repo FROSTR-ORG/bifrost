@@ -3,6 +3,10 @@ import { z } from 'zod'
 export const now   = () => Math.floor(Date.now() / 1000)
 export const sleep = (ms : number = 1000) => new Promise(res => setTimeout(res, ms))
 
+export function copy_obj <T extends Record<keyof T, any>> (obj : T) : T {
+  return JSON.parse(JSON.stringify(obj))
+}
+
 export function normalize_obj <T extends Record<keyof T, any>> (obj : T) : T {
   if (obj instanceof Map || Array.isArray(obj) || typeof obj !== 'object') {
     return obj

@@ -65,7 +65,7 @@
   "dependencies": {
     "@cmdcode/buff": "^2.2.5",
     "@cmdcode/frost": "^1.1.2",
-    "@cmdcode/nostr-p2p": "^2.0.8",
+    "@cmdcode/nostr-p2p": "^2.0.11",
     "@noble/ciphers": "^1.2.1",
     "@noble/curves": "^1.8.1",
     "zod": "^3.24.1"

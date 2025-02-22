@@ -10,6 +10,12 @@ import type {
 
 import Schema from '@/schema/index.js'
 
+/**
+ * Parse an ECDH exchange message.
+ * 
+ * @param msg - The message to parse.
+ * @returns The parsed message.
+ */
 export function parse_ecdh_message (
   msg : SignedMessage
 ) : SignedMessage<ECDHPackage> {
@@ -23,6 +29,12 @@ export function parse_ecdh_message (
   }
 }
 
+/**
+ * Parse a signature session message.
+ * 
+ * @param msg - The message to parse.
+ * @returns The parsed message.
+ */
 export function parse_session_message (
   msg : SignedMessage
 ) : SignedMessage<SessionPackage> {
@@ -36,7 +48,12 @@ export function parse_session_message (
   }
 }
 
-
+/**
+ * Parse a partial signature message.
+ * 
+ * @param msg - The message to parse.
+ * @returns The parsed message.
+ */
 export function parse_psig_message (
   msg : SignedMessage
 ) : SignedMessage<SignaturePackage> {
@@ -51,6 +68,12 @@ export function parse_psig_message (
   }
 }
 
+/**
+ * Parse a group commitment package.
+ * 
+ * @param group_pkg - The message to parse.
+ * @returns The parsed message.
+ */
 export function parse_group_pkg (
   group_pkg : unknown
 ) : GroupPackage {
@@ -63,6 +86,12 @@ export function parse_group_pkg (
   }
 }
 
+/**
+ * Parse a member share package.
+ * 
+ * @param share_pkg - The message to parse.
+ * @returns The parsed message.
+ */
 export function parse_share_pkg (
   share_pkg : unknown
 ) : SharePackage {

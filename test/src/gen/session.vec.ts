@@ -22,7 +22,7 @@ export default function (opt ?: Partial<typeof DEFAULT_CONFIG>) {
   const group   = decode_group_pkg(vector.group)
   const shares  = vector.shares.map(e => decode_share_pkg(e))
   const session = create_session_pkg(group, config.members, config.message)
-  const members = get_memberships(group, session, shares)
+  const members = get_memberships(session, shares)
 
   return { ...vector, session, members }
 }

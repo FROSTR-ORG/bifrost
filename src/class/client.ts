@@ -1,8 +1,9 @@
+import EventEmitter  from './emitter.js'
 import BifrostSigner from './signer.js'
 
 import { NostrNode }        from '@cmdcode/nostr-p2p'
 import { parse_error }      from '@cmdcode/nostr-p2p/util'
-import { normalize_pubkey } from '@/lib/crypto.js'
+import { convert_pubkey }   from '@/lib/crypto.js'
 import { get_peer_pubkeys } from '@/lib/util.js'
 
 import {
@@ -15,6 +16,7 @@ import type { SignedMessage } from '@cmdcode/nostr-p2p'
 import type {
   BifrostNodeCache,
   BifrostNodeConfig,
+  BifrostNodeEvent,
   GroupPackage,
   SharePackage,
 } from '@/types/index.js'
@@ -23,11 +25,13 @@ import * as API from '@/api/index.js'
 
 const NODE_CONFIG : () => BifrostNodeConfig = () => {
   return {
-    blacklist : []
+    blacklist  : [],
+    debug      : false,
+    middleware : {}
   }
 }
 
-export default class BifrostNode {
+export default class BifrostNode extends EventEmitter<BifrostNodeEvent> {
 
   private readonly _cache  : BifrostNodeCache
   private readonly _client : NostrNode
@@ -41,6 +45,7 @@ export default class BifrostNode {
     relays   : string[],
     options? : Partial<BifrostNodeConfig>
   ) {
+    super()
     this._cache  = { ecdh : new Map() }
     this._config = { ...NODE_CONFIG(), ...options }
     this._peers  = get_peer_pubkeys(group, share)
@@ -52,19 +57,23 @@ export default class BifrostNode {
 
     this._client.on('message', (msg) => {
       if (this._filter(msg)) return
-        try {
-          switch (msg.tag) {
-            case '/ecdh/req': {
+      try {
+        switch (msg.tag) {
+          case '/ecdh/req': {
+            // Parse the request message.
             const parsed = parse_ecdh_message(msg)
-            return API.ecdh_handler_api(this, parsed)
+            // Handle the request.
+            API.ecdh_handler_api(this, parsed)
           }
           case '/sign/req': {
+            // Parse the request message.
             const parsed = parse_session_message(msg)
-            return API.sign_handler_api(this, parsed)
+            // Handle the request.
+            API.sign_handler_api(this, parsed)
           }
         }
       } catch (err) {
-        this.client.emit('bounced', [ msg.env.id, parse_error(err) ])
+        this.emit('bounced', [ parse_error(err), msg ])
       }
     })
   }
@@ -90,6 +99,10 @@ export default class BifrostNode {
     return this._config
   }
 
+  get debug () {
+    return this._config.debug
+  }
+
   get group () {
     return this._signer.group
   }
@@ -99,7 +112,7 @@ export default class BifrostNode {
   }
 
   get pubkey () {
-    return normalize_pubkey(this.signer.pubkey, 'bip340')
+    return convert_pubkey(this.signer.pubkey, 'bip340')
   }
 
   get req () {

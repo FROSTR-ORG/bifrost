@@ -11,7 +11,7 @@ import { create_share_psig }  from '@/lib/sign.js'
 import { parse_error }        from '@/util/index.js'
 import { parse_group_vector } from '@/test/lib/parse.js'
 
-import { normalize_pubkey } from '@/lib/crypto.js'
+import { convert_pubkey } from '@/lib/crypto.js'
 
 import type { Test } from 'tape'
 
@@ -24,7 +24,7 @@ export default function (tape : Test) {
     const { group, shares } = parse_group_vector(VECTOR)
 
     const commits  = [ group.commits[0], group.commits[2] ]
-    const group_pk = normalize_pubkey(group.group_pk, 'bip340')
+    const group_pk = convert_pubkey(group.group_pk, 'bip340')
     const message  = Buff.str('test message').digest.hex
 
     try {
@@ -51,7 +51,7 @@ export default function (tape : Test) {
     const { group, shares } = generate_dealer_pkg(2, 3)
 
     const commits  = [ group.commits[0], group.commits[2] ]
-    const group_pk = normalize_pubkey(group.group_pk, 'bip340')
+    const group_pk = convert_pubkey(group.group_pk, 'bip340')
     const message  = Buff.str('test message').digest.hex
     
     try {

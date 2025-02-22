@@ -18,7 +18,14 @@ import type {
   SignaturePackage
 } from '@/types/index.js'
 
-export function create_signature_pkg (
+/**
+ * Create a partial signature package for a given session and share package.
+ * 
+ * @param ctx   - The session context.
+ * @param share - The share package.
+ * @returns The partial signature package.
+ */
+export function create_psig_pkg (
   ctx   : SessionContext,
   share : SharePackage
 ) : SignaturePackage {
@@ -28,7 +35,14 @@ export function create_signature_pkg (
   return { ...mbr_psig, sid }
 }
 
-export function verify_signature_pkg (
+/**
+ * Verify a partial signature package for a given session and partial signature package.
+ * 
+ * @param ctx  - The session context.
+ * @param psig - The partial signature package.
+ * @returns The signature package.
+ */
+export function verify_psig_pkg (
   ctx  : SessionContext,
   psig : SignaturePackage
 ) : string | null {
@@ -44,6 +58,13 @@ export function verify_signature_pkg (
   }
 }
 
+/**
+ * Combine a list of partial signature packages into a single signature package.
+ * 
+ * @param ctx   - The session context.
+ * @param psigs - The partial signature packages.
+ * @returns The signature package.
+ */
 export function combine_signature_pkgs (
   ctx   : SessionContext,
   psigs : SignaturePackage[]
@@ -51,14 +72,25 @@ export function combine_signature_pkgs (
   return combine_partial_sigs(ctx, psigs)
 }
 
+/**
+ * Create a partial signature for a given session and share package.
+ * 
+ * @param ctx   - The session context.
+ * @param share - The share package.
+ * @returns The partial signature.
+ */
 export function create_share_psig (
   ctx   : GroupSigningCtx,
   share : SharePackage
 ) : ShareSignature {
+  // Get the member's index, secret key, binder nonce, and hidden nonce.
   const { idx, binder_sn, hidden_sn, seckey } = share
+  // Get the member's public key.
   const pubkey   = get_pubkey(seckey, 'ecdsa')
+  // Create the share signature.
   const secshare = { idx, seckey }
   const secnonce = { idx, binder_sn, hidden_sn }
   const psig     = sign_msg(ctx, secshare, secnonce)
+  // Return the partial signature.
   return { ...psig, pubkey }
 }

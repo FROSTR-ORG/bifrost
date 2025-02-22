@@ -19,7 +19,7 @@ export default function (tape : Test) {
   const hosts  = [ relay.url ]
 
   const vec    = parse_group_vector(VECTOR)
-  const pkg    = import_test_nodes(labels, vec, hosts)
+  const pkg    = import_test_nodes(labels, vec, hosts, { debug : true })
   
   const ctx : TestNetwork = { ...pkg, relays: hosts }
 
