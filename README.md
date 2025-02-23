@@ -92,15 +92,17 @@ await node.connect()
 ```ts
 // Optional parameters for the signature request.
 const options = {
-  peers  : [],    // array of peer public keys (overrides policies).
-  stamp  : now(), // specific timestamp for the request.
-  tweaks : []     // array of tweak values to apply to the signature.
+  payload : null,      // optional payload for the signature request.
+  peers   : [],        // array of peer public keys (overrides policies).
+  stamp   : now(),     // specific timestamp for the request.
+  type    : 'message', // optional type parameter for the signature request.
+  tweaks  : []         // array of tweak values to apply to the signature.
 }
 
 // Request a partial signature from other group members.
 const result = await node.req.sign(
   message, // message to sign.
-  options
+  options  // optional parameters for the signature request.
 )
 
 if (result.ok) {
