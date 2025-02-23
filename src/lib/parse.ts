@@ -3,9 +3,9 @@ import type { SignedMessage } from '@cmdcode/nostr-p2p'
 import type {
   ECDHPackage,
   GroupPackage,
-  SessionPackage,
+  SignSessionPackage,
   SharePackage,
-  SignaturePackage
+  PartialSigPackage
 } from '@/types/index.js'
 
 import Schema from '@/schema/index.js'
@@ -37,9 +37,9 @@ export function parse_ecdh_message (
  */
 export function parse_session_message (
   msg : SignedMessage
-) : SignedMessage<SessionPackage> {
+) : SignedMessage<SignSessionPackage> {
   try {
-    const schema = Schema.pkg.session
+    const schema = Schema.sign.session
     const json   = JSON.parse(msg.data)
     const parsed = schema.parse(json)
     return { ...msg, data : parsed }
@@ -56,9 +56,9 @@ export function parse_session_message (
  */
 export function parse_psig_message (
   msg : SignedMessage
-) : SignedMessage<SignaturePackage> {
+) : SignedMessage<PartialSigPackage> {
   try {
-    const schema = Schema.pkg.psig
+    const schema = Schema.sign.psig
     const json   = JSON.parse(msg.data)
     const parsed = schema.parse(json)
     return { ...msg, data : parsed }

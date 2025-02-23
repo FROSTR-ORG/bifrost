@@ -1,36 +1,40 @@
 import type { GroupSigningCtx }             from '@cmdcode/frost'
 import type { CommitPackage, SharePackage } from './group.js'
 
-export interface SessionContext extends GroupSigningCtx {
-  session : SessionPackage
+export interface SignSessionContext extends GroupSigningCtx {
+  session : SignSessionPackage
 }
 
-export interface SessionConfig {
+export interface SignSessionConfig {
+  payload : string | null
+  stamp   : number
+  type    : string
+  tweaks  : string[]
+}
+
+export interface SignRequestConfig extends SignSessionConfig {
+  peers : string[]
+}
+
+export interface SignSessionTemplate extends SignSessionConfig {
   members : number[]
   message : string
-  stamp   : number
 }
 
-export interface SignRequestConfig {
-  peers  : string[]
-  stamp  : number
-  tweaks : string[]
-}
-
-export interface SessionPackage extends SessionConfig {
+export interface SignSessionPackage extends SignSessionTemplate {
   gid : string
   sid : string
 }
 
-export interface SessionCommit extends CommitPackage {
+export interface SignSessionCommit extends CommitPackage {
   bind_hash : string
 }
 
-export interface SessionMember extends SharePackage {
+export interface SignSessionMember extends SharePackage {
   bind_hash: string
 }
 
-export interface SignaturePackage {
+export interface PartialSigPackage {
   idx     : number
   psig    : string
   pubkey  : string

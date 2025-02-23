@@ -1,13 +1,13 @@
 import type {
   BifrostNode,
   GroupPackage,
-  SessionCommit,
-  SessionMember,
-  SessionPackage,
-  SharePackage
+  SharePackage,
+  SignSessionCommit,
+  SignSessionMember,
+  SignSessionPackage
 } from '@frostr/bifrost'
 
-export type Membership  = SessionMember & SessionCommit
+export type Membership  = SignSessionMember & SignSessionCommit
 export type TestNodeMap = Map<string, BifrostNode>
 
 export interface TestNodes {
@@ -27,5 +27,5 @@ export interface GroupVector {
 
 export interface SessionVector extends GroupVector {
   members : Membership[]
-  session : SessionPackage
+  session : SignSessionPackage
 }

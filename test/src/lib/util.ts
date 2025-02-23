@@ -4,14 +4,14 @@ import {
 } from '@frostr/bifrost/lib'
 
 import type {
-  SessionPackage,
+  SignSessionPackage,
   SharePackage
 } from '@frostr/bifrost'
 
 import type { Membership } from '@/test/types.js'
 
 export function get_memberships (
-  session : SessionPackage,
+  session : SignSessionPackage,
   shares  : SharePackage[]
 ) : Membership[] {
   return session.members.map(idx => {

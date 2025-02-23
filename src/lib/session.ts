@@ -1,6 +1,5 @@
 import { Buff }                  from '@cmdcode/buff'
 import { get_group_signing_ctx } from '@cmdcode/frost/lib'
-import { now }                   from '@/util/index.js'
 
 import {
   get_commit_by_idx,
@@ -14,13 +13,45 @@ import {
 
 import type {
   GroupPackage,
-  SessionCommit,
-  SessionMember,
-  SessionConfig, 
-  SessionPackage,
+  SignSessionCommit,
+  SignSessionMember,
+  SignSessionPackage,
   SharePackage,
-  SessionContext
+  SignSessionContext,
+  SignSessionTemplate,
+  SignSessionConfig
 } from '@/types/index.js'
+import { now } from '@/util/index.js'
+
+export const GET_DEFAULT_SESSION_CONFIG : () => SignSessionConfig = () => {
+  return {
+    payload : null,
+    stamp   : now(),
+    type    : 'message',
+    tweaks  : []
+  }
+}
+
+/**
+ * Create a signature session template.
+ * 
+ * @param members - The members to include in the session.
+ * @param message - The message to sign.
+ * @param options - The options to use for the session.
+ * @returns The signature session template.
+ */
+export function create_session_template (
+  members : number[],
+  message : string,
+  options : Partial<SignSessionConfig> = {}
+) : SignSessionTemplate {
+  return {
+    ...GET_DEFAULT_SESSION_CONFIG(),
+    ...options,
+    members : members.sort(),
+    message : message
+  }
+}
 
 /**
  * Create a signature session package.
@@ -33,19 +64,14 @@ import type {
  */
 export function create_session_pkg (
   group    : GroupPackage,
-  members  : number[],
-  message  : string,
-  stamp    : number = now()
-) : SessionPackage {
-  // Sort the members lexicographically.
-  members = members.sort()
-  // Create the session package.
-  const session = { members, message, stamp }
-  // Get the group ID and session ID.
+  template : SignSessionTemplate
+) : SignSessionPackage {
+  // Get the group ID.
   const gid = get_group_id(group)
-  const sid = get_session_id(gid, session)
+  // Get the session ID.
+  const sid = get_session_id(gid, template)
   // Return the session package.
-  return { gid, members, message, stamp, sid }
+  return { ...template, gid, sid }
 }
 
 /**
@@ -57,7 +83,7 @@ export function create_session_pkg (
  */
 export function verify_session_pkg (
   group   : GroupPackage,
-  session : SessionPackage
+  session : SignSessionPackage
 ) : boolean {
   // Get the group ID and session ID.
   const gid = get_group_id(group)
@@ -75,14 +101,17 @@ export function verify_session_pkg (
  */
 export function get_session_id (
   group_id : string,
-  session  : SessionConfig
+  template : SignSessionTemplate
 ) : string {
   // Get the members, message, and timestamp.
-  const mbrs = session.members.map(e => Buff.bytes(e))
-  const msg  = Buff.bytes(session.message)
-  const ts   = Buff.num(session.stamp, 4)
+  const mbrs = template.members.map(e => Buff.bytes(e))
+  const msg  = Buff.bytes(template.message)
+  const pay  = Buff.bytes(template.payload ?? '00')
+  const type = Buff.str(template.type)
+  const ts   = Buff.num(template.stamp, 4)
+  const twks = template.tweaks.map(e => Buff.hex(e))
   // Create the preimage.
-  const pimg = Buff.join([ group_id, ...mbrs, msg, ts ])
+  const pimg = Buff.join([ group_id, ...mbrs, msg, pay, type, ts, ...twks ])
   // Return the session ID.
   return pimg.digest.hex
 }
@@ -115,9 +144,9 @@ export function get_session_binder (
  * @returns The tweaked member share.
  */
 export function get_session_member (
-  session : SessionPackage,
+  session : SignSessionPackage,
   share   : SharePackage
-) : SessionMember {
+) : SignSessionMember {
   // Get the member's index and secret key.
   const { idx, seckey } = share
   // Get the binder hash.
@@ -139,9 +168,9 @@ export function get_session_member (
  */
 export function get_session_commit (
   group   : GroupPackage,
-  session : SessionPackage,
+  session : SignSessionPackage,
   idx     : number
-) : SessionCommit {
+) : SignSessionCommit {
   // Get the commitment.
   const commit    = get_commit_by_idx(group.commits, idx)
   // Get the binder hash.
@@ -163,13 +192,12 @@ export function get_session_commit (
  */
 export function get_session_ctx (
   group   : GroupPackage,
-  session : SessionPackage,
-  tweaks? : string[]
-) : SessionContext {
+  session : SignSessionPackage
+) : SignSessionContext {
   // Get the commitments.
   const commits = session.members.map(idx => get_session_commit(group, session, idx))
   // Create the session context.
-  const ctx     = get_group_signing_ctx(group.group_pk, commits, session.message, tweaks)
+  const ctx     = get_group_signing_ctx(group.group_pk, commits, session.message, session.tweaks)
   // Return the session context.
   return { ...ctx, session }
 }

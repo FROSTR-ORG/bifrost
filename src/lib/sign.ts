@@ -13,9 +13,9 @@ import type {
 } from '@cmdcode/frost'
 
 import type {
-  SessionContext,
+  SignSessionContext,
   SharePackage,
-  SignaturePackage
+  PartialSigPackage
 } from '@/types/index.js'
 
 /**
@@ -26,9 +26,9 @@ import type {
  * @returns The partial signature package.
  */
 export function create_psig_pkg (
-  ctx   : SessionContext,
+  ctx   : SignSessionContext,
   share : SharePackage
-) : SignaturePackage {
+) : PartialSigPackage {
   const sid       = ctx.session.sid
   const mbr_share = get_session_member(ctx.session, share)
   const mbr_psig  = create_share_psig(ctx, mbr_share)
@@ -43,8 +43,8 @@ export function create_psig_pkg (
  * @returns The signature package.
  */
 export function verify_psig_pkg (
-  ctx  : SessionContext,
-  psig : SignaturePackage
+  ctx  : SignSessionContext,
+  psig : PartialSigPackage
 ) : string | null {
   // Fetch the matching public nonce package for the partial signature.
   const pns = ctx.pnonces.find(e => e.idx === psig.idx)
@@ -66,8 +66,8 @@ export function verify_psig_pkg (
  * @returns The signature package.
  */
 export function combine_signature_pkgs (
-  ctx   : SessionContext,
-  psigs : SignaturePackage[]
+  ctx   : SignSessionContext,
+  psigs : PartialSigPackage[]
 ) {
   return combine_partial_sigs(ctx, psigs)
 }

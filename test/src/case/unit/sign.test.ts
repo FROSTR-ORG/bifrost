@@ -10,6 +10,7 @@ import {
 
 import {
   create_session_pkg,
+  create_session_template,
   get_session_ctx
 } from '@/lib/session.js'
 
@@ -60,7 +61,8 @@ export default function (tape : Test) {
 
     const message = Buff.random(32).hex
     const members = [ 1, 3 ]
-    const session = create_session_pkg(group, members, message)
+    const template = create_session_template(members, message)
+    const session  = create_session_pkg(group, template)
 
     try {
       const ctx = get_session_ctx(group, session)
@@ -89,7 +91,7 @@ export default function (tape : Test) {
   tape.test('signature test (event)', t => {
     const { group, shares } = parse_session_vector(VECTOR)
 
-    const template = {
+    const event_template = {
       content    : 'hello world',
       kind       : 1,
       tags       : [],
@@ -97,12 +99,13 @@ export default function (tape : Test) {
       created_at : now()
     }
 
-    const id = get_event_id(template)
+    const event_id = get_event_id(event_template)
     
     try {
-      const session = create_session_pkg(group, [ 1, 3 ], id)
-      const ctx     = get_session_ctx(group, session)
-      const psigs   = session.members.map(idx => {
+      const template = create_session_template([ 1, 3 ], event_id)
+      const session  = create_session_pkg(group, template)
+      const ctx      = get_session_ctx(group, session)
+      const psigs    = session.members.map(idx => {
         const share = shares.find(e => e.idx === idx)!
         const psig  = create_psig_pkg(ctx, share)
         const err   = verify_psig_pkg(ctx, psig)
@@ -114,7 +117,7 @@ export default function (tape : Test) {
         return psig
       })
       const sig = combine_signature_pkgs(ctx, psigs)
-      const err = verify_event({ ...template, id, sig})
+      const err = verify_event({ ...event_template, id: event_id, sig })
       t.true(err === null, 'event is valid')
     } catch (err) {
       t.fail(parse_error(err))

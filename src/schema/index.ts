@@ -1,5 +1,5 @@
-import base    from './base.js'
-import pkg     from './pkg.js'
-import session from './session.js'
+import base from './base.js'
+import pkg  from './pkg.js'
+import sign from './sign.js'
 
-export default { base, pkg, session }
+export default { base, pkg, sign }

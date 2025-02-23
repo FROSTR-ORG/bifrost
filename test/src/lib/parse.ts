@@ -8,7 +8,7 @@ import {
 
 import type { GroupVector, SessionVector } from '@/test/types.js'
 
-const { commit, member } = Schema.session
+const { commit, member } = Schema.sign
 
 const group_schema = z.object({
   group   : Schema.base.bech32,
@@ -18,7 +18,7 @@ const group_schema = z.object({
 
 const session_schema = group_schema.extend({
   members : member.merge(commit).array(),
-  session : Schema.pkg.session
+  session : Schema.sign.session
 })
 
 export function parse_group_vector (vector : unknown) : GroupVector {

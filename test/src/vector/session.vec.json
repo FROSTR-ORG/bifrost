@@ -11,35 +11,35 @@
     "4c26d9074c27d89ede59270c0ac14b71e071b15239519f75474b2f3ba63481f5"
   ],
   "session": {
-    "gid": "99c0dafda1a8a21ab41e8e1414d578a940bfe633a79aa059dfeaeadfa521f612",
-    "members": [
-      1,
-      3
-    ],
+    "payload": null,
+    "stamp": 1740287598,
+    "type": "message",
+    "tweaks": [],
+    "members": [ 1, 3 ],
     "message": "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
-    "stamp": 1739256303,
-    "sid": "a31e1085059df2b36e4a7db6c1d25613454daa19c485652942d743082b3b1bf4"
+    "gid": "99c0dafda1a8a21ab41e8e1414d578a940bfe633a79aa059dfeaeadfa521f612",
+    "sid": "06b66e937c0d84250e6ec9d3f52e571740d5bc5261a5cef409532db11e259784"
   },
   "members": [
     {
-      "binder_sn": "6a21bac1511d70a8a6a1b7559899b8ceb1767ecd249c0de076d24d9bf39eeec3",
-      "hidden_sn": "81b07cbe188ff4b99e5cfe861ca8310199d1226f445e262b99fffe7341e869d4",
       "idx": 1,
       "seckey": "ad8e3ea27be0c7897d79a9c8c0bb04c0347eb9ad92b5649cb1babed8b732fb79",
-      "bind_hash": "784c18c608db9ecf17e7891df62ee0b5361ae687d404599782c0751bbae50fb2",
-      "binder_pn": "027c0b3468c5297243a6290505de5722129a037198da7f15d5b5289542a45ba3c6",
-      "hidden_pn": "02d38818634fbb74a6b0a663a737a4c5d0a4da7f24fe8e15a28c2c4dc98b806a5a",
-      "pubkey": "03d567f385a3fb6deaa15dac671cd14e7b0422e6a2b5ac8595e2dddff9bb78511b"
+      "binder_sn": "e4840f456eb30f8528fa8987243636c2a64a18ba6ef94fdc3f88539dba4fdde2",
+      "hidden_sn": "fc12d1423625939620b5d0b7a844aef58ea4bc5c8ebb682762b60475089958f3",
+      "bind_hash": "f2ae6d4a26713dab9a405b4f81cb5ea92aee80751e619b934b767b1d8195fed1",
+      "pubkey": "03d567f385a3fb6deaa15dac671cd14e7b0422e6a2b5ac8595e2dddff9bb78511b",
+      "hidden_pn": "03df94a8dc5f175d873ab23e6f0457e626310b08ff7eb7f44f392fd91f55f51d7c",
+      "binder_pn": "02eb6721553a266ac4a037657db00b0542f960dd28880db031c2002feae829be62"
     },
     {
-      "binder_sn": "20255020e655779d867e10e19b15103ba4e6fe55013f3f75ee60bb7618fecc9b",
-      "hidden_sn": "df1bdc1af52553d3d2033527567742907a07051cc388e289d358063a4e26f3ce",
       "idx": 3,
       "seckey": "b0faae547586553e442d76f522e246ef959f089051b834fb2dfefa472487d40a",
-      "bind_hash": "cdcd7ea109c028e2f384c841994a4cb8eaab55840e1b7f2c1959f8963e94d248",
-      "binder_pn": "0246e18c363b7d96d7815fbad5c08a49a4e4e4fbb1331e4832c4ed28fac59cc40c",
-      "hidden_pn": "0352ae5225b984f060e0e985e13c376db405bf89b62038043c9784af6230fc2984",
-      "pubkey": "027b71071daca1ff789ca5f5ff6628411482bca746ed5b9c9ed92012072994a62b"
+      "binder_sn": "b556e3616a9041ad883195344bf22bc1c5eeed9d460177db5a04ee13e5f58d65",
+      "hidden_sn": "744d6f5b79601de3d3b6b97a07545e17e060177e59027ab37f29da4b4ae77357",
+      "bind_hash": "62ff11e18dfaf2f2f5384c944a276840510467e5a3951755c52bcca73b5551d1",
+      "pubkey": "027b71071daca1ff789ca5f5ff6628411482bca746ed5b9c9ed92012072994a62b",
+      "hidden_pn": "03f349938ddd4af55d56d2df97594f0749a92dc9cdae2e1a043d3b262e7d95d333",
+      "binder_pn": "02b8964953b3c75031e9fe851915094a65ea1db4ffc97d7354254ff6a30ad3f937"
     }
   ]
 }

@@ -28,26 +28,9 @@ const ecdh = z.object({
   ecdh_pk  : base.hex
 })
 
-const session = z.object({
-  gid     : base.hex32,
-  members : base.num.array(),
-  message : base.hex32,
-  sid     : base.hex32,
-  stamp   : base.num
-})
-
-const psig = z.object({
-  idx     : base.num,
-  psig    : base.hex,
-  pubkey  : base.hex33,
-  sid     : base.hex32
-})
-
 export default {
   commit,
   ecdh,
   group,
-  share,
-  session,
-  psig
+  share
 }

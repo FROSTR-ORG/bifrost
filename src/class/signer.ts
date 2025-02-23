@@ -20,9 +20,9 @@ import type {
   BifrostSignerConfig,
   ECDHPackage,
   GroupPackage,
-  SessionPackage,
+  SignSessionPackage,
   SharePackage,
-  SignaturePackage
+  PartialSigPackage
 } from '@/types/index.js'
 
 const SIGNER_CONFIG : () => BifrostSignerConfig = () => {
@@ -74,11 +74,8 @@ export default class BifrostSigner {
     return new Buff(sig).hex
   }
 
-  sign_session (
-    session : SessionPackage,
-    tweaks? : string[]
-  ) : SignaturePackage {
-    const ctx = get_session_ctx(this._group, session, tweaks)
+  sign_session (session : SignSessionPackage) : PartialSigPackage {
+    const ctx = get_session_ctx(this._group, session)
     return create_psig_pkg(ctx, this._share)
   }
 

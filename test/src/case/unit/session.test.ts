@@ -3,6 +3,7 @@ import { parse_session_vector } from '@/test/lib/parse.js'
 
 import {
   create_session_pkg,
+  create_session_template,
   verify_session_pkg
 } from '@/lib/session.js'
 
@@ -15,7 +16,13 @@ export default function (tape : Test) {
 
   tape.test('test session creation', t => {
     try {
-      const session  = create_session_pkg(group, target.members, target.message, target.stamp)
+      const template = create_session_template(target.members, target.message, {
+        payload : target.payload,
+        stamp   : target.stamp,
+        type    : target.type,
+        tweaks  : target.tweaks
+      })
+      const session  = create_session_pkg(group, template)
       const is_valid = verify_session_pkg(group, session)
 
       t.equal(session.gid, target.gid, 'group id is correct')
