@@ -75,10 +75,12 @@ export function sign_request_api (node : BifrostNode) {
     message : string,
     options : Partial<SignRequestConfig> = {}
   ) : Promise<ApiResponse<string>> => {
+    // Get the peers to send the request to.
+    const peers    = options.peers ??= node.peers.send
     // Get the threshold for the group.
     const thold    = node.group.threshold
     // Randomly select peers.
-    const selected = select_random_peers(options.peers ??= node.peers.send, thold)
+    const selected = select_random_peers(peers, thold)
     // Get the indexes of the members.
     const members  = get_member_indexes(node.group, [ node.pubkey, ...selected ])
     // Create the session template.
