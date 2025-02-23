@@ -1,4 +1,4 @@
-import z from 'node_modules/zod/lib/index.js'
+import z     from 'zod'
 import base  from './base.js'
 import pkg   from './pkg.js'
 
