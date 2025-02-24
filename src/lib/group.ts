@@ -1,10 +1,12 @@
 import { Buff }               from '@cmdcode/buff'
 import { get_commits_prefix } from '@cmdcode/frost/lib'
+import { get_pubkey }         from '@/lib/crypto.js'
 import { Assert }             from '@/util/assert.js'
 
 import type {
   CommitPackage,
-  GroupPackage
+  GroupPackage,
+  SharePackage
 } from '@/types/index.js'
 
 /**
@@ -51,4 +53,20 @@ export function get_commit_by_idx (
   const commit = commits.find(e => e.idx === idx)
   Assert.exists(commit, 'commit package not found for idx: ' + idx)
   return commit
+}
+
+/**
+ * Check if a share package is a member of a group.
+ * 
+ * @param group - The group package.
+ * @param share - The share package.
+ * @returns True if the share package is a member of the group, false otherwise.
+ */
+export function is_group_member (
+  group : GroupPackage,
+  share : SharePackage
+) : boolean {
+  const idx    = share.idx
+  const pubkey = get_pubkey(share.seckey, 'ecdsa')
+  return group.commits.some(e => e.idx === idx && e.pubkey === pubkey)
 }

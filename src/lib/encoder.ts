@@ -1,4 +1,5 @@
-import { Buff } from '@cmdcode/buff'
+import { Buff }            from '@cmdcode/buff'
+import { is_group_member } from '@/lib/group.js'
 
 import {
   Assert,
@@ -12,6 +13,40 @@ import type {
 } from '@/types/index.js'
 
 import * as CONST from '@/const.js'
+
+/**
+ * Encode a set of credentials.
+ * 
+ * @param group_pkg - The group package.
+ * @param share_pkg - The share package.
+ * @returns The encoded credentials.
+ */
+export function encode_credentials (
+  group_pkg : GroupPackage,
+  share_pkg : SharePackage
+) : { group : string, share : string } {
+  Assert.ok(is_group_member(group_pkg, share_pkg), 'share not included in group')
+  const group = encode_group_pkg(group_pkg)
+  const share = encode_share_pkg(share_pkg)
+  return { group, share }
+}
+
+/**
+ * Decode a set of credentials.
+ * 
+ * @param groupstr - The group package to decode.
+ * @param sharestr - The share package to decode.
+ * @returns The decoded credentials.
+ */
+export function decode_credentials (
+  groupstr : string,
+  sharestr : string
+) : { group : GroupPackage, share : SharePackage } {
+  const group = decode_group_pkg(groupstr)
+  const share = decode_share_pkg(sharestr)
+  Assert.ok(is_group_member(group, share), 'share not included in group')
+  return { group, share }
+}
 
 /**
  * Encode a group commitment package.
@@ -78,9 +113,9 @@ export function encode_share_pkg (
  * @returns The share package decoded from a bech32m string.
  */
 export function decode_share_pkg (
-  str : string
+  sharestr : string
 ) : SharePackage {
-  const stream = Buff.bech32m(str).stream
+  const stream    = Buff.bech32m(sharestr).stream
   Assert.size(stream.data, CONST.SHARE_DATA_SIZE)
   const idx       = stream.read(CONST.SHARE_INDEX_SIZE).num
   const seckey    = stream.read(CONST.SHARE_SECKEY_SIZE).hex
