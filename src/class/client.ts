@@ -68,12 +68,14 @@ export default class BifrostNode extends EventEmitter<BifrostNodeEvent> {
             const parsed = parse_ecdh_message(msg)
             // Handle the request.
             API.ecdh_handler_api(this, parsed)
+            break
           }
           case '/sign/req': {
             // Parse the request message.
             const parsed = parse_session_message(msg)
             // Handle the request.
             API.sign_handler_api(this, parsed)
+            break
           }
         }
       } catch (err) {
