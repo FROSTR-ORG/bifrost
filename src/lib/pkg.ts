@@ -59,7 +59,7 @@ export function create_dealer_pkg (
   })
   // Create the group package.
   const group_pk  = share_set.group_pk
-  const threshold = share_set.shares.length
+  const threshold = share_set.vss_commits.length
   const group     = { commits, group_pk, threshold }
   // Return the dealer package.
   return { group, shares }
