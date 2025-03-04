@@ -15,7 +15,7 @@ import VECTOR from '@/test/vector/group.vec.json' assert { type: 'json' }
 export default function (tape : Test) {
 
   const labels = [ 'alice', 'bob', 'carol' ]
-  const relay  = new NostrRelay(8002)
+  const relay  = new NostrRelay(8192)
   const hosts  = [ relay.url ]
 
   const vec    = parse_group_vector(VECTOR)
