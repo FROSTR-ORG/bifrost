@@ -1,7 +1,12 @@
-import { Assert }         from '@/util/index.js'
-import { convert_pubkey } from './crypto.js'
+import { Assert } from '@/util/index.js'
 
-import type { GroupPackage } from '@/types/index.js'
+import {
+  convert_pubkey,
+  get_pubkey
+} from './crypto.js'
+
+import type { GroupPackage, SharePackage } from '@/types/index.js'
+import { derive_shares_secret } from '@cmdcode/frost/lib'
 
 /**
  * Get the indexes of the members in the group.
@@ -47,4 +52,24 @@ export function get_member_indexes (
     .map(e => e.idx)
   Assert.ok(indexes.length === pubkeys.length, 'index count does not match pubkey count')
   return indexes
+}
+
+/**
+ * Recover the secret key from the given shares.
+ * 
+ * @param group  - The group package.
+ * @param shares - The list of shares.
+ * @returns The secret key.
+ */
+export function recover_secret_key (
+  group  : GroupPackage,
+  shares : SharePackage[]
+) : string {
+  Assert.ok(shares.length >= group.threshold, 'not enough shares provided')
+  const pubkeys = group.commits.map(e => e.pubkey)
+  for (const share of shares) {
+    const pk = get_pubkey(share.seckey, 'ecdsa')
+    Assert.ok(pubkeys.includes(pk), 'share not found in group: ' + share.idx)
+  }
+  return derive_shares_secret(shares)
 }
