@@ -13,22 +13,22 @@ import {
 
 import type {
   GroupPackage,
-  SignSessionCommit,
-  SignSessionMember,
   SignSessionPackage,
   SharePackage,
   SignSessionContext,
   SignSessionTemplate,
-  SignSessionConfig
+  SignSessionConfig,
+  SighashEntry,
+  SighashCommit,
+  SighashShare
 } from '@/types/index.js'
 import { now } from '@/util/index.js'
 
 export const GET_DEFAULT_SESSION_CONFIG : () => SignSessionConfig = () => {
   return {
-    payload : null,
+    content : null,
     stamp   : now(),
     type    : 'message',
-    tweaks  : []
   }
 }
 
@@ -41,15 +41,15 @@ export const GET_DEFAULT_SESSION_CONFIG : () => SignSessionConfig = () => {
  * @returns The signature session template.
  */
 export function create_session_template (
+  hashes  : SighashEntry[],
   members : number[],
-  message : string,
   options : Partial<SignSessionConfig> = {}
 ) : SignSessionTemplate {
   return {
     ...GET_DEFAULT_SESSION_CONFIG(),
     ...options,
-    members : members.sort(),
-    message : message
+    hashes  : hashes,
+    members : members.sort()
   }
 }
 
@@ -105,13 +105,12 @@ export function get_session_id (
 ) : string {
   // Get the members, message, and timestamp.
   const mbrs = template.members.map(e => Buff.bytes(e))
-  const msg  = Buff.bytes(template.message)
-  const pay  = Buff.bytes(template.payload ?? '00')
+  const msgs = template.hashes.map(e => Buff.join(e))
+  const cont = Buff.bytes(template.content ?? '00')
   const type = Buff.str(template.type)
   const ts   = Buff.num(template.stamp, 4)
-  const twks = template.tweaks.map(e => Buff.hex(e))
   // Create the preimage.
-  const pimg = Buff.join([ group_id, ...mbrs, msg, pay, type, ts, ...twks ])
+  const pimg = Buff.join([ group_id, ...mbrs, ...msgs, cont, type, ts ])
   // Return the session ID.
   return pimg.digest.hex
 }
@@ -123,15 +122,17 @@ export function get_session_id (
  * @param member_idx - The member index.
  * @returns The session binder.
  */
-export function get_session_binder (
+export function get_sighash_binder (
   session_id : string | Uint8Array,
-  member_idx : number
+  member_idx : number,
+  sighash    : SighashEntry
 ) : string {
-  // Get the session ID and member index.
+  // Serialize the session ID, member index, and sighash vector.
   const sid = Buff.bytes(session_id)
   const idx = Buff.num(member_idx, 4)
+  const msg = Buff.join(sighash)
   // Create the preimage.
-  const pre = Buff.join([ sid, idx ])
+  const pre = Buff.join([ sid, idx, msg ])
   // Return the binder.
   return pre.digest.hex
 }
@@ -143,19 +144,22 @@ export function get_session_binder (
  * @param share   - The share package.
  * @returns The tweaked member share.
  */
-export function get_session_member (
+export function create_session_shares (
   session : SignSessionPackage,
   share   : SharePackage
-) : SignSessionMember {
-  // Get the member's index and secret key.
-  const { idx, seckey } = share
-  // Get the binder hash.
-  const bind_hash = get_session_binder(session.sid, share.idx)
-  // Tweak the hidden and binder nonces.
-  const hidden_sn = tweak_seckey(share.hidden_sn, bind_hash)
-  const binder_sn = tweak_seckey(share.binder_sn, bind_hash)
-  // Return the tweaked member share.
-  return { idx, seckey, binder_sn, hidden_sn, bind_hash }
+) : SighashShare[] {
+  // Return the tweaked member share for each sighash.
+  return session.hashes.map(vec => {
+    // Unpack the sighash vector.
+    const [ sighash ] = vec
+    // Get the binder hash.
+    const bind_hash = get_sighash_binder(session.sid, share.idx, vec)
+    // Tweak the hidden and binder nonces.
+    const hidden_sn = tweak_seckey(share.hidden_sn, bind_hash)
+    const binder_sn = tweak_seckey(share.binder_sn, bind_hash)
+    // Return the tweaked member share.
+    return { ...share, binder_sn, hidden_sn, bind_hash, sighash }
+  })
 }
 
 /**
@@ -166,20 +170,25 @@ export function get_session_member (
  * @param idx     - The index of the commitment.
  * @returns The tweaked commitment.
  */
-export function get_session_commit (
+export function create_session_commits (
   group   : GroupPackage,
   session : SignSessionPackage,
   idx     : number
-) : SignSessionCommit {
-  // Get the commitment.
-  const commit    = get_commit_by_idx(group.commits, idx)
-  // Get the binder hash.
-  const bind_hash = get_session_binder(session.sid, commit.idx)
-  // Tweak the hidden and binder nonces.
-  const hidden_pn = tweak_pubkey(commit.hidden_pn, bind_hash)
-  const binder_pn = tweak_pubkey(commit.binder_pn, bind_hash)
-  // Return the tweaked commitment.
-  return { ...commit, binder_pn, hidden_pn, bind_hash }
+) : SighashCommit[] {
+  // Get the group commitment.
+  const commit = get_commit_by_idx(group.commits, idx)
+  // Return the tweaked commitment for each sighash.
+  return session.hashes.map(vec => {
+    // Unpack the sighash vector.
+    const [ sighash ] = vec
+    // Get the binder hash.
+    const bind_hash = get_sighash_binder(session.sid, idx, vec)
+    // Tweak the hidden and binder nonces.
+    const hidden_pn = tweak_pubkey(commit.hidden_pn, bind_hash)
+    const binder_pn = tweak_pubkey(commit.binder_pn, bind_hash)
+    // Return the tweaked commitment.
+    return { ...commit, binder_pn, hidden_pn, bind_hash, sighash }
+  })
 }
 
 /**
@@ -194,10 +203,25 @@ export function get_session_ctx (
   group   : GroupPackage,
   session : SignSessionPackage
 ) : SignSessionContext {
-  // Get the commitments.
-  const commits = session.members.map(idx => get_session_commit(group, session, idx))
-  // Create the session context.
-  const ctx     = get_group_signing_ctx(group.group_pk, commits, session.message, session.tweaks)
+  // Get the public keys for the group.
+  const pubkeys = group.commits.map(e => e.pubkey)
+  // Create the sighash commitments.
+  const sighash_commits = session.members
+    .map(idx => create_session_commits(group, session, idx))
+    .flat()
+  // Create the context map.
+  const sigmap = new Map()
+  // For each sighash vector,
+  for (const vec of session.hashes) {
+    // Unpack the sighash vector.
+    const [ sighash, ...tweaks ] = vec
+    // Get the commits for the current sighash.
+    const commits = sighash_commits.filter(e => e.sighash === sighash)
+    // Get the group signing context.
+    const context = get_group_signing_ctx(group.group_pk, commits, sighash, tweaks)
+    // Add the context to the map.
+    sigmap.set(sighash, context)
+  }
   // Return the session context.
-  return { ...ctx, session }
+  return { pubkeys, session, sigmap }
 }

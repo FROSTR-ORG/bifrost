@@ -104,7 +104,7 @@ export function ecdh_request_api (node : BifrostNode) {
       // Store the encrypted secret in cache.
       node.cache.ecdh.set(ecdh_pk, content)
       // Emit the shared secret.
-      node.emit('/ecdh/sender/sec', [ secret, copy_obj(pkgs) ])
+      node.emit('/ecdh/sender/ret', [ ecdh_pk, secret ])
       // Return the shared secret.
       return { ok : true, data : secret }
     } catch (err) {

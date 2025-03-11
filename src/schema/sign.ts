@@ -3,27 +3,31 @@ import base  from './base.js'
 import pkg   from './pkg.js'
 
 const commit = pkg.commit.extend({
-  bind_hash : base.hex32
+  bind_hash : base.hex32,
+  sighash   : base.hex32
 })
 
 const member = pkg.share.extend({
-  bind_hash : base.hex32
+  bind_hash : base.hex32,
+  sighash   : base.hex32
 })
 
+const psig_entry = z.tuple([ base.hex32, base.hex32 ])
+const hash_entry = z.tuple([ base.hex32 ]).rest(base.hex32)
+
 const session = z.object({
+  content : base.str.nullable(),
   gid     : base.hex32,
+  hashes  : hash_entry.array(),
   members : base.num.array(),
-  message : base.hex32,
-  payload : base.str.nullable(),
   sid     : base.hex32,
   stamp   : base.num,
   type    : base.str,
-  tweaks  : base.hex32.array()
 })
 
 const psig = z.object({
   idx     : base.num,
-  psig    : base.hex,
+  psigs   : psig_entry.array(),
   pubkey  : base.hex33,
   sid     : base.hex32
 })

@@ -31,7 +31,9 @@ import type {
   ApiResponse,
   SignSessionPackage,
   PartialSigPackage,
-  SignRequestConfig
+  SignRequestConfig,
+  SighashEntry,
+  SignatureEntry
 } from '@/types/index.js'
 
 export async function sign_handler_api (
@@ -72,9 +74,13 @@ export async function sign_handler_api (
 
 export function sign_request_api (node : BifrostNode) {
   return async (
-    message : string,
+    message : string | SighashEntry[],
     options : Partial<SignRequestConfig> = {}
-  ) : Promise<ApiResponse<string>> => {
+  ) : Promise<ApiResponse<SignatureEntry[]>> => {
+    //
+    const hashes = typeof message === 'string'
+      ? [[ message ] ] as SighashEntry[]
+      : message
     // Get the peers to send the request to.
     const peers    = options.peers ??= node.peers.send
     // Get the threshold for the group.
@@ -84,7 +90,7 @@ export function sign_request_api (node : BifrostNode) {
     // Get the indexes of the members.
     const members  = get_member_indexes(node.group, [ node.pubkey, ...selected ])
     // Create the session template.
-    const template = create_session_template(members, message, options)
+    const template = create_session_template(hashes, members, options)
     // Create the session package.
     const session  = create_session_pkg(node.group, template)
     // Initialize the list of response packages.
@@ -109,11 +115,11 @@ export function sign_request_api (node : BifrostNode) {
     try {
       Assert.ok(msgs !== null, 'no responses from peers')
       // Finalize the response.
-      const sig = finalize_sign_response(node, msgs, session)
+      const sigs = finalize_sign_response(node, msgs, session)
       // Emit the response.
-      node.emit('/sign/sender/sig', [ sig, msgs ])
+      node.emit('/sign/sender/ret', [ session.sid, sigs ])
       // Return the signature.
-      return { ok : true, data :sig }
+      return { ok : true, data :sigs }
     } catch (err) {
       // Log the error.
       if (node.debug) console.log(err)
@@ -147,19 +153,17 @@ function finalize_sign_response (
   node      : BifrostNode,
   responses : SignedMessage<PartialSigPackage>[],
   session   : SignSessionPackage
-) : string {
+) : SignatureEntry[] {
   // Initialize the list of response packages.
-  const ctx   = get_session_ctx(node.group, session)
-  const psig  = node.signer.sign_session(session)
-  const psigs = [ psig ]
+  const ctx  = get_session_ctx(node.group, session)
+  const pkgs = [ node.signer.sign_session(session) ]
   // Parse the response packages.
   responses.forEach(e => {
-    const parsed   = parse_psig_message(e)
-    Assert.ok(parsed.data.sid === session.sid, 'invalid session id from pubkey: ' + e.env.pubkey)
-    const psig_err = verify_psig_pkg(ctx, parsed.data)
-    Assert.ok(psig_err === null, psig_err + ' : ' + e.env.pubkey)
-    psigs.push(parsed.data)
+    const parsed = parse_psig_message(e)
+    const error  = verify_psig_pkg(ctx, parsed.data)
+    Assert.ok(error === null, error + ' : ' + e.env.pubkey)
+    pkgs.push(parsed.data)
   })
   // Return the aggregate signature.
-  return combine_signature_pkgs(ctx, psigs)
+  return combine_signature_pkgs(ctx, pkgs)
 }

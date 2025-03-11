@@ -1,7 +1,7 @@
 import BifrostNode       from '@/class/client.js'
 
 import type { SignedMessage }               from '@cmdcode/nostr-p2p'
-import type { ECDHPackage, SignSessionPackage } from '@/types/index.js'
+import type { ECDHPackage, SignatureEntry, SignSessionPackage } from '@/types/index.js'
 
 export interface BifrostNodeCache {
   ecdh : Map<string, string>
@@ -38,7 +38,7 @@ export interface BifrostNodeEvent {
   '/ecdh/sender/req'  : SignedMessage
   '/ecdh/sender/res'  : SignedMessage[]
   '/ecdh/sender/rej'  : [ string, ECDHPackage     ]
-  '/ecdh/sender/sec'  : [ string, ECDHPackage[]   ]
+  '/ecdh/sender/ret'  : [ string, string          ]
   '/ecdh/sender/err'  : [ string, SignedMessage[] ]
   '/ecdh/handler/req' : SignedMessage
   '/ecdh/handler/res' : SignedMessage
@@ -46,8 +46,8 @@ export interface BifrostNodeEvent {
   '/sign/sender/req'  : SignedMessage
   '/sign/sender/res'  : SignedMessage[]
   '/sign/sender/rej'  : [ string, SignSessionPackage  ]
-  '/sign/sender/sig'  : [ string, SignedMessage[] ]
-  '/sign/sender/err'  : [ string, SignedMessage[] ]
+  '/sign/sender/ret'  : [ string, SignatureEntry[]    ]
+  '/sign/sender/err'  : [ string, SignedMessage[]     ]
   '/sign/handler/req' : SignedMessage
   '/sign/handler/res' : SignedMessage
   '/sign/handler/rej' : [ string, SignedMessage   ]

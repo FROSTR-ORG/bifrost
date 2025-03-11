@@ -7,16 +7,16 @@ import {
   verify_partial_sig
 } from '@cmdcode/frost/lib'
 
-import { create_share_psig }  from '@/lib/sign.js'
-import { parse_error }        from '@/util/index.js'
-import { parse_group_vector } from '@/test/lib/parse.js'
+import { generate_dealer_pkg } from '@/lib/pkg.js'
+import { create_partial_sig }  from '@/lib/sign.js'
+import { parse_error }         from '@/util/index.js'
+import { parse_group_vector }  from '@/test/lib/parse.js'
 
-import { convert_pubkey } from '@/lib/crypto.js'
+import { convert_pubkey, get_pubkey } from '@/lib/crypto.js'
 
 import type { Test } from 'tape'
 
 import VECTOR from '@/test/vector/group.vec.json' assert { type: 'json' }
-import { generate_dealer_pkg } from '@/lib/pkg.js'
 
 export default function (tape : Test) {
 
@@ -32,10 +32,11 @@ export default function (tape : Test) {
       const psigs = commits.map(commit => {
         const share = shares.find(share => share.idx === commit.idx)
         if (!share) throw new Error('share not found')
-        const psig  = create_share_psig(ctx, share)
-        const valid = verify_partial_sig(ctx, commit, psig.pubkey, psig.psig)
+        const pubkey = get_pubkey(share.seckey, 'ecdsa')
+        const psig   = create_partial_sig(ctx, share)
+        const valid  = verify_partial_sig(ctx, commit, pubkey, psig)
         if (!valid) throw new Error('partial signature invalid for idx: ' + share.idx)
-        return psig
+        return { idx : commit.idx, pubkey, psig }
       })
       const group_sig = combine_partial_sigs(ctx, psigs)
       const is_valid  = schnorr.verify(group_sig, message, group_pk)
@@ -59,10 +60,11 @@ export default function (tape : Test) {
       const psigs = commits.map(commit => {
         const share = shares.find(share => share.idx === commit.idx)
         if (!share) throw new Error('share not found')
-        const psig  = create_share_psig(ctx, share)
-        const valid = verify_partial_sig(ctx, commit, psig.pubkey, psig.psig)
+        const pubkey = get_pubkey(share.seckey, 'ecdsa')
+        const psig   = create_partial_sig(ctx, share)
+        const valid  = verify_partial_sig(ctx, commit, pubkey, psig)
         if (!valid) throw new Error('partial signature invalid for idx: ' + share.idx)
-        return psig
+        return { idx : commit.idx, pubkey, psig }
       })
       const group_sig = combine_partial_sigs(ctx, psigs)
       const is_valid  = schnorr.verify(group_sig, message, group_pk)

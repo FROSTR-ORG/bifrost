@@ -1,15 +1,25 @@
-import type { GroupSigningCtx }             from '@cmdcode/frost'
+import type { GroupSigningCtx } from '@cmdcode/frost'
+
 import type { CommitPackage, SharePackage } from './group.js'
 
-export interface SignSessionContext extends GroupSigningCtx {
-  session : SignSessionPackage
+export type SighashEntry    = [ sighash : string, ...tweaks : string[] ]
+export type PartialSigEntry = [ sighash : string, psig : string ]
+export type SignatureEntry  = [ sighash : string, signature : string ]
+
+export interface SighashCommit extends CommitPackage {
+  sighash   : string,
+  bind_hash : string
+}
+
+export interface SighashShare extends SharePackage {
+  sighash   : string,
+  bind_hash : string
 }
 
 export interface SignSessionConfig {
-  payload : string | null
+  content : string | null
   stamp   : number
   type    : string
-  tweaks  : string[]
 }
 
 export interface SignRequestConfig extends SignSessionConfig {
@@ -17,8 +27,8 @@ export interface SignRequestConfig extends SignSessionConfig {
 }
 
 export interface SignSessionTemplate extends SignSessionConfig {
+  hashes  : SighashEntry[]
   members : number[]
-  message : string
 }
 
 export interface SignSessionPackage extends SignSessionTemplate {
@@ -26,17 +36,22 @@ export interface SignSessionPackage extends SignSessionTemplate {
   sid : string
 }
 
-export interface SignSessionCommit extends CommitPackage {
-  bind_hash : string
-}
-
-export interface SignSessionMember extends SharePackage {
-  bind_hash: string
+export interface SignSessionContext {
+  pubkeys : string[]
+  session : SignSessionPackage
+  sigmap : Map<string, GroupSigningCtx>
 }
 
 export interface PartialSigPackage {
-  idx     : number
+  idx    : number
+  psigs  : PartialSigEntry[]
+  pubkey : string
+  sid    : string
+}
+
+export interface PartialSigRecord {
+  sighash : string,
+  idx     : number,
+  pubkey  : string,
   psig    : string
-  pubkey  : string
-  sid     : string
 }

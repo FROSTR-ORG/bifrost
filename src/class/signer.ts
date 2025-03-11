@@ -76,6 +76,7 @@ export default class BifrostSigner {
 
   sign_session (session : SignSessionPackage) : PartialSigPackage {
     const ctx = get_session_ctx(this._group, session)
+    
     return create_psig_pkg(ctx, this._share)
   }
 
