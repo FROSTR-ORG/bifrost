@@ -6,7 +6,7 @@ import type { BifrostNodeConfig } from '@frostr/bifrost'
 
 import type {
   TestNodes,
-  GroupVector
+  GroupTestVector
 }  from '@/test/types.js'
 
 export function generate_test_nodes (
@@ -25,7 +25,7 @@ export function generate_test_nodes (
 
 export function import_test_nodes (
   labels   : string[],
-  vector   : GroupVector,
+  vector   : GroupTestVector,
   relays   : string[],
   options? : Partial<BifrostNodeConfig>
 ) : TestNodes {

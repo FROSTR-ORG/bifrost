@@ -58,7 +58,7 @@ export function parse_psig_message (
   msg : SignedMessage
 ) : SignedMessage<PartialSigPackage> {
   try {
-    const schema = Schema.sign.psig
+    const schema = Schema.sign.psig_pkg
     const json   = JSON.parse(msg.data)
     const parsed = schema.parse(json)
     return { ...msg, data : parsed }

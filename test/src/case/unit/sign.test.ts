@@ -1,6 +1,5 @@
 import { Buff }                 from '@cmdcode/buff'
 import { schnorr }              from '@noble/curves/secp256k1'
-import { parse_error, now }     from '@/util/index.js'
 import { parse_session_vector } from '@/test/lib/parse.js'
 
 import {
@@ -13,6 +12,12 @@ import {
   create_session_template,
   get_session_ctx
 } from '@/lib/session.js'
+
+import {
+  parse_error,
+  now,
+  Assert
+} from '@/util/index.js'
 
 import {
   combine_signature_pkgs,
@@ -44,10 +49,13 @@ export default function (tape : Test) {
         }
         return psig
       })
-      const group_sig = combine_signature_pkgs(ctx, psigs)
-      const group_pk  = convert_pubkey(group.group_pk, 'bip340')
-      const is_valid  = schnorr.verify(group_sig, session.message, group_pk)
-      t.true(is_valid, 'group signature is valid')
+      const sig_entries = combine_signature_pkgs(ctx, psigs)
+      const group_pk    = convert_pubkey(group.group_pk, 'bip340')
+      const results     = sig_entries.map(e => {
+        const [ sighash, signature ] = e
+        return schnorr.verify(signature, sighash, group_pk)
+      })
+      t.true(results.every(e => e === true), 'all signatures are valid')
     } catch (err) {
       t.fail(parse_error(err))
     } finally {
@@ -59,9 +67,14 @@ export default function (tape : Test) {
 
     const { group, shares } = generate_dealer_pkg(2, 3)
 
-    const message = Buff.random(32).hex
-    const members = [ 1, 3 ]
-    const template = create_session_template(members, message)
+    const messages = [ 
+      [ Buff.random(32).hex ],
+      [ Buff.random(32).hex ]
+    ]
+
+    const members  = [ 1, 3 ]
+    const template = create_session_template(members, messages)
+    Assert.exists(template, 'session template is not null')
     const session  = create_session_pkg(group, template)
 
     try {
@@ -77,10 +90,13 @@ export default function (tape : Test) {
         }
         return psig
       })
-      const group_sig = combine_signature_pkgs(ctx, psigs)
-      const group_pk  = convert_pubkey(group.group_pk, 'bip340')
-      const is_valid  = schnorr.verify(group_sig, session.message, group_pk)
-      t.true(is_valid, 'group signature is valid')
+      const sig_entries = combine_signature_pkgs(ctx, psigs)
+      const group_pk    = convert_pubkey(group.group_pk, 'bip340')
+      const results     = sig_entries.map(e => {
+        const [ sighash, signature ] = e
+        return schnorr.verify(signature, sighash, group_pk)
+      })
+      t.true(results.every(e => e === true), 'all signatures are valid')
     } catch (err) {
       t.fail(parse_error(err))
     } finally {
@@ -103,6 +119,7 @@ export default function (tape : Test) {
     
     try {
       const template = create_session_template([ 1, 3 ], event_id)
+      Assert.exists(template, 'session template is not null')
       const session  = create_session_pkg(group, template)
       const ctx      = get_session_ctx(group, session)
       const psigs    = session.members.map(idx => {
@@ -116,8 +133,10 @@ export default function (tape : Test) {
         }
         return psig
       })
-      const sig = combine_signature_pkgs(ctx, psigs)
-      const err = verify_event({ ...event_template, id: event_id, sig })
+      const pkgs = combine_signature_pkgs(ctx, psigs)
+      const sig  = pkgs.at(0)?.at(1)
+      Assert.exists(sig, 'signature is undefined')
+      const err  = verify_event({ ...event_template, id: event_id, sig })
       t.true(err === null, 'event is valid')
     } catch (err) {
       t.fail(parse_error(err))

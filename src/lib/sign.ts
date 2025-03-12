@@ -1,6 +1,6 @@
-import { get_pubkey }            from './crypto.js'
-import { create_session_shares } from './session.js'
-import { Assert }                from '@/util/assert.js'
+import { get_pubkey }           from './crypto.js'
+import { create_member_shares } from './session.js'
+import { Assert }               from '@/util/assert.js'
 
 import {
   combine_partial_sigs,
@@ -33,7 +33,7 @@ export function create_psig_pkg (
   const sid        = ctx.session.sid
   const pubkey     = get_pubkey(share.seckey, 'ecdsa')
   const sighashes  = ctx.session.hashes.map(e => e[0])
-  const sig_shares = create_session_shares(ctx.session, share)
+  const sig_shares = create_member_shares(ctx.session, share)
   const psigs      = sighashes.map(sighash => {
     const sig_share = sig_shares.find(e => e.sighash === sighash)
     const sig_ctx   = ctx.sigmap.get(sighash)

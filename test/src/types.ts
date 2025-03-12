@@ -2,12 +2,11 @@ import type {
   BifrostNode,
   GroupPackage,
   SharePackage,
-  SignSessionCommit,
-  SignSessionMember,
+  SighashCommit,
+  SighashShare,
   SignSessionPackage
 } from '@frostr/bifrost'
 
-export type Membership  = SignSessionMember & SignSessionCommit
 export type TestNodeMap = Map<string, BifrostNode>
 
 export interface TestNodes {
@@ -19,13 +18,14 @@ export interface TestNetwork extends TestNodes {
   relays : string[]
 }
 
-export interface GroupVector {
+export interface GroupTestVector {
   group   : GroupPackage
   shares  : SharePackage[]
   seeds   : string[]
 }
 
-export interface SessionVector extends GroupVector {
-  members : Membership[]
-  session : SignSessionPackage
+export interface SessionTestVector extends GroupTestVector {
+  session     : SignSessionPackage
+  sig_commits : SighashCommit[]
+  sig_shares  : SighashShare[]
 }

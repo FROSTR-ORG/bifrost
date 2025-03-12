@@ -1,8 +1,16 @@
-import { get_pubkey }           from '@frostr/bifrost/lib'
-import { Assert, parse_error }  from '@frostr/bifrost/util'
-import { parse_session_vector } from '@/test/lib/parse.js'
-import { get_session_commit }   from '@/lib/session.js'
-import { get_memberships }      from '@/test/lib/util.js'
+import { Assert, parse_error }   from '@frostr/bifrost/util'
+import { parse_session_vector }  from '@/test/lib/parse.js'
+
+import {
+  create_session_shares,
+  get_sighash_commit,
+  get_sighash_share
+} from '@/test/lib/util.js'
+
+import {
+  create_session_commits,
+  get_pubkey
+} from '@frostr/bifrost/lib'
 
 import type { Test } from 'tape'
 
@@ -11,33 +19,56 @@ import VECTOR from '@/test/vector/session.vec.json' assert { type: 'json' }
 export default function (tape : Test) {
 
   tape.test('test session memberships', t => {
-    const { group, session, shares, members: targets } = parse_session_vector(VECTOR)
+    const { group, session, shares, sig_commits, sig_shares } = parse_session_vector(VECTOR)
 
-    const memberships = get_memberships(session, shares)
+    const gen_commits = create_session_commits(group, session)
+    const gen_shares  = create_session_shares(session, shares)
 
-    for (const mbr of memberships) {
+    for (const target of sig_commits) {
       try {
-        const commit = get_session_commit(group, session, mbr.idx)
-        const target = targets.find(e => e.idx === mbr.idx)
-        Assert.exists(target, 'target not found for member: ' + mbr.idx)
+        const commit = get_sighash_commit(gen_commits, target.idx, target.sighash)
+        Assert.exists(commit, 'sighash commit not found for member: ' + target.idx)
 
-        t.equal(mbr.bind_hash, target.bind_hash, 'member bind hash matches target')
-        t.equal(mbr.hidden_sn, target.hidden_sn, 'member hidden secnonce matches target')
-        t.equal(mbr.binder_sn, target.binder_sn, 'member binder secnonce matches target')
+        const share = get_sighash_share(gen_shares, target.idx, target.sighash)
+        Assert.exists(share, 'sighash share not found for member: ' + target.idx)
 
-        t.equal(commit.bind_hash, target.bind_hash, 'commit bind hash matches target')
-        t.equal(commit.hidden_pn, target.hidden_pn, 'commit hidden pubnonce matches target') 
-        t.equal(commit.binder_pn, target.binder_pn, 'commit binder pubnonce matches target')
+        Assert.equal(commit.idx, target.idx,             'member index does not match target')
+        Assert.equal(commit.sid, target.sid,             'member session id does not match target')
+        Assert.equal(commit.bind_hash, target.bind_hash, 'member bind hash does not match target')
+        Assert.equal(commit.hidden_pn, target.hidden_pn, 'member hidden pubnonce does not match target')
+        Assert.equal(commit.binder_pn, target.binder_pn, 'member binder pubnonce does not match target')
 
-        const derived_hidden_pn = get_pubkey(mbr.hidden_sn, 'ecdsa')
-        const derived_binder_pn = get_pubkey(mbr.binder_sn, 'ecdsa')
+        const derived_hidden_pn = get_pubkey(share.hidden_sn, 'ecdsa')
+        const derived_binder_pn = get_pubkey(share.binder_sn, 'ecdsa')
 
-        t.equal(derived_hidden_pn, target.hidden_pn, 'derived hidden pubnonce matches target')
-        t.equal(derived_binder_pn, target.binder_pn, 'derived binder pubnonce matches target')
+        Assert.equal(derived_hidden_pn, target.hidden_pn, 'derived hidden pubnonce does not match target')
+        Assert.equal(derived_binder_pn, target.binder_pn, 'derived binder pubnonce does not match target')
+
       } catch (err) {
         t.fail(parse_error(err))
       }
     }
+
+    t.pass('all sighash commits match their targets')
+
+    for (const target of sig_shares) {
+      try {
+        const share = get_sighash_share(gen_shares, target.idx, target.sighash)
+        Assert.exists(share, 'sighash share not found for member: ' + target.idx)
+
+        Assert.equal(share.idx, target.idx,             'member index does not match target')
+        Assert.equal(share.sid, target.sid,             'member session id does not match target')
+        Assert.equal(share.bind_hash, target.bind_hash, 'member bind hash does not match target')
+        Assert.equal(share.hidden_sn, target.hidden_sn, 'member hidden secnonce does not match target')
+        Assert.equal(share.binder_sn, target.binder_sn, 'member binder secnonce does not match target')
+
+      } catch (err) {
+        t.fail(parse_error(err))
+      }
+    }
+
+    t.pass('all sighash shares match their targets')
+
     t.end()
   })
 }

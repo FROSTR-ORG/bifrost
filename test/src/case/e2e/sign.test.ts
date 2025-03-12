@@ -2,11 +2,11 @@ import { Buff }             from '@cmdcode/buff'
 import { verify_signature } from '@/lib/crypto.js'
 import { parse_error }      from '@/util/index.js'
 
-import type { SighashEntry } from '@/types/sign.js'
+import type { SighashVector } from '@/types/sign.js'
 import type { TestNetwork } from '@/test/types.js'
 import type { Test }        from 'tape'
 
-const MESSAGES : SighashEntry[] = [
+const MESSAGES : SighashVector[] = [
   [ Buff.str('Hello, world!').digest.hex ],
   [ Buff.random(32).hex ],
   [ Buff.random(32).hex ],

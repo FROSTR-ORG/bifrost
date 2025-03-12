@@ -2,16 +2,18 @@ import type { GroupSigningCtx } from '@cmdcode/frost'
 
 import type { CommitPackage, SharePackage } from './group.js'
 
-export type SighashEntry    = [ sighash : string, ...tweaks : string[] ]
+export type SighashVector   = [ sighash : string, ...tweaks : string[] ]
 export type PartialSigEntry = [ sighash : string, psig : string ]
 export type SignatureEntry  = [ sighash : string, signature : string ]
 
 export interface SighashCommit extends CommitPackage {
+  sid       : string,
   sighash   : string,
   bind_hash : string
 }
 
 export interface SighashShare extends SharePackage {
+  sid       : string,
   sighash   : string,
   bind_hash : string
 }
@@ -27,7 +29,7 @@ export interface SignRequestConfig extends SignSessionConfig {
 }
 
 export interface SignSessionTemplate extends SignSessionConfig {
-  hashes  : SighashEntry[]
+  hashes  : SighashVector[]
   members : number[]
 }
 

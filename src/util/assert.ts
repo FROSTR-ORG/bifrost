@@ -1,10 +1,18 @@
-import { Buff, Bytes } from '@cmdcode/buff'
-import { ZodSchema } from 'zod'
+import { Buff, Bytes }     from '@cmdcode/buff'
+import { ZodSchema }       from 'zod'
 import { validate_schema } from './helpers.js'
 
 export namespace Assert {
   export function ok (value : unknown, message ?: string) : asserts value {
     if (value === false) throw new Error(message ?? 'Assertion failed!')
+  }
+
+  export function equal <T> (
+    actual   : T,
+    expected : T,
+    err_msg ?: string
+  ) : asserts expected {
+    if (actual !== expected) throw new Error(err_msg ?? `${actual} !== ${expected}`)
   }
 
   export function exists <T> (

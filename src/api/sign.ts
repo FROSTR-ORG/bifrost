@@ -32,7 +32,6 @@ import type {
   SignSessionPackage,
   PartialSigPackage,
   SignRequestConfig,
-  SighashEntry,
   SignatureEntry
 } from '@/types/index.js'
 
@@ -74,13 +73,9 @@ export async function sign_handler_api (
 
 export function sign_request_api (node : BifrostNode) {
   return async (
-    message : string | SighashEntry[],
-    options : Partial<SignRequestConfig> = {}
+    messages : string | string[][],
+    options  : Partial<SignRequestConfig> = {}
   ) : Promise<ApiResponse<SignatureEntry[]>> => {
-    //
-    const hashes = typeof message === 'string'
-      ? [[ message ] ] as SighashEntry[]
-      : message
     // Get the peers to send the request to.
     const peers    = options.peers ??= node.peers.send
     // Get the threshold for the group.
@@ -90,7 +85,9 @@ export function sign_request_api (node : BifrostNode) {
     // Get the indexes of the members.
     const members  = get_member_indexes(node.group, [ node.pubkey, ...selected ])
     // Create the session template.
-    const template = create_session_template(hashes, members, options)
+    const template = create_session_template(members, messages, options)
+    // Assert the template is not null.
+    Assert.ok(template !== null, 'invalid session template')
     // Create the session package.
     const session  = create_session_pkg(node.group, template)
     // Initialize the list of response packages.
