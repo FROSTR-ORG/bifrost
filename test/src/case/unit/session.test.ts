@@ -16,11 +16,15 @@ export default function (tape : Test) {
 
   tape.test('test session creation', t => {
     try {
-      const template = create_session_template(target.members, target.hashes, {
-        content : target.content,
-        stamp   : target.stamp,
-        type    : target.type
-      })
+      const template = create_session_template(
+        target.members, 
+        target.hashes,
+        {
+          content : target.content,
+          stamp   : target.stamp,
+          type    : target.type
+        }
+      )
 
       Assert.exists(template, 'session template is not null')
       const session  = create_session_pkg(group, template)

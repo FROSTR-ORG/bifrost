@@ -4,7 +4,7 @@ import type { CommitPackage, SharePackage } from './group.js'
 
 export type SighashVector   = [ sighash : string, ...tweaks : string[] ]
 export type PartialSigEntry = [ sighash : string, psig : string ]
-export type SignatureEntry  = [ sighash : string, signature : string ]
+export type SignatureEntry  = [ sighash : string, pubkey : string, signature : string ]
 
 export interface SighashCommit extends CommitPackage {
   sid       : string,

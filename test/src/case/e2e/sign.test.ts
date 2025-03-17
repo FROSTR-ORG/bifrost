@@ -7,22 +7,16 @@ import type { TestNetwork } from '@/test/types.js'
 import type { Test }        from 'tape'
 
 const MESSAGES : SighashVector[] = [
-  [ Buff.str('Hello, world!').digest.hex ],
-  [ Buff.random(32).hex ],
-  [ Buff.random(32).hex ],
-  [ Buff.random(32).hex ],
-  [ Buff.random(32).hex ],
-  [ Buff.random(32).hex ],
-  [ Buff.random(32).hex ],
-  [ Buff.random(32).hex ],
+  [ Buff.str('Hello, world!').digest.hex, Buff.random(32).hex ],
+  [ Buff.random(32).hex, Buff.random(32).hex ],
+  [ Buff.random(32).hex, Buff.random(32).hex ]
 ]
 
 export default function (
   ctx : TestNetwork,
   tape : Test
 ) {
-  const Alice    = ctx.nodes.get('alice')!
-  const group_pk = Alice.group.group_pk
+  const Alice = ctx.nodes.get('alice')!
 
   tape.test('Signature Test', async t => {
     try {
@@ -30,8 +24,8 @@ export default function (
       if (!res.ok) {
         t.fail(res.err)
       } else {
-        const checks = res.data.map(([ msg, sig ]) => {
-          return verify_signature(sig, msg, group_pk, 'bip340')
+        const checks = res.data.map(([ msg, pubkey, sig ]) => {
+          return verify_signature(sig, msg, pubkey, 'bip340')
         })
         t.ok(checks.every(e => e === true), 'all signatures are valid')
       }

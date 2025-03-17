@@ -37,7 +37,7 @@ export function create_psig_pkg (
   const psigs      = sighashes.map(sighash => {
     const sig_share = sig_shares.find(e => e.sighash === sighash)
     const sig_ctx   = ctx.sigmap.get(sighash)
-    Assert.exists(sig_share, 'share not found for sighash: ' + sighash)
+    Assert.exists(sig_share, 'share not found for sighash: '   + sighash)
     Assert.exists(sig_ctx,   'context not found for sighash: ' + sighash)
     const psig = create_partial_sig(sig_ctx, sig_share)
     return [ sighash, psig ] as PartialSigEntry
@@ -68,11 +68,11 @@ export function verify_psig_pkg (
     // Check if the partial signature entry is undefined.
     if (psig_entry === undefined) return 'partial signature entry not found for sighash: ' + sighash
     // Get the commit package for the package index.
-    const pnonces = sigctx.pnonces.find(e => e.idx === idx)
+    const pnonce = sigctx.pnonces.find(e => e.idx === idx)
     // Check if the commit package is undefined.
-    if (pnonces === undefined) return 'commit package not found for psig idx: ' + idx
+    if (pnonce === undefined) return 'commit package not found for psig idx: ' + idx
     // Verify the partial signature.
-    if (!verify_partial_sig(sigctx, pnonces, pubkey, psig_entry[1])) return 'partial signature invalid'
+    if (!verify_partial_sig(sigctx, pnonce, pubkey, psig_entry[1])) return 'partial signature invalid'
   }
   // Return null if everything passes.
   return null
@@ -109,8 +109,9 @@ export function combine_signature_pkgs (
   for (const [ sighash, sigctx ] of ctx.sigmap.entries()) {
     const psigs = records.filter(e => e.sighash === sighash)
     Assert.ok(psigs.length === count, 'missing partial signatures for sighash: ' + sighash)
-    const sig   = combine_partial_sigs(sigctx, psigs)
-    sigs.push([ sighash, sig ])
+    const pubkey = sigctx.group_pk
+    const sig    = combine_partial_sigs(sigctx, psigs)
+    sigs.push([ sighash, pubkey, sig ])
   }
   return sigs
 }

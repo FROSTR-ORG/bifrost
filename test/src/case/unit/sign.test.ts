@@ -33,8 +33,7 @@ import VECTOR from '@/test/vector/session.vec.json' assert { type: 'json' }
 
 export default function (tape: Test) {
   // TODO: Fix tweak application to signature aggregation.
-  //test_vector_signature(tape)
-  
+  test_vector_signature(tape)
   test_random_signature(tape)
   test_event_signature(tape)
 }
@@ -45,7 +44,7 @@ function test_vector_signature (tape: Test) {
     const { group, session, shares } = parse_session_vector(VECTOR)
 
     try {
-      const ctx = get_session_ctx(group, session)
+      const ctx   = get_session_ctx(group, session)
       const psigs = session.members.map(idx => {
         const share = shares.find(e => e.idx === idx)!
         const psig  = create_psig_pkg(ctx, share)
@@ -58,9 +57,9 @@ function test_vector_signature (tape: Test) {
         return psig
       })
       const sig_entries = combine_signature_pkgs(ctx, psigs)
-      const group_pk    = convert_pubkey(group.group_pk, 'bip340')
       const results     = sig_entries.map(e => {
-        const [ sighash, signature ] = e
+        const [ sighash, pubkey, signature ] = e
+        const group_pk = convert_pubkey(pubkey, 'bip340')
         return schnorr.verify(signature, sighash, group_pk)
       })
       t.true(results.every(e => e === true), 'all signatures are valid')
@@ -78,8 +77,8 @@ function test_random_signature (tape: Test) {
     const { group, shares } = generate_dealer_pkg(2, 3)
 
     const messages = [ 
-      [ Buff.random(32).hex ],
-      [ Buff.random(32).hex ]
+      [ Buff.random(32).hex, Buff.random(32).hex, Buff.random(32).hex ],
+      [ Buff.random(32).hex, Buff.random(32).hex, Buff.random(32).hex ]
     ]
 
     const members  = [ 1, 3 ]
@@ -101,9 +100,9 @@ function test_random_signature (tape: Test) {
         return psig
       })
       const sig_entries = combine_signature_pkgs(ctx, psigs)
-      const group_pk    = convert_pubkey(group.group_pk, 'bip340')
       const results     = sig_entries.map(e => {
-        const [ sighash, signature ] = e
+        const [ sighash, pubkey, signature ] = e
+        const group_pk = convert_pubkey(pubkey, 'bip340')
         return schnorr.verify(signature, sighash, group_pk)
       })
       t.true(results.every(e => e === true), 'all signatures are valid')
@@ -147,7 +146,7 @@ function test_event_signature (tape: Test) {
         return psig
       })
       const pkgs = combine_signature_pkgs(ctx, psigs)
-      const sig  = pkgs.at(0)?.at(1)
+      const sig  = pkgs.at(0)?.at(2)
       Assert.exists(sig, 'signature is undefined')
       const err  = verify_event({ ...event_template, id: event_id, sig })
       t.true(err === null, 'event is valid')
