@@ -3,7 +3,7 @@
  * Provides a robust event system with support for one-time events, timeouts, and wildcard handlers.
  * @template T Record of event names mapped to their payload types
  */
-export default class EventEmitter<T extends Record<string, any> = {}> {
+export class EventEmitter<T extends Record<string, any> = {}> {
   private readonly eventMap: Map<keyof T | '*', Set<Function>>;
 
   constructor() {

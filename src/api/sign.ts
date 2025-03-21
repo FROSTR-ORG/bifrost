@@ -1,7 +1,8 @@
-import BifrostNode from '@/class/client.js'
+import { BifrostNode } from '@/class/client.js'
 
 import { finalize_message }   from '@cmdcode/nostr-p2p/lib'
 import { parse_psig_message } from '@/lib/parse.js'
+import { format_sigvector }   from '@/lib/sighash.js'
 
 import {
   get_member_indexes,
@@ -32,7 +33,8 @@ import type {
   SignSessionPackage,
   PartialSigPackage,
   SignRequestConfig,
-  SignatureEntry
+  SignatureEntry,
+  SighashVector
 } from '@/types/index.js'
 
 export async function sign_handler_api (
@@ -71,11 +73,22 @@ export async function sign_handler_api (
   }
 }
 
+export function sign_queue_api (node : BifrostNode) {
+  return async (
+    message : string | string[]
+  ) : Promise<SignatureEntry> => {
+    const sigvec = format_sigvector(message)
+    return node.queue.push(sigvec)
+  }
+}
+
 export function sign_request_api (node : BifrostNode) {
   return async (
-    messages : string | string[][],
-    options  : Partial<SignRequestConfig> = {}
+    message : string | SighashVector[],
+    options : Partial<SignRequestConfig> = {}
   ) : Promise<ApiResponse<SignatureEntry[]>> => {
+    // Format the message as a sigvector.
+    const sigvecs  = typeof message === 'string' ? [ [ message ] ] : message
     // Get the peers to send the request to.
     const peers    = options.peers ??= node.peers.send
     // Get the threshold for the group.
@@ -85,7 +98,7 @@ export function sign_request_api (node : BifrostNode) {
     // Get the indexes of the members.
     const members  = get_member_indexes(node.group, [ node.pubkey, ...selected ])
     // Create the session template.
-    const template = create_session_template(members, messages, options)
+    const template = create_session_template(members, sigvecs, options)
     // Assert the template is not null.
     Assert.ok(template !== null, 'invalid session template')
     // Create the session package.

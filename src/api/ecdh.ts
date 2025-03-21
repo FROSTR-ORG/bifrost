@@ -1,4 +1,4 @@
-import BifrostNode from '@/class/client.js'
+import { BifrostNode } from '@/class/client.js'
 
 import { finalize_message }   from '@cmdcode/nostr-p2p/lib'
 import { combine_ecdh_pkgs }  from '@/lib/ecdh.js'

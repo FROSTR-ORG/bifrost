@@ -1,5 +1,6 @@
-import EventEmitter  from './emitter.js'
-import BifrostSigner from './signer.js'
+import { EventEmitter }  from './emitter.js'
+import { BifrostSigner } from './signer.js'
+import { SignerQueue }   from './queue.js'
 
 import { NostrNode }      from '@cmdcode/nostr-p2p'
 import { parse_error }    from '@cmdcode/nostr-p2p/util'
@@ -25,18 +26,20 @@ import * as API from '@/api/index.js'
 
 const NODE_CONFIG : () => BifrostNodeConfig = () => {
   return {
-    debug      : false,
-    middleware : {},
-    policies   : []
+    debug         : false,
+    middleware    : {},
+    policies      : [],
+    sign_interval : 100
   }
 }
 
-export default class BifrostNode extends EventEmitter<BifrostNodeEvent> {
+export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
 
   private readonly _cache  : BifrostNodeCache
   private readonly _client : NostrNode
   private readonly _config : BifrostNodeConfig
   private readonly _peers  : PeerPolicy[]
+  private readonly _queue  : SignerQueue
   private readonly _signer : BifrostSigner
 
   constructor (
@@ -48,6 +51,7 @@ export default class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     super()
     this._cache  = get_node_cache(options)
     this._config = get_node_config(options)
+    this._queue  = new SignerQueue(this)
     this._signer = new BifrostSigner(group, share, options)
     this._peers  = get_peer_policies(this)
 
@@ -113,6 +117,10 @@ export default class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     return this._signer.group
   }
 
+  get queue () {
+    return this._queue
+  }
+
   get peers () {
     return {
       all   : this._peers.map(e => e[0]),
@@ -127,8 +135,9 @@ export default class BifrostNode extends EventEmitter<BifrostNodeEvent> {
 
   get req () {
     return {
-      ecdh : API.ecdh_request_api(this),
-      sign : API.sign_request_api(this)
+      ecdh  : API.ecdh_request_api(this),
+      queue : API.sign_queue_api(this),
+      sign  : API.sign_request_api(this)
     }
   }
 

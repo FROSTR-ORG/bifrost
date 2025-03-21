@@ -13,6 +13,18 @@ import type {
   SighashCommit
 } from '@/types/index.js'
 
+export function format_sigvector (
+  message : string | string[]
+) : SighashVector {
+  if (Array.isArray(message)) {
+    return message as SighashVector
+  } else if (typeof message === 'string') {
+    return [ message ] as SighashVector
+  } else {
+    throw new Error('invalid message payload')
+  }
+}
+
 export function create_sighash_commit (
   session_id : string,
   commit     : CommitPackage,

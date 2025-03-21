@@ -1,7 +1,13 @@
-import BifrostNode       from '@/class/client.js'
+import { BifrostNode } from '@/class/client.js'
 
-import type { SignedMessage }               from '@cmdcode/nostr-p2p'
-import type { ECDHPackage, SignatureEntry, SignSessionPackage } from '@/types/index.js'
+import type { SignedMessage } from '@cmdcode/nostr-p2p'
+
+import type {
+  ECDHPackage,
+  SighashVector,
+  SignatureEntry,
+  SignSessionPackage
+} from '@/types/index.js'
 
 export interface BifrostNodeCache {
   ecdh : Map<string, string>
@@ -14,10 +20,11 @@ export type PeerPolicy = [
 ]
 
 export interface BifrostNodeConfig {
-  cache?     : BifrostNodeCache
-  debug      : boolean
-  middleware : BifrostNodeMiddleware
-  policies   : PeerPolicy[]
+  cache?        : BifrostNodeCache
+  debug         : boolean
+  middleware    : BifrostNodeMiddleware
+  policies      : PeerPolicy[]
+  sign_interval : number
 }
 
 export interface BifrostNodeMiddleware {
@@ -29,8 +36,17 @@ export interface BifrostSignerConfig {
 
 }
 
+export interface SignRequest {
+  sigvec  : SighashVector
+  resolve : (result: any) => void
+  reject  : (error: any)  => void
+}
+
 export interface BifrostNodeEvent {
-  '*'                 : [ string, ...any[] ]
+  '*'                 : unknown
+  'info'              : unknown
+  'debug'             : unknown
+  'error'             : unknown
   'ready'             : BifrostNode
   'closed'            : BifrostNode
   'bounced'           : [ string, SignedMessage   ]

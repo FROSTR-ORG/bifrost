@@ -29,7 +29,7 @@ const SIGNER_CONFIG : () => BifrostSignerConfig = () => {
   return {}
 }
 
-export default class BifrostSigner {
+export class BifrostSigner {
 
   private readonly _config : BifrostSignerConfig
   private readonly _group  : GroupPackage
@@ -74,7 +74,9 @@ export default class BifrostSigner {
     return new Buff(sig).hex
   }
 
-  sign_session (session : SignSessionPackage) : PartialSigPackage {
+  sign_session (
+    session : SignSessionPackage
+  ) : PartialSigPackage {
     const ctx = get_session_ctx(this._group, session)
     
     return create_psig_pkg(ctx, this._share)

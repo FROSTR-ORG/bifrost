@@ -1,6 +1,7 @@
 import { Buff }             from '@cmdcode/buff'
 import { verify_signature } from '@/lib/crypto.js'
 import { parse_error }      from '@/util/index.js'
+import { BifrostNode }      from '@/class/client.js'
 
 import type { SighashVector } from '@/types/sign.js'
 import type { TestNetwork } from '@/test/types.js'
@@ -16,19 +17,15 @@ export default function (
   ctx : TestNetwork,
   tape : Test
 ) {
-  const Alice = ctx.nodes.get('alice')!
+  const Alice = ctx.nodes.get('alice') as BifrostNode
 
   tape.test('Signature Test', async t => {
     try {
-      const res = await Alice.req.sign(MESSAGES)
-      if (!res.ok) {
-        t.fail(res.err)
-      } else {
-        const checks = res.data.map(([ msg, pubkey, sig ]) => {
-          return verify_signature(sig, msg, pubkey, 'bip340')
-        })
-        t.ok(checks.every(e => e === true), 'all signatures are valid')
-      }
+      const sigs   = await Promise.all(MESSAGES.map(msg => Alice.req.queue(msg)))
+      const checks = sigs.map(([ msg, pubkey, sig ]) => {
+        return verify_signature(sig, msg, pubkey, 'bip340')
+      })
+      t.ok(checks.every(e => e === true), 'all signatures are valid')
     } catch (err) {
       console.log('error:', err)
       t.fail(parse_error(err))
