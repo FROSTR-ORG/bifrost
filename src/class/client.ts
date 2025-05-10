@@ -4,7 +4,7 @@ import { SignerQueue }   from './queue.js'
 
 import { NostrNode }      from '@cmdcode/nostr-p2p'
 import { parse_error }    from '@cmdcode/nostr-p2p/util'
-import { convert_pubkey } from '@/lib/crypto.js'
+import { convert_pubkey } from '@/util/crypto.js'
 
 import {
   parse_ecdh_message,
@@ -67,6 +67,11 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
       // Handle the message.
       try {
         switch (msg.tag) {
+          case '/ping/req': {
+            // Handle the request.
+            API.ping_handler_api(this, msg)
+            break
+          }
           case '/ecdh/req': {
             // Parse the request message.
             const parsed = parse_ecdh_message(msg)
@@ -136,6 +141,7 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   get req () {
     return {
       ecdh  : API.ecdh_request_api(this),
+      ping  : API.ping_request_api(this),
       queue : API.sign_queue_api(this),
       sign  : API.sign_request_api(this)
     }

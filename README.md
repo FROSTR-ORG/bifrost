@@ -1,14 +1,13 @@
 # Bifrost
 
-Core library and SDK for implementing the FROSTR protocol - a threshold signing and secure messaging system for nostr.
+SDK and reference node for the FROSTR protocol.
 
 ## Features
 
-* Reference implementation of the FROSTR protocol.
-* Provides a `BifrostNode` which communicates over nostr.
-* Nodes collaborate to sign messages and exchange ECDH secrets.
+* Communicates over nostr using end-to-end encrypted messaging.
+* Nodes will collaborate to sign messages and exchange ECDH secrets.
 * Run standalone or integrate into existing nostr clients.
-* Includes methods for creating, distributing, and managing sets of shares for FROST-based threshold signing.
+* Includes methods for creating and managing a group of FROSTR shares.
 
 ## Installation
 
@@ -34,9 +33,7 @@ const MEMBERS    = 3  // Total number of shares to create.
 const SECRET_KEY = 'your hex-encoded secret key'
 
 // Generate a 2-of-3 threshold share package.
-const { group, shares } = generate_dealer_pkg (
-  THRESHOLD, MEMBERS, [ SECRET_KEY ]
-)
+const { group, shares } = generate_dealer_pkg(THRESHOLD, MEMBERS, [ SECRET_KEY ])
 
 // Encode the group and shares as bech32 strings.
 const group_cred  = encode_group_pkg(group)
@@ -49,9 +46,9 @@ const share_creds = shares.map(encode_share_pkg)
 import { BifrostNode } from '@frostr/bifrost'
 
 // List of relays to connect to.
-const relays = [ 'wss://relay.example.com' ]
+const relays  = [ 'wss://relay.example.com' ]
 
-const opt = {
+const options = {
   // Provide an existing cache for storing data.
   cache : {
     // Cache for storing ECDH secrets.
@@ -92,7 +89,7 @@ await node.connect()
 ```ts
 // Optional parameters for the signature request.
 const options = {
-  payload : null,      // optional payload for the signature request.
+  content : null,      // optional payload for the signature request.
   peers   : [],        // array of peer public keys (overrides policies).
   stamp   : now(),     // specific timestamp for the request.
   type    : 'message', // optional type parameter for the signature request.

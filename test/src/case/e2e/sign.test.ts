@@ -1,5 +1,5 @@
 import { Buff }             from '@cmdcode/buff'
-import { verify_signature } from '@/lib/crypto.js'
+import { verify_signature } from '@/util/crypto.js'
 import { parse_error }      from '@/util/index.js'
 import { BifrostNode }      from '@/class/client.js'
 

@@ -6,7 +6,7 @@ import {
   tweak_pubkey,
   tweak_seckey,
   get_pubkey
-} from '@/lib/crypto.js'
+} from '@/util/crypto.js'
 
 import type { Test } from 'tape'
 

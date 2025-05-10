@@ -1,6 +1,6 @@
 import { TestNetwork } from '@/test/types.js'
 import { parse_error } from '@cmdcode/nostr-p2p/util'
-import { get_pubkey }  from '@/lib/crypto.js'
+import { get_pubkey }  from '@/util/crypto.js'
 
 import type { Test } from 'tape'
 

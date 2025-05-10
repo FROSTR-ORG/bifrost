@@ -3,7 +3,7 @@ import { Buff } from '@cmdcode/buff'
 import {
   tweak_pubkey,
   tweak_seckey
-} from './crypto.js'
+} from '../util/crypto.js'
 
 import type {
   SharePackage,

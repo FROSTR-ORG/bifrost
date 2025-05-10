@@ -1,6 +1,7 @@
 import { Buff }                 from '@cmdcode/buff'
 import { schnorr }              from '@noble/curves/secp256k1'
 import { parse_session_vector } from '@/test/lib/parse.js'
+import { convert_pubkey }       from '@/util/crypto.js'
 
 import {
   get_event_id,
@@ -23,9 +24,9 @@ import {
   combine_signature_pkgs,
   create_psig_pkg,
   generate_dealer_pkg,
-  convert_pubkey,
   verify_psig_pkg
 } from '@frostr/bifrost/lib'
+
 
 import type { Test } from 'tape'
 

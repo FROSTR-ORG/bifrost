@@ -1,6 +1,6 @@
 import { Buff }               from '@cmdcode/buff'
 import { get_commits_prefix } from '@cmdcode/frost/lib'
-import { get_pubkey }         from '@/lib/crypto.js'
+import { get_pubkey }         from '@/util/crypto.js'
 import { Assert }             from '@/util/assert.js'
 
 import type {

@@ -63,7 +63,6 @@ export function parse_psig_message (
     const parsed = schema.parse(json)
     return { ...msg, data : parsed }
   } catch (err) {
-    console.log('error:', err)
     throw new Error('signature message failed validation')
   }
 }

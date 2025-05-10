@@ -59,6 +59,15 @@ export interface BifrostNodeEvent {
   '/ecdh/handler/req' : SignedMessage
   '/ecdh/handler/res' : SignedMessage
   '/ecdh/handler/rej' : [ string, SignedMessage   ]
+  '/ping/handler/req' : SignedMessage
+  '/ping/handler/res' : SignedMessage
+  '/ping/handler/rej' : [ string, SignedMessage   ]
+  '/ping/handler/ret' : [ string, string          ]
+  '/ping/sender/req'  : SignedMessage
+  '/ping/sender/res'  : SignedMessage[]
+  '/ping/sender/rej'  : [ string, SignedMessage[] ]
+  '/ping/sender/ret'  : string[]
+  '/ping/sender/err'  : [ string, SignedMessage[] ]
   '/sign/sender/req'  : SignedMessage
   '/sign/sender/res'  : SignedMessage[]
   '/sign/sender/rej'  : [ string, SignSessionPackage  ]

@@ -7,10 +7,8 @@ import {
   get_sighash_share
 } from '@/test/lib/util.js'
 
-import {
-  create_session_commits,
-  get_pubkey
-} from '@frostr/bifrost/lib'
+import { create_session_commits } from '@frostr/bifrost/lib'
+import { get_pubkey }             from '@/util/crypto.js'
 
 import type { Test } from 'tape'
 

@@ -1,4 +1,4 @@
-import { get_pubkey }           from './crypto.js'
+import { get_pubkey }           from '../util/crypto.js'
 import { create_member_shares } from './session.js'
 import { Assert }               from '@/util/assert.js'
 

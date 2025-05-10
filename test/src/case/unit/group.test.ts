@@ -12,7 +12,7 @@ import { create_partial_sig }  from '@/lib/sign.js'
 import { parse_error }         from '@/util/index.js'
 import { parse_group_vector }  from '@/test/lib/parse.js'
 
-import { convert_pubkey, get_pubkey } from '@/lib/crypto.js'
+import { convert_pubkey, get_pubkey } from '@/util/crypto.js'
 
 import type { Test } from 'tape'
 

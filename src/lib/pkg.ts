@@ -1,5 +1,5 @@
 import { Buff }       from '@cmdcode/buff'
-import { get_pubkey } from './crypto.js'
+import { get_pubkey } from '../util/crypto.js'
 import { Assert }     from '@/util/assert.js'
 
 import {

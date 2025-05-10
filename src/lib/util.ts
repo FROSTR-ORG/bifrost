@@ -1,12 +1,12 @@
-import { Assert } from '@/util/index.js'
+import { derive_shares_secret } from '@cmdcode/frost/lib'
+import { Assert }               from '@/util/index.js'
 
 import {
   convert_pubkey,
   get_pubkey
-} from './crypto.js'
+} from '../util/crypto.js'
 
 import type { GroupPackage, SharePackage } from '@/types/index.js'
-import { derive_shares_secret } from '@cmdcode/frost/lib'
 
 /**
  * Get the indexes of the members in the group.
