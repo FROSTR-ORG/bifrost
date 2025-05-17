@@ -1,6 +1,6 @@
 {
   "name": "@frostr/bifrost",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Core library for the FROSTR protocol.",
   "author": "Christopher Scott",
   "license": "MIT",
@@ -24,6 +24,11 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./encoder": {
+      "import": "./dist/encoder/index.js",
+      "types": "./dist/encoder/index.d.ts",
+      "default": "./dist/encoder/index.js"
     },
     "./lib": {
       "import": "./dist/lib/index.js",
