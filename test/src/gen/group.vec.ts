@@ -1,11 +1,11 @@
 import { Buff } from '@cmdcode/buff'
 
-import { generate_dealer_pkg } from '@/lib/pkg.js'
+import { generate_dealer_pkg } from '@frostr/bifrost/lib'
 
 import {
   encode_group_pkg,
   encode_share_pkg
-} from '@/lib/encoder.js'
+} from '@frostr/bifrost/encoder'
 
 const DEFAULT_SECRETS = [ 'alice', 'bob', 'carol' ]
 

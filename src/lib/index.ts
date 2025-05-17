@@ -1,4 +1,3 @@
-export * from './encoder.js'
 export * from './ecdh.js'
 export * from './group.js'
 export * from './pkg.js'

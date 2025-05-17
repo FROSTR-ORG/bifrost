@@ -4,8 +4,11 @@ import { create_session_shares } from '@/test/lib/util.js'
 
 import {
   decode_group_pkg,
+  decode_share_pkg
+} from '@frostr/bifrost/encoder'
+
+import {
   create_session_pkg,
-  decode_share_pkg,
   create_session_template,
   create_session_commits
 } from '@frostr/bifrost/lib'

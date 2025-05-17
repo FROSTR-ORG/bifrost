@@ -4,7 +4,7 @@ import { Schema } from '@frostr/bifrost'
 import {
   decode_group_pkg,
   decode_share_pkg
-} from '@/lib/encoder.js'
+} from '@frostr/bifrost/encoder'
 
 import type { GroupTestVector, SessionTestVector } from '@/test/types.js'
 

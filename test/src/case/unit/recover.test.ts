@@ -8,7 +8,7 @@ import {
 import {
   decode_group_pkg,
   decode_share_pkg
-} from '@/lib/encoder.js'
+} from '@/encoder/index.js'
 
 import type { Test } from 'tape'
 
