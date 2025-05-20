@@ -1,6 +1,6 @@
-import { BifrostNode }      from '@/class/client.js'
-import { finalize_message } from '@cmdcode/nostr-p2p/lib'
-import { get_peer_pubkeys } from '@/lib/peer.js'
+import { BifrostNode }         from '@/class/client.js'
+import { finalize_message }    from '@cmdcode/nostr-p2p/lib'
+import { get_expired_pubkeys } from '@/lib/peer.js'
 
 import { Assert, copy_obj, now, parse_error } from '@/util/index.js'
 
@@ -107,13 +107,13 @@ export function ping_request_api (node : BifrostNode) {
 }
 
 async function create_ping_request (node : BifrostNode) : Promise<SignedMessage<string>[]> {
-  // Get the peer pubkeys.
-  const peer_pks = get_peer_pubkeys(node.peers)
+  // Get the expired peer pubkeys.
+  const expired_pks = get_expired_pubkeys(node.peers)
   // Send a request to the peer nodes.
   const res = await node.client.multicast({
     data : 'ping',
     tag  : '/ping/req'
-  }, peer_pks)
+  }, expired_pks)
   // Return the responses.
   return res.sub.inbox
 }
