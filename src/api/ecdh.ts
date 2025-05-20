@@ -13,6 +13,7 @@ import {
 
 import type { SignedMessage }            from '@cmdcode/nostr-p2p'
 import type { ApiResponse, ECDHPackage } from '@/types/index.js'
+import { get_send_pubkeys } from '@/lib/peer.js'
 
 export async function ecdh_handler_api (
   node : BifrostNode,
@@ -61,8 +62,10 @@ export function ecdh_request_api (node : BifrostNode) {
   ) : Promise<ApiResponse<string>> => {
     // Get the threshold for the group.
     const thold = node.group.threshold
+    // Get peers with send policy active.
+    const send_pks = get_send_pubkeys(node.peers)
     // Randomly select peers.
-    const selected  = select_random_peers(peers ??= node.peers.send, thold)
+    const selected  = select_random_peers(peers ??= send_pks, thold)
     // Check if we have the shared secret in cache.
     const encrypted = node.cache.ecdh.get(ecdh_pk)
     // If the cache has a secret:

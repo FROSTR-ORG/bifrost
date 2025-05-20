@@ -17,7 +17,7 @@ import {
 } from '@/lib/parse.js'
 
 import type {
-  BifrostSignerConfig,
+  SignerConfig,
   ECDHPackage,
   GroupPackage,
   SignSessionPackage,
@@ -25,13 +25,13 @@ import type {
   PartialSigPackage
 } from '@/types/index.js'
 
-const SIGNER_CONFIG : () => BifrostSignerConfig = () => {
+const SIGNER_CONFIG : () => SignerConfig = () => {
   return {}
 }
 
 export class BifrostSigner {
 
-  private readonly _config : BifrostSignerConfig
+  private readonly _config : SignerConfig
   private readonly _group  : GroupPackage
   private readonly _share  : SharePackage
   private readonly _pubkey : string
@@ -39,7 +39,7 @@ export class BifrostSigner {
   constructor (
     group    : GroupPackage,
     share    : SharePackage,
-    options? : Partial<BifrostSignerConfig>
+    options? : Partial<SignerConfig>
   ) {
     this._config = { ...SIGNER_CONFIG(), ...options }
     this._group  = parse_group_pkg(group)

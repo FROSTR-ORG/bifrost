@@ -7,6 +7,8 @@ export const GROUP_DATA_SIZE    = 37
 export const GROUP_PUBKEY_SIZE  = 33
 export const GROUP_THOLD_SIZE   = 4
 
+export const PEER_STATE_EXPIRY  = 30
+
 export const SHARE_DATA_SIZE    = 100
 export const SHARE_INDEX_SIZE   = 4
 export const SHARE_SECKEY_SIZE  = 32

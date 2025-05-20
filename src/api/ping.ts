@@ -1,22 +1,32 @@
-import { BifrostNode }         from '@/class/client.js'
-import { finalize_message }    from '@cmdcode/nostr-p2p/lib'
+import { BifrostNode }      from '@/class/client.js'
+import { finalize_message } from '@cmdcode/nostr-p2p/lib'
+import { get_peer_pubkeys } from '@/lib/peer.js'
 
-import { Assert, copy_obj, parse_error } from '@/util/index.js'
+import { Assert, copy_obj, now, parse_error } from '@/util/index.js'
 
 import type { SignedMessage } from '@cmdcode/nostr-p2p'
-import type { ApiResponse }   from '@/types/index.js'
+
+import type {
+  ApiResponse,
+  PeerConfig,
+  PeerPolicy
+} from '@/types/index.js'
 
 export async function ping_handler_api (
   node : BifrostNode,
   msg  : SignedMessage<string>
 ) {
   // Try to parse the message.
-  try {copy_obj
+  try {
     // Emit the request message.
     node.emit('/ping/handler/req', msg)
+    // Get the peer data.
+    const peer_data = node.peers.find(e => e.pubkey === msg.env.pubkey)
+    // If the peer data is not found, throw an error.
+    if (peer_data === undefined) throw new Error('peer data not found')
     // Finalize the response package.
     const envelope = finalize_message({
-      data : 'pong',
+      data : JSON.stringify(peer_data.policy),
       id   : msg.id,
       tag  : '/ping/res'
     })
@@ -24,6 +34,12 @@ export async function ping_handler_api (
     const res = await node.client.publish(envelope, msg.env.pubkey)
     // If the response is not ok, throw an error.
     if (!res.ok) throw new Error('failed to publish response')
+    // Update the peer state.
+    node.update_peer({
+      ...peer_data,
+      status  : 'online',
+      updated : Date.now()
+    })
     // Emit the response package.
     node.emit('/ping/handler/res', copy_obj(res.data))
   } catch (err) {
@@ -36,7 +52,7 @@ export async function ping_handler_api (
 
 export function ping_request_api (node : BifrostNode) {
 
-  return async () : Promise<ApiResponse<string[]>> => {
+  return async () : Promise<ApiResponse<PeerConfig[]>> => {
 
     let msgs : SignedMessage<string>[] | null = null
 
@@ -58,11 +74,25 @@ export function ping_request_api (node : BifrostNode) {
 
     try {
       Assert.ok(msgs !== null, 'no responses from peers')
-      const pubkeys = msgs.map(e => e.env.pubkey)
+      // Get the current time.
+      const current = now()
+      // Parse the response.
+      const configs = parse_ping_response(msgs)
+      // Update the peer state.
+      for (const config of configs) {
+        const peer_data = node.peers.find(e => e.pubkey === config.pubkey)
+        Assert.exists(peer_data, 'peer data not found')
+        node.update_peer({
+          ...peer_data,
+          policy  : { send : config.send, recv : config.recv },
+          status  : 'online',
+          updated : current
+        })
+      }
       // Emit the pong event.
-      node.emit('/ping/sender/ret', pubkeys)
+      node.emit('/ping/sender/ret', configs)
       // Return the pong event.
-      return { ok : true, data : pubkeys }
+      return { ok : true, data : configs }
     } catch (err) {
       // Log the error.
       if (node.debug) console.log(err)
@@ -77,15 +107,21 @@ export function ping_request_api (node : BifrostNode) {
 }
 
 async function create_ping_request (node : BifrostNode) : Promise<SignedMessage<string>[]> {
-  // Serialize the package as a string.
-  const msg = { data : 'ping', tag : '/ping/req' }
+  // Get the peer pubkeys.
+  const peer_pks = get_peer_pubkeys(node.peers)
   // Send a request to the peer nodes.
-  const res = await node.client.multicast(msg, node.peers.all)
-  // Return early if the response fails.
-  if (!res.sub.ok) throw new Error(res.sub.reason)
-  // Parse the response packages.
-  res.sub.inbox.map(e => {
-    Assert.ok(e.data === 'pong', 'invalid ping response from pubkey: ' + e.env.pubkey)
-  })
+  const res = await node.client.multicast({
+    data : 'ping',
+    tag  : '/ping/req'
+  }, peer_pks)
+  // Return the responses.
   return res.sub.inbox
+}
+
+function parse_ping_response (msgs : SignedMessage<string>[]) : PeerConfig[] {
+  return msgs.map(e => {
+    const policy = JSON.parse(e.data) as PeerPolicy
+    const pubkey = e.env.pubkey
+    return { pubkey, ...policy }
+  })
 }

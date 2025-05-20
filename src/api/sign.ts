@@ -36,6 +36,7 @@ import type {
   SignatureEntry,
   SighashVector
 } from '@/types/index.js'
+import { get_send_pubkeys } from '@/lib/peer.js'
 
 export async function sign_handler_api (
   node : BifrostNode,
@@ -89,8 +90,10 @@ export function sign_request_api (node : BifrostNode) {
   ) : Promise<ApiResponse<SignatureEntry[]>> => {
     // Format the message as a sigvector.
     const sigvecs  = typeof message === 'string' ? [ [ message ] ] : message
+    // Get peers with send policy active.
+    const send_pks = get_send_pubkeys(node.peers)
     // Get the peers to send the request to.
-    const peers    = options.peers ??= node.peers.send
+    const peers    = options.peers ??= send_pks
     // Get the threshold for the group.
     const thold    = node.group.threshold
     // Randomly select peers.

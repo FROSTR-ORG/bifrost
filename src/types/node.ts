@@ -1,9 +1,9 @@
-import { BifrostNode } from '@/class/client.js'
-
+import type { BifrostNode }   from '@/class/client.js'
 import type { SignedMessage } from '@cmdcode/nostr-p2p'
 
 import type {
   ECDHPackage,
+  PeerConfig,
   SighashVector,
   SignatureEntry,
   SignSessionPackage
@@ -13,27 +13,17 @@ export interface BifrostNodeCache {
   ecdh : Map<string, string>
 }
 
-export type PeerPolicy = [
-  pubkey : string,
-  send   : boolean,
-  recv   : boolean
-]
-
 export interface BifrostNodeConfig {
   cache?        : BifrostNodeCache
   debug         : boolean
   middleware    : BifrostNodeMiddleware
-  policies      : PeerPolicy[]
+  policies      : PeerConfig[]
   sign_interval : number
 }
 
 export interface BifrostNodeMiddleware {
   ecdh? : (client : BifrostNode, msg : SignedMessage) => SignedMessage
   sign? : (client : BifrostNode, msg : SignedMessage) => SignedMessage
-}
-
-export interface BifrostSignerConfig {
-
 }
 
 export interface SignRequest {
@@ -43,7 +33,7 @@ export interface SignRequest {
 }
 
 export interface BifrostNodeEvent {
-  '*'                 : unknown
+  '*'                 : [ string, unknown ]
   'info'              : unknown
   'debug'             : unknown
   'error'             : unknown
@@ -66,7 +56,7 @@ export interface BifrostNodeEvent {
   '/ping/sender/req'  : SignedMessage
   '/ping/sender/res'  : SignedMessage[]
   '/ping/sender/rej'  : [ string, SignedMessage[] ]
-  '/ping/sender/ret'  : string[]
+  '/ping/sender/ret'  : PeerConfig[]
   '/ping/sender/err'  : [ string, SignedMessage[] ]
   '/sign/sender/req'  : SignedMessage
   '/sign/sender/res'  : SignedMessage[]

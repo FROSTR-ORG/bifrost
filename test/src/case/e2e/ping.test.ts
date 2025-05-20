@@ -15,7 +15,14 @@ export default function (
       if (!res.ok) {
         t.fail(res.err)
       } else {
-        t.equal(res.data.length, 2, 'Ping response length matches')
+        t.equal(res.data.length, 2, 'ping response length matches')
+        for (const config of res.data) {
+          const peer = Alice.peers.find(e => e.pubkey === config.pubkey)
+          if (peer === undefined) throw new Error('peer data not found')
+          t.equal(peer.policy.send, config.send, `${peer.pubkey.slice(0, 6)} send policy matches`)
+          t.equal(peer.policy.recv, config.recv, `${peer.pubkey.slice(0, 6)} recv policy matches`)
+          t.equal(peer.status, 'online', `${peer.pubkey.slice(0, 6)} status is online`)
+        }
       }
     } catch (err) {
       t.fail(parse_error(err))

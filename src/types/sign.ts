@@ -6,6 +6,8 @@ export type SighashVector   = [ sighash : string, ...tweaks : string[] ]
 export type PartialSigEntry = [ sighash : string, psig : string ]
 export type SignatureEntry  = [ sighash : string, pubkey : string, signature : string ]
 
+export interface SignerConfig {}
+
 export interface SighashCommit extends CommitPackage {
   sid       : string,
   sighash   : string,

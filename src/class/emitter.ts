@@ -3,138 +3,136 @@
  * Provides a robust event system with support for one-time events, timeouts, and wildcard handlers.
  * @template T Record of event names mapped to their payload types
  */
+
+type EventHandler<T> = T extends any[] 
+  ? (...args: T) => void | Promise<void>
+  : (payload: T) => void | Promise<void>
+
+type EventMap<T>  = Map<EventName<T>, Set<Function>>
+type EventName<T> = keyof T | '*'
+
 export class EventEmitter<T extends Record<string, any> = {}> {
-  private readonly eventMap: Map<keyof T | '*', Set<Function>>;
+  private readonly eventMap: EventMap<T>
 
   constructor() {
-    this.eventMap = new Map();
+    this.eventMap = new Map()
   }
 
   /**
    * Gets or creates a Set of event handlers for the given event.
-   * @private
-   * @param eventName  Name of the event to get handlers for
-   * @returns          Set of handler functions for the event
    */
-  private getEventHandlers(eventName: string): Set<Function> {
-    const handlers = this.eventMap.get(eventName);
+  private _get_event_handlers(eventName: EventName<T>): Set<Function> {
+    const handlers = this.eventMap.get(eventName)
     if (!handlers) {
-      const newHandlers = new Set<Function>();
-      this.eventMap.set(eventName, newHandlers);
-      return newHandlers;
+      const newHandlers = new Set<Function>()
+      this.eventMap.set(eventName, newHandlers)
+      return newHandlers
     }
-    return handlers;
+    return handlers
   }
 
   /**
    * Checks if an event has any active subscribers.
-   * @param eventName  Name of the event to check
-   * @returns         True if the event has subscribers, false otherwise
    */
   public has<K extends keyof T>(eventName: K): boolean {
-    const handlers = this.eventMap.get(eventName);
-    return handlers !== undefined && handlers.size > 0;
+    const handlers = this.eventMap.get(eventName)
+    return handlers !== undefined && handlers.size > 0
   }
 
   /**
    * Subscribes a handler function to an event.
-   * @param eventName  Name of the event to subscribe to
-   * @param handler    Function to be called when event is emitted
-   * @emits message   When the subscribed event is emitted
    */
   public on<K extends keyof T>(
     eventName: K,
-    handler: (payload: T[K]) => void | Promise<void>
+    handler: EventHandler<T[K]>
   ): void {
-    this.getEventHandlers(eventName as string).add(handler);
+    this._get_event_handlers(eventName).add(handler)
   }
 
   /**
    * Subscribes a one-time handler that automatically unsubscribes after first execution.
-   * @param eventName  Name of the event to subscribe to
-   * @param handler    Function to be called once when event is emitted
-   * @emits message   When the subscribed event is emitted (only once)
    */
-  public once<K extends keyof T>(
+  public once <K extends keyof T>(
     eventName: K,
-    handler: (payload: T[K]) => void | Promise<void>
+    handler: EventHandler<T[K]>
   ): void {
-    const oneTimeHandler = (payload: T[K]): void => {
-      this.off(eventName as string, oneTimeHandler);
-      void handler(payload);
-    };
-    this.on(eventName, oneTimeHandler);
+    const once_handler: EventHandler<T[K]> = ((payload: T[K]) => {
+      this.off(eventName, once_handler)
+      void invoke_handler(handler as Function, payload)
+    }) as EventHandler<T[K]>
+    
+    this.on(eventName, once_handler)
   }
 
   /**
    * Subscribes a handler that automatically unsubscribes after a specified timeout.
-   * @param eventName  Name of the event to subscribe to
-   * @param handler    Function to be called when event is emitted
-   * @param timeoutMs  Time in milliseconds after which the handler is unsubscribed
-   * @emits message   When the subscribed event is emitted (within timeout period)
    */
   public within<K extends keyof T>(
-    eventName: K,
-    handler: (payload: T[K]) => void | Promise<void>,
-    timeoutMs: number
+    eventName : K,
+    handler   : EventHandler<T[K]>,
+    timeoutMs : number
   ): void {
-    const timeoutHandler = (payload: T[K]): void => {
-      void handler(payload);
-    };
+    const timeout_handler: EventHandler<T[K]> = ((payload: T[K]) => {
+      void invoke_handler(handler as Function, payload)
+    }) as EventHandler<T[K]>
 
     setTimeout(() => {
-      this.off(eventName as string, timeoutHandler);
-    }, timeoutMs);
+      this.off(eventName, timeout_handler)
+    }, timeoutMs)
 
-    this.on(eventName, timeoutHandler);
+    this.on(eventName, timeout_handler)
   }
 
   /**
    * Emits an event with the given payload to all subscribers.
    * Handles both synchronous and asynchronous event handlers.
-   * @param eventName  Name of the event to emit
-   * @param payload    Data to be passed to event handlers
-   * @emits *         Also triggers wildcard handlers with event name and payload
    */
   public emit<K extends keyof T>(eventName: K, payload: T[K]): void {
-    const promises: Promise<any>[] = [];
+    const promises: Promise<any>[] = []
 
     // Call specific event handlers
-    this.getEventHandlers(eventName as string).forEach(handler => {
-      const result = handler(payload);
+    this._get_event_handlers(eventName).forEach(handler => {
+      const result = invoke_handler(handler as Function, payload)
       if (result instanceof Promise) {
-        promises.push(result);
+        promises.push(result)
       }
-    });
+    })
 
     // Call wildcard handlers
-    this.getEventHandlers('*').forEach(handler => {
-      const result = handler(eventName, payload);
+    this._get_event_handlers('*').forEach(handler => {
+      const result = invoke_handler(handler as Function, [eventName, payload])
       if (result instanceof Promise) {
-        promises.push(result);
+        promises.push(result)
       }
-    });
+    })
 
-    void Promise.allSettled(promises);
+    void Promise.allSettled(promises)
   }
 
   /**
    * Removes a specific handler from an event's subscriber list.
-   * @param eventName  Name of the event to unsubscribe from
-   * @param handler    Handler function to remove
    */
   public off<K extends keyof T>(
-    eventName: string,
-    handler: (payload: T[K]) => void | Promise<void>
+    eventName: K,
+    handler: EventHandler<T[K]>
   ): void {
-    this.getEventHandlers(eventName).delete(handler);
+    this._get_event_handlers(eventName).delete(handler)
   }
 
   /**
    * Removes all handlers for a specific event.
-   * @param eventName  Name of the event to clear handlers for
    */
-  public clear(eventName: string): void {
-    this.eventMap.delete(eventName);
+  public clear(eventName: EventName<T>): void {
+    this.eventMap.delete(eventName)
   }
+}
+
+/**
+ * Invokes a handler function with the given payload, handling both array and non-array payloads.
+ */
+function invoke_handler(handler: Function, payload: any): any {
+  if (Array.isArray(payload) && payload.length > 0) {
+    return handler.apply(null, payload)
+  }
+  return handler(payload)
 }
