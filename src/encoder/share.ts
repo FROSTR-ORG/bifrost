@@ -7,6 +7,7 @@ import {
 } from '@/util/index.js'
 
 import type { SharePackage } from '@/types/index.js'
+import { encrypt_content } from '@cmdcode/nostr-p2p/lib'
 
 /**
  * Encode a member share package.
@@ -30,6 +31,39 @@ export function encode_share_pkg (
  */
 export function decode_share_pkg (
   sharestr : string
+) : SharePackage {
+  const data = Buff.bech32m(sharestr)
+  return deserialize_share_data(data)
+}
+
+/**
+ * Encrypt a member share package.
+ * 
+ * @param pkg      - The share package to encrypt.
+ * @param passcode - The passcode to encrypt the share package with.
+ * @returns The encrypted share package.
+ */
+export function encrypt_share_pkg (
+  pkg      : SharePackage,
+  passcode : string
+) : string {
+  const data = serialize_share_data(pkg)
+  Assert.size(data, CONST.SHARE_DATA_SIZE)
+  const secret = pkdf2(passcode, data, CONST.SHARE_DATA_SIZE)
+  
+  return encrypt_content(secret, data)
+}
+
+/**
+ * Decrypt a member share package.
+ * 
+ * @param sharestr - The share package to decrypt.
+ * @param passcode - The passcode to decrypt the share package with.
+ * @returns The decrypted share package.
+ */
+export function decrypt_share_pkg (
+  sharestr : string,
+  passcode : string
 ) : SharePackage {
   const data = Buff.bech32m(sharestr)
   return deserialize_share_data(data)

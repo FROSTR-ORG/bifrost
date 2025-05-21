@@ -1,4 +1,5 @@
 export * from './api.js'
+export * from './connect.js'
 export * from './group.js'
 export * from './node.js'
 export * from './peer.js'

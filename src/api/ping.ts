@@ -114,6 +114,8 @@ async function create_ping_request (node : BifrostNode) : Promise<SignedMessage<
     data : 'ping',
     tag  : '/ping/req'
   }, expired_pks)
+  // If the response is not ok, throw an error.
+  if (!res.sub.ok && res.sub.inbox.length === 0) throw new Error(res.sub.reason)
   // Return the responses.
   return res.sub.inbox
 }

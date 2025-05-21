@@ -170,6 +170,15 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     return this
   }
 
+  invite_peer (
+    share_pkg : SharePackage,
+    challenge : string,
+    passcode? : string
+  ) {
+    const encrypted = encrypt_message(share_pkg.seckey, challenge)
+    return `frostrconnect://${this.pubkey}?pk=${share_pkg.pubkey}&ch=${challenge}`
+  }
+
   update_peer (data : PeerData) {
     const idx = this.peers.findIndex(e => e.pubkey === data.pubkey)
     if (idx === -1) return
@@ -207,11 +216,11 @@ function init_peer_data (
   // For each peer, configure a policy.
   for (const peer_pk of peers_pks) {
     // Check if the policy is configured.
-    const config = node.config.policies.find(e => e.pubkey === peer_pk)
+    const policy = node.config.policies.find(e => e.pubkey === peer_pk)
     // If the policy is not configured, set the default policy.
     peer_data.push({
       // TODO: We should not default these to true.
-      policy  : config ?? { send : true, recv : true },
+      policy  : policy ?? { send : true, recv : true },
       pubkey  : peer_pk,
       status  : 'offline',
       updated : current
