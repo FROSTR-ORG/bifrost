@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [1.0.2]
+
+### Changes
+
+- Updated `ping` requests to respond with policy information from the solicited peer.
+- Updated bifrost to manage `PeerData` on each peer, which includes status and timestamp.
+- Updated `ping` handling so that pings are utilized efficiently on both send and receive.
+
 ## [1.0.1]
 
 ### Changes
