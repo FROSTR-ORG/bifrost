@@ -25,7 +25,7 @@ export interface BifrostNodeConfig {
   sign_ival  : number
 }
 
-export interface BifrostNodeOptions extends BifrostNodeConfig {
+export interface BifrostNodeOptions extends Partial<BifrostNodeConfig> {
   cache? : BifrostNodeCache
 }
 
