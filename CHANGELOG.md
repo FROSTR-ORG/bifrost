@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## [1.0.5]
+
+### Changes
+
+- Removed the auto-update of peer policy from the ping response.
+
 ## [1.0.4]
 
 ### Changes
