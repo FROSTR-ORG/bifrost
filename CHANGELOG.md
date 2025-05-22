@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## [1.0.3]
+
+### Changes
+
+- Updated `ping` so that it only solicits a single peer. You must provide a pubkey of the peer that you wish to solicit.
+
 ## [1.0.2]
 
 ### Changes
