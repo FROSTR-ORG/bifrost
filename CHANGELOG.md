@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## [1.0.4]
+
+### Changes
+
+- Added schema and validation checks for node config and updates to the peer data object (through API).
+
 ## [1.0.3]
 
 ### Changes
