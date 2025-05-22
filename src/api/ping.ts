@@ -1,5 +1,6 @@
 import { BifrostNode }      from '@/class/client.js'
 import { finalize_message } from '@cmdcode/nostr-p2p/lib'
+import Schema               from '@/schema/index.js'
 
 import {
   Assert,
@@ -79,13 +80,17 @@ export function ping_request_api (node : BifrostNode) {
     try {
       Assert.ok(msg !== null, 'no response from peer')
       // Parse the response.
-      const policy  = parse_ping_response(msg)
-      // Update the peer state.
+      const policy = parse_ping_response(msg)
+      // If the policy is null, throw an error.
+      if (policy === null) throw new Error('invalid ping response')
+      // Get the peer data.
       const peer_data = node.peers.find(e => e.pubkey === msg.env.pubkey)
+      // If the peer data is not found, throw an error.
       Assert.exists(peer_data, 'peer data not found')
+      // Update the peer state.
       const new_data = {
         ...peer_data,
-        policy,
+        policy  : policy,
         status  : 'online' as PeerStatus,
         updated : now()
       }
@@ -122,6 +127,13 @@ async function create_ping_request (
   return res.inbox[0]
 }
 
-function parse_ping_response (msg : SignedMessage<string>) : PeerPolicy {
-  return JSON.parse(msg.data) as PeerPolicy
+function parse_ping_response (msg : SignedMessage<string>) : PeerPolicy | null {
+  try {
+    const json   = JSON.parse(msg.data)
+    const parsed = Schema.peer.policy.safeParse(json)
+    if (!parsed.success) return null
+    return parsed.data
+  } catch {
+    return null
+  }
 }

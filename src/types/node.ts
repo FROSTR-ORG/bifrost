@@ -13,17 +13,20 @@ export interface BifrostNodeCache {
   ecdh : Map<string, string>
 }
 
-export interface BifrostNodeConfig {
-  cache?        : BifrostNodeCache
-  debug         : boolean
-  middleware    : BifrostNodeMiddleware
-  policies      : PeerConfig[]
-  sign_interval : number
-}
-
 export interface BifrostNodeMiddleware {
   ecdh? : (client : BifrostNode, msg : SignedMessage) => SignedMessage
   sign? : (client : BifrostNode, msg : SignedMessage) => SignedMessage
+}
+
+export interface BifrostNodeConfig {
+  debug      : boolean
+  middleware : BifrostNodeMiddleware
+  policies   : PeerConfig[]
+  sign_ival  : number
+}
+
+export interface BifrostNodeOptions extends BifrostNodeConfig {
+  cache? : BifrostNodeCache
 }
 
 export interface SignRequest {

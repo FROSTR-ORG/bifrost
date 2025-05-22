@@ -23,19 +23,27 @@ import type {
   BifrostNodeCache,
   BifrostNodeConfig,
   BifrostNodeEvent,
+  BifrostNodeOptions,
   GroupPackage,
   PeerData,
   SharePackage,
 } from '@/types/index.js'
 
 import * as API from '@/api/index.js'
+import Schema   from '@/schema/index.js'
 
-const NODE_CONFIG : () => BifrostNodeConfig = () => {
+const DEFAULT_CACHE : () => BifrostNodeCache = () => {
   return {
-    debug         : false,
-    middleware    : {},
-    policies      : [],
-    sign_interval : 100
+    ecdh : new Map()
+  }
+}
+
+const DEFAULT_CONFIG : () => BifrostNodeConfig = () => {
+  return {
+    debug      : false,
+    middleware : {},
+    policies   : [],
+    sign_ival  : 100
   }
 }
 
@@ -52,10 +60,10 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     group    : GroupPackage,
     share    : SharePackage,
     relays   : string[],
-    options? : Partial<BifrostNodeConfig>
+    options? : BifrostNodeOptions
   ) {
     super()
-    this._cache  = get_node_cache(options)
+    this._cache  = get_node_cache(options?.cache)
     this._config = get_node_config(options)
     this._queue  = new SignerQueue(this)
     this._signer = new BifrostSigner(group, share, options)
@@ -177,18 +185,19 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   }
 }
 
+function get_node_cache (
+  opt : Partial<BifrostNodeCache> = {}
+) : BifrostNodeCache {
+  return { ...DEFAULT_CACHE(), ...opt }
+}
+
 function get_node_config (
   opt : Partial<BifrostNodeConfig> = {}
 ) : BifrostNodeConfig {
-  return { ...NODE_CONFIG(), ...opt }
-}
-
-function get_node_cache (
-  opt : Partial<BifrostNodeConfig> = {}
-) : BifrostNodeCache {
-  return {
-    ecdh : opt.cache?.ecdh ?? new Map()
-  }
+  const config = { ...DEFAULT_CONFIG(), ...opt }
+  const parsed = Schema.node.config.safeParse(config)
+  if (!parsed.success) throw new Error('invalid node config')
+  return parsed.data as BifrostNodeConfig
 }
 
 function init_peer_data (

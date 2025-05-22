@@ -2,6 +2,7 @@ import { BifrostNode } from '@/class/client.js'
 
 import { finalize_message }   from '@cmdcode/nostr-p2p/lib'
 import { parse_psig_message } from '@/lib/parse.js'
+import { get_send_pubkeys }   from '@/lib/peer.js'
 import { format_sigvector }   from '@/lib/sighash.js'
 
 import {
@@ -36,7 +37,6 @@ import type {
   SignatureEntry,
   SighashVector
 } from '@/types/index.js'
-import { get_send_pubkeys } from '@/lib/peer.js'
 
 export async function sign_handler_api (
   node : BifrostNode,

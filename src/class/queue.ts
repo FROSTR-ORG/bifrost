@@ -16,7 +16,7 @@ export class SignerQueue {
 
   constructor (node : BifrostNode) {
     this._node  = node
-    this._ival  = node.config.sign_interval
+    this._ival  = node.config.sign_ival
     this._queue = []
     this._timer = null
   }
