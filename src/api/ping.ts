@@ -12,7 +12,6 @@ import type { SignedMessage } from '@cmdcode/nostr-p2p'
 
 import type {
   ApiResponse,
-  PeerConfig,
   PeerPolicy,
   PeerStatus
 } from '@/types/index.js'
@@ -57,7 +56,12 @@ export async function ping_handler_api (
 
 export function ping_request_api (node : BifrostNode) {
 
-  return async (pubkey : string) : Promise<ApiResponse<PeerConfig>> => {
+  return async (pubkey : string) : Promise<ApiResponse<PeerPolicy>> => {
+
+    // Get the peer data.
+    const peer_data = node.peers.find(e => e.pubkey === pubkey)
+    // If the peer data is not found, throw an error.
+    Assert.exists(peer_data, 'peer data not found')
 
     let msg : SignedMessage<string> | null = null
 
@@ -83,14 +87,9 @@ export function ping_request_api (node : BifrostNode) {
       const policy = parse_ping_response(msg)
       // If the policy is null, throw an error.
       if (policy === null) throw new Error('invalid ping response')
-      // Get the peer data.
-      const peer_data = node.peers.find(e => e.pubkey === msg.env.pubkey)
-      // If the peer data is not found, throw an error.
-      Assert.exists(peer_data, 'peer data not found')
       // Update the peer state.
       const new_data = {
         ...peer_data,
-        policy  : policy,
         status  : 'online' as PeerStatus,
         updated : now()
       }
@@ -98,7 +97,7 @@ export function ping_request_api (node : BifrostNode) {
       // Emit the pong event.
       node.emit('/ping/sender/ret', new_data)
       // Return the pong event.
-      return { ok : true, data : new_data }
+      return { ok : true, data : policy }
     } catch (err) {
       // Log the error.
       if (node.debug) console.log(err)
@@ -106,6 +105,12 @@ export function ping_request_api (node : BifrostNode) {
       const reason = parse_error(err)
       // Emit the error.
       node.emit('/ping/sender/err', [ reason, msg ])
+      // Update the peer state.
+      node.update_peer({
+        ...peer_data,
+        status  : 'offline',
+        updated : now()
+      })
       // Return the error.
       return { ok : false, err : reason }
     }
