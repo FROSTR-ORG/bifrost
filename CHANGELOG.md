@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## [1.0.6]
+
+### Changes
+
+- Added new `echo` method for sending a message to yourself.
+
 ## [1.0.5]
 
 ### Changes
