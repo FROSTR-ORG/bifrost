@@ -1,7 +1,11 @@
-import { BifrostNode }         from '@/class/client.js'
-import { finalize_message }    from '@cmdcode/nostr-p2p/lib'
+import { BifrostNode }      from '@/class/client.js'
+import { finalize_message } from '@cmdcode/nostr-p2p/lib'
 
-import { Assert, copy_obj, now, parse_error } from '@/util/index.js'
+import {
+  Assert,
+  now,
+  parse_error
+} from '@/util/index.js'
 
 import type { SignedMessage } from '@cmdcode/nostr-p2p'
 
@@ -38,15 +42,15 @@ export async function ping_handler_api (
     node.update_peer({
       ...peer_data,
       status  : 'online',
-      updated : Date.now()
+      updated : now()
     })
     // Emit the response package.
-    node.emit('/ping/handler/res', copy_obj(res.data))
+    node.emit('/ping/handler/res', res.data)
   } catch (err) {
     // Log the error.
     if (node.debug) console.log(err)
     // Emit the error.
-    node.emit('/ping/handler/rej', [ parse_error(err), copy_obj(msg) ])
+    node.emit('/ping/handler/rej', [ parse_error(err), msg ])
   }
 }
 
@@ -74,8 +78,6 @@ export function ping_request_api (node : BifrostNode) {
 
     try {
       Assert.ok(msg !== null, 'no response from peer')
-      // Get the current time.
-      const current = now()
       // Parse the response.
       const policy  = parse_ping_response(msg)
       // Update the peer state.
@@ -85,7 +87,7 @@ export function ping_request_api (node : BifrostNode) {
         ...peer_data,
         policy,
         status  : 'online' as PeerStatus,
-        updated : current
+        updated : now()
       }
       node.update_peer(new_data)
       // Emit the pong event.
