@@ -5,13 +5,12 @@ export interface PeerPolicy {
   recv : boolean
 }
 
-export interface PeerConfig extends PeerPolicy {
+export interface PeerConfig {
+  policy : PeerPolicy,
   pubkey : string
 }
 
-export interface PeerData {
-  policy  : PeerPolicy,
-  pubkey  : string,
+export interface PeerData extends PeerConfig {
   status  : PeerStatus,
   updated : number
 }

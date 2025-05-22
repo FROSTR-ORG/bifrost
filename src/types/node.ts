@@ -13,17 +13,20 @@ export interface BifrostNodeCache {
   ecdh : Map<string, string>
 }
 
-export interface BifrostNodeConfig {
-  cache?        : BifrostNodeCache
-  debug         : boolean
-  middleware    : BifrostNodeMiddleware
-  policies      : PeerConfig[]
-  sign_interval : number
-}
-
 export interface BifrostNodeMiddleware {
   ecdh? : (client : BifrostNode, msg : SignedMessage) => SignedMessage
   sign? : (client : BifrostNode, msg : SignedMessage) => SignedMessage
+}
+
+export interface BifrostNodeConfig {
+  debug      : boolean
+  middleware : BifrostNodeMiddleware
+  policies   : PeerConfig[]
+  sign_ival  : number
+}
+
+export interface BifrostNodeOptions extends Partial<BifrostNodeConfig> {
+  cache? : BifrostNodeCache
 }
 
 export interface SignRequest {
@@ -49,15 +52,23 @@ export interface BifrostNodeEvent {
   '/ecdh/handler/req' : SignedMessage
   '/ecdh/handler/res' : SignedMessage
   '/ecdh/handler/rej' : [ string, SignedMessage   ]
+  '/echo/handler/req' : SignedMessage
+  '/echo/handler/res' : SignedMessage
+  '/echo/handler/rej' : [ string, SignedMessage   ]
+  '/echo/sender/req'  : SignedMessage
+  '/echo/sender/res'  : SignedMessage
+  '/echo/sender/rej'  : [ string, SignedMessage | null ]
+  '/echo/sender/ret'  : [ string ]
+  '/echo/sender/err'  : [ string, SignedMessage ]
   '/ping/handler/req' : SignedMessage
   '/ping/handler/res' : SignedMessage
   '/ping/handler/rej' : [ string, SignedMessage   ]
   '/ping/handler/ret' : [ string, string          ]
   '/ping/sender/req'  : SignedMessage
-  '/ping/sender/res'  : SignedMessage[]
-  '/ping/sender/rej'  : [ string, SignedMessage[] ]
-  '/ping/sender/ret'  : PeerConfig[]
-  '/ping/sender/err'  : [ string, SignedMessage[] ]
+  '/ping/sender/res'  : SignedMessage
+  '/ping/sender/rej'  : [ string, SignedMessage | null ]
+  '/ping/sender/ret'  : PeerConfig
+  '/ping/sender/err'  : [ string, SignedMessage ]
   '/sign/sender/req'  : SignedMessage
   '/sign/sender/res'  : SignedMessage[]
   '/sign/sender/rej'  : [ string, SignSessionPackage  ]

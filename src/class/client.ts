@@ -23,19 +23,27 @@ import type {
   BifrostNodeCache,
   BifrostNodeConfig,
   BifrostNodeEvent,
+  BifrostNodeOptions,
   GroupPackage,
   PeerData,
   SharePackage,
 } from '@/types/index.js'
 
 import * as API from '@/api/index.js'
+import Schema   from '@/schema/index.js'
 
-const NODE_CONFIG : () => BifrostNodeConfig = () => {
+const DEFAULT_CACHE : () => BifrostNodeCache = () => {
   return {
-    debug         : false,
-    middleware    : {},
-    policies      : [],
-    sign_interval : 100
+    ecdh : new Map()
+  }
+}
+
+const DEFAULT_CONFIG : () => BifrostNodeConfig = () => {
+  return {
+    debug      : false,
+    middleware : {},
+    policies   : [],
+    sign_ival  : 100
   }
 }
 
@@ -52,18 +60,18 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     group    : GroupPackage,
     share    : SharePackage,
     relays   : string[],
-    options? : Partial<BifrostNodeConfig>
+    options? : BifrostNodeOptions
   ) {
     super()
-    this._cache  = get_node_cache(options)
+    this._cache  = get_node_cache(options?.cache)
     this._config = get_node_config(options)
     this._queue  = new SignerQueue(this)
     this._signer = new BifrostSigner(group, share, options)
     this._peers  = init_peer_data(this)
 
-    this._client = new NostrNode(relays, share.seckey, {
-      filter : { authors : get_peer_pubkeys(this.peers) }
-    })
+    const authors = [ ...get_peer_pubkeys(this.peers), this.pubkey ]
+
+    this._client = new NostrNode(relays, share.seckey, { filter : { authors } })
 
     this._client.on('message', (msg) => {
       // Emit the message event.
@@ -100,9 +108,14 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   }
 
   _filter (msg : SignedMessage) {
+    const { pubkey } = msg.env
+    // Allow echo requests.
+    if (msg.tag === '/echo/req') return true
+    // Disallow echo responses from self.
+    if (pubkey === this.pubkey) return false
     // Allow ping requests.
     if (msg.tag === '/ping/req') return true
-    // Get a list of authored peers.
+    // Get a list of authorized peers.
     const recv_pks = get_recv_pubkeys(this.peers)
     // Check if the message is authorized.
     if (!recv_pks.includes(msg.env.pubkey)) {
@@ -148,6 +161,7 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   get req () {
     return {
       ecdh  : API.ecdh_request_api(this),
+      echo  : API.echo_request_api(this),
       ping  : API.ping_request_api(this),
       queue : API.sign_queue_api(this),
       sign  : API.sign_request_api(this)
@@ -177,18 +191,19 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   }
 }
 
+function get_node_cache (
+  opt : Partial<BifrostNodeCache> = {}
+) : BifrostNodeCache {
+  return { ...DEFAULT_CACHE(), ...opt }
+}
+
 function get_node_config (
   opt : Partial<BifrostNodeConfig> = {}
 ) : BifrostNodeConfig {
-  return { ...NODE_CONFIG(), ...opt }
-}
-
-function get_node_cache (
-  opt : Partial<BifrostNodeConfig> = {}
-) : BifrostNodeCache {
-  return {
-    ecdh : opt.cache?.ecdh ?? new Map()
-  }
+  const config = { ...DEFAULT_CONFIG(), ...opt }
+  const parsed = Schema.node.config.safeParse(config)
+  if (!parsed.success) throw new Error('invalid node config')
+  return parsed.data as BifrostNodeConfig
 }
 
 function init_peer_data (
@@ -209,9 +224,11 @@ function init_peer_data (
     // Check if the policy is configured.
     const config = node.config.policies.find(e => e.pubkey === peer_pk)
     // If the policy is not configured, set the default policy.
+    const policy = config?.policy ?? { send : true, recv : true }
+    // Add the peer data to the list.
     peer_data.push({
       // TODO: We should not default these to true.
-      policy  : config ?? { send : true, recv : true },
+      policy  : policy,
       pubkey  : peer_pk,
       status  : 'offline',
       updated : current

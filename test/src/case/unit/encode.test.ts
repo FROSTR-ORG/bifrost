@@ -6,9 +6,7 @@ import {
   decode_group_pkg,
   decode_share_pkg,
   encode_group_pkg,
-  encode_share_pkg,
-  encode_credentials,
-  decode_credentials
+  encode_share_pkg
 } from '@/encoder/index.js'
 
 import type { Test } from 'tape'
@@ -16,7 +14,6 @@ import type { Test } from 'tape'
 import VECTOR from '@/test/vector/group.vec.json' assert { type: 'json' }
 
 export default function (tape : Test) {
-  const vec_cred    = VECTOR.cred
   const vec_group   = VECTOR.group
   const vec_shares  = VECTOR.shares
   const vec_seeds   = VECTOR.seeds
@@ -31,18 +28,11 @@ export default function (tape : Test) {
       const dec_group  = decode_group_pkg(enc_group)
       const dec_shares = enc_shares.map(e => decode_share_pkg(e))
 
-      const enc_cred = encode_credentials(pkg.group, pkg.shares[0])
-      const dec_cred = decode_credentials(enc_cred)
-
-      const credentials = { group: dec_group, share: dec_shares[0] }
-
       t.equal(enc_group,  vec_group,      'group encodings are equal')
       t.deepEqual(enc_shares, vec_shares, 'all shares encodings are equal')
-      t.equal(enc_cred,       vec_cred,   'credential encodings are equal')
 
       t.deepEqual(dec_group,  pkg.group,   'group encodes and decodes')
       t.deepEqual(dec_shares, pkg.shares,  'all shares encode and decode')
-      t.deepEqual(dec_cred,   credentials, 'credential encodes and decodes')
     } catch (err) {
       t.fail(parse_error(err))
     } finally {

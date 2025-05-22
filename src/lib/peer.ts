@@ -1,7 +1,7 @@
-import { copy_obj, now }     from '@/util/helpers.js'
+import { now }               from '@/util/helpers.js'
 import { PEER_STATE_EXPIRY } from '@/const.js'
 
-import type { PeerConfig, PeerData } from '@/types/index.js'
+import type { PeerData } from '@/types/index.js'
 
 export function get_peer_by_pubkey (
   peers : PeerData[],
@@ -30,16 +30,4 @@ export function get_expired_pubkeys (peers : PeerData[]) : string[] {
   return peers.filter(e => {
     return e.status === 'offline' || e.updated < now() - PEER_STATE_EXPIRY
   }).map(e => e.pubkey)
-}
-
-export function update_peer (
-  peers  : PeerData[],
-  config : PeerConfig
-) : PeerData[] {
-  const { pubkey, ...policy } = config
-  const idx  = peers.findIndex(e => e.pubkey === pubkey)
-  if (idx === -1) return peers
-  const new_peers = copy_obj(peers)
-  new_peers[idx].policy = policy
-  return new_peers
 }

@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## [1.0.6]
+
+### Changes
+
+- Added new `echo` method for sending a message to yourself.
+
+## [1.0.5]
+
+### Changes
+
+- Removed the auto-update of peer policy from the ping response.
+
+## [1.0.4]
+
+### Changes
+
+- Added schema and validation checks for node config and updates to the peer data object (through API).
+
+## [1.0.3]
+
+### Changes
+
+- Updated `ping` so that it only solicits a single peer. You must provide a pubkey of the peer that you wish to solicit.
+
 ## [1.0.2]
 
 ### Changes

@@ -1,11 +1,10 @@
-import { Buff } from '@cmdcode/buff'
+import { Buff }                from '@cmdcode/buff'
+import { generate_dealer_pkg } from '@frostr/bifrost/lib'
 
 import {
   encode_group_pkg,
   encode_share_pkg
 } from '@frostr/bifrost/encoder'
-
-import { generate_dealer_pkg } from '@frostr/bifrost/lib'
 
 const labels    = [ 'alice', 'bob', 'carol' ]
 const secrets   = labels.map(e => Buff.str(e).digest.hex)
