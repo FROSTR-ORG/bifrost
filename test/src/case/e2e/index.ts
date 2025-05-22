@@ -6,6 +6,7 @@ import { NostrRelay }         from '@/test/lib/relay.js'
 import type { TestNetwork } from '@/test/types.js'
 
 import ecdh_e2e_case from './ecdh.test.js'
+import echo_e2e_case from './echo.test.js'
 import ping_e2e_case from './ping.test.js'
 import sign_e2e_case from './sign.test.js'
 
@@ -39,6 +40,7 @@ export default function (tape : Test) {
   tape.test('running e2e tests', t => {
     ping_e2e_case(ctx, t)
     ecdh_e2e_case(ctx, t)
+    echo_e2e_case(ctx, t)
     sign_e2e_case(ctx, t)
   })
 

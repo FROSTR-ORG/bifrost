@@ -69,9 +69,9 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     this._signer = new BifrostSigner(group, share, options)
     this._peers  = init_peer_data(this)
 
-    this._client = new NostrNode(relays, share.seckey, {
-      filter : { authors : get_peer_pubkeys(this.peers) }
-    })
+    const authors = [ ...get_peer_pubkeys(this.peers), this.pubkey ]
+
+    this._client = new NostrNode(relays, share.seckey, { filter : { authors } })
 
     this._client.on('message', (msg) => {
       // Emit the message event.
@@ -108,9 +108,14 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   }
 
   _filter (msg : SignedMessage) {
+    const { pubkey } = msg.env
+    // Allow echo requests.
+    if (msg.tag === '/echo/req') return true
+    // Disallow echo responses from self.
+    if (pubkey === this.pubkey) return false
     // Allow ping requests.
     if (msg.tag === '/ping/req') return true
-    // Get a list of authored peers.
+    // Get a list of authorized peers.
     const recv_pks = get_recv_pubkeys(this.peers)
     // Check if the message is authorized.
     if (!recv_pks.includes(msg.env.pubkey)) {
@@ -156,6 +161,7 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   get req () {
     return {
       ecdh  : API.ecdh_request_api(this),
+      echo  : API.echo_request_api(this),
       ping  : API.ping_request_api(this),
       queue : API.sign_queue_api(this),
       sign  : API.sign_request_api(this)
