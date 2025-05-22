@@ -1,6 +1,5 @@
 import { BifrostNode }         from '@/class/client.js'
 import { finalize_message }    from '@cmdcode/nostr-p2p/lib'
-import { get_expired_pubkeys } from '@/lib/peer.js'
 
 import { Assert, copy_obj, now, parse_error } from '@/util/index.js'
 
@@ -9,7 +8,8 @@ import type { SignedMessage } from '@cmdcode/nostr-p2p'
 import type {
   ApiResponse,
   PeerConfig,
-  PeerPolicy
+  PeerPolicy,
+  PeerStatus
 } from '@/types/index.js'
 
 export async function ping_handler_api (
@@ -52,76 +52,74 @@ export async function ping_handler_api (
 
 export function ping_request_api (node : BifrostNode) {
 
-  return async () : Promise<ApiResponse<PeerConfig[]>> => {
+  return async (pubkey : string) : Promise<ApiResponse<PeerConfig>> => {
 
-    let msgs : SignedMessage<string>[] | null = null
+    let msg : SignedMessage<string> | null = null
 
     try {
       // Send the request to the peers.
-      msgs = await create_ping_request(node)
+      msg = await create_ping_request(node, pubkey)
       // Emit the response.
-      node.emit('/ping/sender/res', copy_obj(msgs))
+      node.emit('/ping/sender/res', msg)
     } catch (err) {
       // Log the error.
       if (node.debug) console.log(err)
       // Parse the error.
       const reason = parse_error(err)
       // Emit the error.
-      node.emit('/ping/sender/rej', [ reason, copy_obj(msgs ?? []) ])
+      node.emit('/ping/sender/rej', [ reason, msg ])
       // Return the error.
       return { ok : false, err : reason }
     }
 
     try {
-      Assert.ok(msgs !== null, 'no responses from peers')
+      Assert.ok(msg !== null, 'no response from peer')
       // Get the current time.
       const current = now()
       // Parse the response.
-      const configs = parse_ping_response(msgs)
+      const policy  = parse_ping_response(msg)
       // Update the peer state.
-      for (const config of configs) {
-        const peer_data = node.peers.find(e => e.pubkey === config.pubkey)
-        Assert.exists(peer_data, 'peer data not found')
-        node.update_peer({
-          ...peer_data,
-          policy  : { send : config.send, recv : config.recv },
-          status  : 'online',
-          updated : current
-        })
+      const peer_data = node.peers.find(e => e.pubkey === msg.env.pubkey)
+      Assert.exists(peer_data, 'peer data not found')
+      const new_data = {
+        ...peer_data,
+        policy,
+        status  : 'online' as PeerStatus,
+        updated : current
       }
+      node.update_peer(new_data)
       // Emit the pong event.
-      node.emit('/ping/sender/ret', configs)
+      node.emit('/ping/sender/ret', new_data)
       // Return the pong event.
-      return { ok : true, data : configs }
+      return { ok : true, data : new_data }
     } catch (err) {
       // Log the error.
       if (node.debug) console.log(err)
       // Parse the error.
       const reason = parse_error(err)
       // Emit the error.
-      node.emit('/ping/sender/err', [ reason, copy_obj(msgs ?? []) ])
+      node.emit('/ping/sender/err', [ reason, msg ])
       // Return the error.
       return { ok : false, err : reason }
     }
   }
 }
 
-async function create_ping_request (node : BifrostNode) : Promise<SignedMessage<string>[]> {
-  // Get the expired peer pubkeys.
-  const expired_pks = get_expired_pubkeys(node.peers)
+async function create_ping_request (
+  node   : BifrostNode,
+  pubkey : string
+) : Promise<SignedMessage<string>> {
   // Send a request to the peer nodes.
-  const res = await node.client.multicast({
+  const res = await node.client.request({
     data : 'ping',
     tag  : '/ping/req'
-  }, expired_pks)
-  // Return the responses.
-  return res.sub.inbox
+  }, pubkey, {})
+  // If the response is not ok, throw an error.
+  if (!res.ok) throw new Error(res.reason)
+  // Return the response.
+  return res.inbox[0]
 }
 
-function parse_ping_response (msgs : SignedMessage<string>[]) : PeerConfig[] {
-  return msgs.map(e => {
-    const policy = JSON.parse(e.data) as PeerPolicy
-    const pubkey = e.env.pubkey
-    return { pubkey, ...policy }
-  })
+function parse_ping_response (msg : SignedMessage<string>) : PeerPolicy {
+  return JSON.parse(msg.data) as PeerPolicy
 }

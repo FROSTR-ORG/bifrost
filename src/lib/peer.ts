@@ -36,10 +36,9 @@ export function update_peer (
   peers  : PeerData[],
   config : PeerConfig
 ) : PeerData[] {
-  const { pubkey, ...policy } = config
-  const idx  = peers.findIndex(e => e.pubkey === pubkey)
+  const idx = peers.findIndex(e => e.pubkey === config.pubkey)
   if (idx === -1) return peers
   const new_peers = copy_obj(peers)
-  new_peers[idx].policy = policy
+  new_peers[idx]  = { ...new_peers[idx], ...config }
   return new_peers
 }

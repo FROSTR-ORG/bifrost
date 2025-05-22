@@ -209,9 +209,11 @@ function init_peer_data (
     // Check if the policy is configured.
     const config = node.config.policies.find(e => e.pubkey === peer_pk)
     // If the policy is not configured, set the default policy.
+    const policy = config?.policy ?? { send : true, recv : true }
+    // Add the peer data to the list.
     peer_data.push({
       // TODO: We should not default these to true.
-      policy  : config ?? { send : true, recv : true },
+      policy  : policy,
       pubkey  : peer_pk,
       status  : 'offline',
       updated : current

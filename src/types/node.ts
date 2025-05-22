@@ -54,10 +54,10 @@ export interface BifrostNodeEvent {
   '/ping/handler/rej' : [ string, SignedMessage   ]
   '/ping/handler/ret' : [ string, string          ]
   '/ping/sender/req'  : SignedMessage
-  '/ping/sender/res'  : SignedMessage[]
-  '/ping/sender/rej'  : [ string, SignedMessage[] ]
-  '/ping/sender/ret'  : PeerConfig[]
-  '/ping/sender/err'  : [ string, SignedMessage[] ]
+  '/ping/sender/res'  : SignedMessage
+  '/ping/sender/rej'  : [ string, SignedMessage | null ]
+  '/ping/sender/ret'  : PeerConfig
+  '/ping/sender/err'  : [ string, SignedMessage ]
   '/sign/sender/req'  : SignedMessage
   '/sign/sender/res'  : SignedMessage[]
   '/sign/sender/rej'  : [ string, SignSessionPackage  ]
