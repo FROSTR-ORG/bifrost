@@ -56,6 +56,8 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   private readonly _queue  : SignerQueue
   private readonly _signer : BifrostSigner
 
+  private _is_ready : boolean = false
+
   constructor (
     group    : GroupPackage,
     share    : SharePackage,
@@ -72,6 +74,16 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     const authors = [ ...get_peer_pubkeys(this.peers), this.pubkey ]
 
     this._client = new NostrNode(relays, share.seckey, { filter : { authors } })
+
+    this._client.on('closed', () => {
+      this._is_ready = false
+      this.emit('closed', this)
+    })
+
+    this._client.on('ready', () => {
+      this._is_ready = true
+      this.emit('ready', this)
+    })
 
     this._client.on('message', (msg) => {
       // Emit the message event.
@@ -146,6 +158,10 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     return this._signer.group
   }
 
+  get is_ready () {
+    return this._is_ready
+  }
+
   get queue () {
     return this._queue
   }
@@ -172,16 +188,12 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     return this._signer
   }
 
-  async connect () : Promise<BifrostNode> {
-    await this.client.connect()
-    this.emit('ready', this)
-    return this
+  async connect () : Promise<void> {
+    void this.client.connect()
   }
 
-  async close () : Promise<BifrostNode> {
-    await this.client.close()
-    this.emit('closed', this)
-    return this
+  async close () : Promise<void> {
+    void this.client.close()
   }
 
   update_peer (data : PeerData) {
