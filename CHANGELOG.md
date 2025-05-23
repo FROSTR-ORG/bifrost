@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## [1.0.7]
+
+### Changes
+
+- Added an `is_ready` boolean to the client.
+
 ## [1.0.6]
 
 ### Changes
