@@ -11,11 +11,11 @@ export function normalize_obj <T extends Record<keyof T, any>> (obj : T) : T {
   if (obj instanceof Map || Array.isArray(obj) || typeof obj !== 'object') {
     return obj
   } else {
-    return Object.keys(obj)
-      .sort()
+    return Object.entries(obj)
       .filter(([ _, value ]) => value !== undefined)
-      .reduce<Record<string, any>>((sorted, key) => {
-        sorted[key] = obj[key as keyof T]
+      .sort(([ a ], [ b ]) => a.localeCompare(b))
+      .reduce<Record<string, any>>((sorted, [ key, value ]) => {
+        sorted[key] = value
         return sorted
       }, {}) as T
   }

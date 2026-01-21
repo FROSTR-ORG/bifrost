@@ -4,6 +4,9 @@ import { validate_schema } from './helpers.js'
 
 export namespace Assert {
   export function ok (value : unknown, message ?: string) : asserts value {
+    if (typeof value !== 'boolean') {
+      throw new TypeError('Assert.ok() requires a boolean value')
+    }
     if (value === false) throw new Error(message ?? 'Assertion failed!')
   }
 

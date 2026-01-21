@@ -3,6 +3,7 @@ import { BifrostNode } from '@/class/client.js'
 import { finalize_message }   from '@cmdcode/nostr-p2p/lib'
 import { combine_ecdh_pkgs }  from '@/lib/ecdh.js'
 import { parse_ecdh_message } from '@/lib/parse.js'
+import { get_send_pubkeys }   from '@/lib/peer.js'
 
 import { Assert, copy_obj, parse_error } from '@/util/index.js'
 
@@ -13,8 +14,25 @@ import {
 
 import type { SignedMessage }            from '@cmdcode/nostr-p2p'
 import type { ApiResponse, ECDHPackage } from '@/types/index.js'
-import { get_send_pubkeys } from '@/lib/peer.js'
 
+/**
+ * Handles incoming ECDH requests from peers.
+ *
+ * When another node in the group requests a threshold ECDH operation,
+ * this handler processes the request by:
+ * 1. Emitting the request for debugging/logging
+ * 2. Applying any configured middleware
+ * 3. Generating a partial ECDH share using the local signer
+ * 4. Publishing the ECDH share back to the requesting peer
+ *
+ * Events emitted:
+ * - `/ecdh/handler/req` - When a request is received
+ * - `/ecdh/handler/res` - When a response is sent successfully
+ * - `/ecdh/handler/rej` - When an error occurs
+ *
+ * @param node - The BifrostNode handling the request.
+ * @param msg - The signed message containing the ECDH package.
+ */
 export async function ecdh_handler_api (
   node : BifrostNode,
   msg  : SignedMessage<ECDHPackage>
@@ -54,6 +72,39 @@ export async function ecdh_handler_api (
   }
 }
 
+/**
+ * Creates a request API function for threshold ECDH key exchange.
+ *
+ * Returns a function that initiates a threshold ECDH operation with peers.
+ * This allows the group to derive a shared secret with a remote public key
+ * without any single member knowing the group's secret key.
+ *
+ * The process:
+ * 1. Check cache for existing shared secret
+ * 2. If not cached, select random peers to meet threshold
+ * 3. Generate local ECDH share
+ * 4. Request ECDH shares from selected peers
+ * 5. Combine all shares to derive the shared secret
+ * 6. Cache the encrypted shared secret for future use
+ *
+ * Events emitted:
+ * - `/ecdh/sender/res` - When responses are received from peers
+ * - `/ecdh/sender/rej` - When the request phase fails
+ * - `/ecdh/sender/ret` - When the shared secret is derived
+ * - `/ecdh/sender/err` - When share combination fails
+ *
+ * @param node - The BifrostNode to create the request API for.
+ * @returns An async function that performs threshold ECDH.
+ *
+ * @example
+ * ```typescript
+ * const ecdh = ecdh_request_api(node)
+ * const result = await ecdh(remotePublicKey)
+ * if (result.ok) {
+ *   const sharedSecret = result.data
+ * }
+ * ```
+ */
 export function ecdh_request_api (node : BifrostNode) {
 
   return async (
@@ -123,6 +174,16 @@ export function ecdh_request_api (node : BifrostNode) {
   }
 }
 
+/**
+ * Sends an ECDH request to multiple peers.
+ *
+ * @param node - The BifrostNode sending the request.
+ * @param peers - Array of peer public keys to send to.
+ * @param pkg - The ECDH package to send.
+ * @returns A Promise resolving to the array of signed ECDH responses.
+ * @throws Error if the multicast request fails or any response is invalid.
+ * @internal
+ */
 async function create_ecdh_request (
   node  : BifrostNode,
   peers : string[],
@@ -142,6 +203,13 @@ async function create_ecdh_request (
   })
 }
 
+/**
+ * Finalizes an ECDH operation by combining partial shares.
+ *
+ * @param pkgs - Array of ECDH packages (shares) to combine.
+ * @returns The derived shared secret as a hex string.
+ * @internal
+ */
 function finalize_ecdh_response (
   pkgs : ECDHPackage[]
 ) : string {

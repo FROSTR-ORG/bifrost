@@ -16,6 +16,23 @@ import type {
   PeerStatus
 } from '@/types/index.js'
 
+/**
+ * Handles incoming ping requests from peers.
+ *
+ * When another node sends a ping request, this handler:
+ * 1. Emits the request for debugging/logging
+ * 2. Looks up the peer's data
+ * 3. Responds with this node's policy for that peer
+ * 4. Updates the peer's status to 'online'
+ *
+ * Events emitted:
+ * - `/ping/handler/req` - When a ping request is received
+ * - `/ping/handler/res` - When a response is sent successfully
+ * - `/ping/handler/rej` - When an error occurs
+ *
+ * @param node - The BifrostNode handling the request.
+ * @param msg - The signed message containing the ping payload.
+ */
 export async function ping_handler_api (
   node : BifrostNode,
   msg  : SignedMessage<string>
@@ -54,6 +71,35 @@ export async function ping_handler_api (
   }
 }
 
+/**
+ * Creates a request API function for pinging peers.
+ *
+ * Returns a function that sends a ping request to a specific peer
+ * to check if they are online and get their policy for this node.
+ *
+ * The process:
+ * 1. Send a ping request to the peer
+ * 2. Wait for their response containing their policy
+ * 3. Update the peer's status to 'online' or 'offline'
+ *
+ * Events emitted:
+ * - `/ping/sender/res` - When a response is received
+ * - `/ping/sender/rej` - When the request fails
+ * - `/ping/sender/ret` - When the peer is confirmed online
+ * - `/ping/sender/err` - When the response is invalid
+ *
+ * @param node - The BifrostNode to create the request API for.
+ * @returns An async function that pings a peer by public key.
+ *
+ * @example
+ * ```typescript
+ * const ping = ping_request_api(node)
+ * const result = await ping(peerPubkey)
+ * if (result.ok) {
+ *   console.log('Peer policy:', result.data)
+ * }
+ * ```
+ */
 export function ping_request_api (node : BifrostNode) {
 
   return async (pubkey : string) : Promise<ApiResponse<PeerPolicy>> => {
@@ -117,6 +163,15 @@ export function ping_request_api (node : BifrostNode) {
   }
 }
 
+/**
+ * Sends a ping request to a specific peer.
+ *
+ * @param node - The BifrostNode sending the request.
+ * @param pubkey - The public key of the peer to ping.
+ * @returns A Promise resolving to the signed ping response.
+ * @throws Error if the request fails or times out.
+ * @internal
+ */
 async function create_ping_request (
   node   : BifrostNode,
   pubkey : string
@@ -132,6 +187,13 @@ async function create_ping_request (
   return res.inbox[0]
 }
 
+/**
+ * Parses a ping response to extract the peer's policy.
+ *
+ * @param msg - The signed message containing the ping response.
+ * @returns The peer's policy object, or null if parsing fails.
+ * @internal
+ */
 function parse_ping_response (msg : SignedMessage<string>) : PeerPolicy | null {
   try {
     const json   = JSON.parse(msg.data)

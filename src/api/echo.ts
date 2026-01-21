@@ -5,6 +5,28 @@ import { Assert, parse_error } from '@/util/index.js'
 import type { SignedMessage } from '@cmdcode/nostr-p2p'
 import type { ApiResponse }   from '@/types/index.js'
 
+/**
+ * Handles incoming echo requests.
+ *
+ * Echo requests are used for self-testing to verify that a node can
+ * send messages to itself through the relay network. This is useful
+ * for diagnosing connectivity issues.
+ *
+ * When an echo request is received:
+ * 1. Emits the request for debugging/logging
+ * 2. Responds with the node's policy
+ *
+ * Note: Echo requests bypass normal peer authorization since they're
+ * sent from self to self.
+ *
+ * Events emitted:
+ * - `/echo/handler/req` - When an echo request is received
+ * - `/echo/handler/res` - When a response is sent successfully
+ * - `/echo/handler/rej` - When an error occurs
+ *
+ * @param node - The BifrostNode handling the request.
+ * @param msg - The signed message containing the echo payload.
+ */
 export async function echo_handler_api (
   node : BifrostNode,
   msg  : SignedMessage<string>
@@ -37,6 +59,31 @@ export async function echo_handler_api (
   }
 }
 
+/**
+ * Creates a request API function for echo testing.
+ *
+ * Returns a function that sends an echo request to self through the
+ * relay network. This tests that the node can communicate with itself,
+ * which verifies relay connectivity.
+ *
+ * Events emitted:
+ * - `/echo/sender/res` - When a response is received
+ * - `/echo/sender/rej` - When the request fails
+ * - `/echo/sender/ret` - When the echo succeeds
+ * - `/echo/sender/err` - When the response is invalid
+ *
+ * @param node - The BifrostNode to create the request API for.
+ * @returns An async function that sends an echo challenge.
+ *
+ * @example
+ * ```typescript
+ * const echo = echo_request_api(node)
+ * const result = await echo('test-challenge')
+ * if (result.ok) {
+ *   console.log('Echo successful:', result.data)
+ * }
+ * ```
+ */
 export function echo_request_api (node : BifrostNode) {
 
   return async (challenge : string) : Promise<ApiResponse<string>> => {
@@ -78,6 +125,15 @@ export function echo_request_api (node : BifrostNode) {
   }
 }
 
+/**
+ * Sends an echo request to self through the relay network.
+ *
+ * @param node - The BifrostNode sending the request.
+ * @param challenge - The challenge string to echo.
+ * @returns A Promise resolving to the signed echo response.
+ * @throws Error if the request fails or times out.
+ * @internal
+ */
 async function create_echo_request (
   node      : BifrostNode,
   challenge : string

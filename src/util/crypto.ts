@@ -1,8 +1,8 @@
 import { Buff }   from '@cmdcode/buff'
 import { Assert } from './assert.js'
 
-import { secp256k1, schnorr }  from '@noble/curves/secp256k1'
-import { Field }               from '@noble/curves/abstract/modular'
+import { secp256k1, schnorr } from '@noble/curves/secp256k1'
+import { Field }              from '@noble/curves/abstract/modular'
 
 type ECCPoint = ReturnType<typeof secp256k1.ProjectivePoint.fromHex>
 

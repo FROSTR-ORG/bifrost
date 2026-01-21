@@ -32,12 +32,20 @@ import type {
 import * as API from '@/api/index.js'
 import Schema   from '@/schema/index.js'
 
+/**
+ * Creates the default cache object for a BifrostNode.
+ * @returns A new BifrostNodeCache with an empty ECDH map.
+ */
 const DEFAULT_CACHE : () => BifrostNodeCache = () => {
   return {
     ecdh : new Map()
   }
 }
 
+/**
+ * Creates the default configuration object for a BifrostNode.
+ * @returns A new BifrostNodeConfig with default values.
+ */
 const DEFAULT_CONFIG : () => BifrostNodeConfig = () => {
   return {
     debug      : false,
@@ -47,17 +55,56 @@ const DEFAULT_CONFIG : () => BifrostNodeConfig = () => {
   }
 }
 
+/**
+ * BifrostNode is the main entry point for the FROSTR protocol.
+ *
+ * It orchestrates threshold signing and ECDH operations by managing peer
+ * connections via Nostr relays, handling incoming requests, and coordinating
+ * cryptographic operations through the BifrostSigner.
+ *
+ * Lifecycle:
+ * 1. Create a node with group credentials, share package, and relay URLs
+ * 2. Call `connect()` to establish relay connections
+ * 3. Use `req.sign()`, `req.ecdh()`, etc. to perform cryptographic operations
+ * 4. Call `close()` to disconnect from relays
+ *
+ * @example
+ * ```typescript
+ * const node = new BifrostNode(groupPkg, sharePkg, ['wss://relay.example.com'])
+ * await node.connect()
+ * node.on('ready', async () => {
+ *   const result = await node.req.sign('message-to-sign')
+ * })
+ * ```
+ *
+ * @extends EventEmitter<BifrostNodeEvent>
+ */
 export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
 
+  /** Cache for storing ECDH shared secrets. */
   private readonly _cache  : BifrostNodeCache
+  /** Underlying Nostr P2P client for relay communication. */
   private readonly _client : NostrNode
+  /** Node configuration options. */
   private readonly _config : BifrostNodeConfig
+  /** List of peer data including pubkeys, policies, and status. */
   private readonly _peers  : PeerData[]
+  /** Queue for batching signature requests. */
   private readonly _queue  : SignerQueue
+  /** Signer instance for cryptographic operations. */
   private readonly _signer : BifrostSigner
 
+  /** Whether the node is connected and ready to process requests. */
   private _is_ready : boolean = false
 
+  /**
+   * Creates a new BifrostNode instance.
+   *
+   * @param group - The group package containing the group public key and member commitments.
+   * @param share - The share package containing this node's secret share and index.
+   * @param relays - Array of Nostr relay WebSocket URLs to connect to.
+   * @param options - Optional configuration options for the node.
+   */
   constructor (
     group    : GroupPackage,
     share    : SharePackage,
@@ -119,6 +166,19 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     })
   }
 
+  /**
+   * Filters incoming messages based on authorization rules.
+   *
+   * Authorization logic:
+   * - Echo requests are always allowed (for self-testing)
+   * - Messages from self (except echo) are disallowed
+   * - Ping requests are always allowed (for peer discovery)
+   * - Other messages must come from authorized peers with recv policy enabled
+   *
+   * @param msg - The signed message to filter.
+   * @returns True if the message should be processed, false otherwise.
+   * @internal
+   */
   _filter (msg : SignedMessage) {
     const { pubkey } = msg.env
     // Allow echo requests.
@@ -138,42 +198,90 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     }
   }
 
+  /**
+   * Gets the node's cache containing ECDH shared secrets.
+   * @returns The cache object with ECDH secret mappings.
+   */
   get cache () {
     return this._cache
   }
 
+  /**
+   * Gets the underlying Nostr P2P client.
+   * @returns The NostrNode instance used for relay communication.
+   */
   get client () {
     return this._client
   }
 
+  /**
+   * Gets the node configuration.
+   * @returns The configuration object containing debug mode, middleware, policies, and sign interval.
+   */
   get config () {
     return this._config
   }
 
+  /**
+   * Gets whether debug mode is enabled.
+   * @returns True if debug logging is enabled.
+   */
   get debug () {
     return this._config.debug
   }
 
+  /**
+   * Gets the group package containing group public key and member commitments.
+   * @returns The GroupPackage for this signing group.
+   */
   get group () {
     return this._signer.group
   }
 
+  /**
+   * Gets whether the node is connected and ready to process requests.
+   * @returns True if the node is connected to relays and ready.
+   */
   get is_ready () {
     return this._is_ready
   }
 
+  /**
+   * Gets the signature request queue for batch processing.
+   * @returns The SignerQueue instance.
+   */
   get queue () {
     return this._queue
   }
 
+  /**
+   * Gets the list of peer data for all group members (excluding self).
+   * @returns Array of PeerData objects with pubkey, policy, and status.
+   */
   get peers () {
     return this._peers
   }
 
+  /**
+   * Gets this node's public key in BIP-340 format.
+   * @returns The 32-byte hex-encoded public key.
+   */
   get pubkey () {
     return convert_pubkey(this.signer.pubkey, 'bip340')
   }
 
+  /**
+   * Gets the request API object for initiating operations.
+   *
+   * Available methods:
+   * - `ecdh(pubkey)` - Perform threshold ECDH with a remote public key
+   * - `echo(challenge)` - Test self-messaging through relays
+   * - `ping(pubkey)` - Check if a peer is online
+   * - `queue(message)` - Queue a message for batch signing
+   * - `sign(message)` - Request threshold signature from peers
+   *
+   * @returns Object containing request API methods.
+   */
   get req () {
     return {
       ecdh  : API.ecdh_request_api(this),
@@ -184,18 +292,45 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     }
   }
 
+  /**
+   * Gets the BifrostSigner instance for cryptographic operations.
+   * @returns The signer that handles signing and ECDH operations.
+   */
   get signer () {
     return this._signer
   }
 
+  /**
+   * Connects to the configured Nostr relays.
+   *
+   * Emits 'ready' event when connected successfully.
+   * Emits 'closed' event if connection is lost.
+   *
+   * @returns A promise that resolves when connection is initiated.
+   */
   async connect () : Promise<void> {
     void this.client.connect()
   }
 
+  /**
+   * Closes connections to all Nostr relays.
+   *
+   * Emits 'closed' event when disconnected.
+   *
+   * @returns A promise that resolves when close is initiated.
+   */
   async close () : Promise<void> {
     void this.client.close()
   }
 
+  /**
+   * Updates a peer's data (status, policy, etc.).
+   *
+   * Used internally to track peer online/offline status after ping requests.
+   * Can also be used to update peer policies dynamically.
+   *
+   * @param data - The peer data to update. Must include pubkey to identify the peer.
+   */
   update_peer (data : PeerData) {
     const idx = this.peers.findIndex(e => e.pubkey === data.pubkey)
     if (idx === -1) return
@@ -203,12 +338,23 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   }
 }
 
+/**
+ * Merges user-provided cache options with defaults.
+ * @param opt - Partial cache options to merge.
+ * @returns A complete BifrostNodeCache object.
+ */
 function get_node_cache (
   opt : Partial<BifrostNodeCache> = {}
 ) : BifrostNodeCache {
   return { ...DEFAULT_CACHE(), ...opt }
 }
 
+/**
+ * Merges user-provided config options with defaults and validates the result.
+ * @param opt - Partial config options to merge.
+ * @returns A validated BifrostNodeConfig object.
+ * @throws Error if the merged config fails validation.
+ */
 function get_node_config (
   opt : Partial<BifrostNodeConfig> = {}
 ) : BifrostNodeConfig {
@@ -218,6 +364,17 @@ function get_node_config (
   return parsed.data as BifrostNodeConfig
 }
 
+/**
+ * Initializes peer data for all group members except self.
+ *
+ * Creates a PeerData entry for each group member with:
+ * - Policy from config or default (send: true, recv: true)
+ * - Status set to 'offline'
+ * - Updated timestamp set to current time
+ *
+ * @param node - The BifrostNode to initialize peers for.
+ * @returns Array of PeerData objects for all peers.
+ */
 function init_peer_data (
   node : BifrostNode
 ) : PeerData[] {

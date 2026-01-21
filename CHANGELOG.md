@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## [1.0.8]
+
+### Breaking Changes
+
+- `Assert.ok()` now throws `TypeError` if the value is not a boolean. Previously it only checked for `=== false`, allowing non-boolean values to pass silently.
+
+### Bug Fixes
+
+- Fixed `normalize_obj()` filter bug that was destructuring strings instead of key-value pairs when filtering undefined values.
+
+### Security
+
+- Replaced `Math.random()` with cryptographically secure `crypto.getRandomValues()` for peer selection in `select_random_peers()`.
+
+### Improvements
+
+- Removed `console.log` statements from `parse_group_pkg()` and `parse_share_pkg()` - error details are now included in the thrown error message.
+- Fixed `any` types in `SignRequest` interface (`resolve` now typed as `SignatureEntry`, `reject` as `string`).
+- Fixed catch block in `SignerQueue.process()` to use `unknown` type with proper error parsing.
+
 ## [1.0.7]
 
 ### Changes

@@ -22,7 +22,7 @@ export function get_group_indexes (
 
 /**
  * Select a random subset of peers from a list of peers.
- * 
+ *
  * @param peers - The list of peers.
  * @param thold - The threshold.
  * @returns The selected peers.
@@ -31,9 +31,16 @@ export function select_random_peers (
   peers : string[],
   thold : number
 ) : string[] {
-  const rnd = () => Math.random() > 0.5 ? 1 : -1
-  const idx = Math.min(peers.length, thold - 1)
-  return peers.sort(rnd).slice(0, idx)
+  // Fisher-Yates shuffle with crypto-secure randomness
+  const shuffled = [...peers]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const randBytes = new Uint32Array(1)
+    crypto.getRandomValues(randBytes)
+    const j = randBytes[0] % (i + 1)
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  const count = Math.min(shuffled.length, thold - 1)
+  return shuffled.slice(0, count)
 }
 
 /**

@@ -8,7 +8,8 @@ import type {
   PartialSigPackage
 } from '@/types/index.js'
 
-import Schema from '@/schema/index.js'
+import Schema        from '@/schema/index.js'
+import { parse_error } from '@/util/helpers.js'
 
 /**
  * Parse an ECDH exchange message.
@@ -80,8 +81,7 @@ export function parse_group_pkg (
     const schema = Schema.pkg.group
     return schema.parse(group_pkg)
   } catch (err) {
-    console.log('error:', err)
-    throw new Error('group package failed validation')
+    throw new Error('group package failed validation: ' + parse_error(err))
   }
 }
 
@@ -98,7 +98,6 @@ export function parse_share_pkg (
     const schema = Schema.pkg.share
     return schema.parse(share_pkg)
   } catch (err) {
-    console.log('error:', err)
-    throw new Error('share package failed validation')
+    throw new Error('share package failed validation: ' + parse_error(err))
   }
 }
