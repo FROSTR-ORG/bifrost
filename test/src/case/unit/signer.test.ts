@@ -69,9 +69,32 @@ export default function (tape : Test) {
         st.ok(pkg !== undefined, 'returns ECDH package')
         st.equal(pkg.idx, share.idx, 'package idx matches share idx')
         st.deepEqual(pkg.members, members, 'members array matches')
-        st.equal(pkg.ecdh_pk, ecdh_pk, 'ecdh_pk matches')
-        st.ok(pkg.keyshare !== undefined, 'keyshare is present')
-        st.equal(typeof pkg.keyshare, 'string', 'keyshare is a string')
+        st.ok(Array.isArray(pkg.entries), 'entries is an array')
+        st.equal(pkg.entries.length, 1, 'entries has one element')
+        st.equal(pkg.entries[0].ecdh_pk, ecdh_pk, 'entry ecdh_pk matches')
+        st.ok(pkg.entries[0].keyshare !== undefined, 'entry keyshare is present')
+        st.equal(typeof pkg.entries[0].keyshare, 'string', 'keyshare is a string')
+        st.end()
+      })
+
+      // Test gen_batched_ecdh_shares
+      t.test('gen_batched_ecdh_shares() creates batched ECDH package', st => {
+        const members = [ 1, 2, 3 ]
+        // Use real valid public keys from group members
+        const ecdh_pks = vec.group.members.slice(0, 3).map(m => m.pubkey)
+
+        const pkg = signer.gen_batched_ecdh_shares(members, ecdh_pks)
+
+        st.ok(pkg !== undefined, 'returns ECDH package')
+        st.equal(pkg.idx, share.idx, 'package idx matches share idx')
+        st.deepEqual(pkg.members, members, 'members array matches')
+        st.ok(Array.isArray(pkg.entries), 'entries is an array')
+        st.equal(pkg.entries.length, 3, 'entries has three elements')
+
+        for (let i = 0; i < 3; i++) {
+          st.equal(pkg.entries[i].ecdh_pk, ecdh_pks[i], `entry ${i} ecdh_pk matches`)
+          st.ok(pkg.entries[i].keyshare !== undefined, `entry ${i} keyshare is present`)
+        }
         st.end()
       })
 

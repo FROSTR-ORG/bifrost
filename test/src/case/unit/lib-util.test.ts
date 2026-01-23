@@ -1,5 +1,5 @@
-import { parse_error }         from '@frostr/bifrost/util'
-import { parse_group_vector }  from '@/test/lib/parse.js'
+import { parse_error }             from '@frostr/bifrost/util'
+import { generate_dealer_package } from '@frostr/bifrost/lib'
 import { convert_pubkey }      from '@/util/crypto.js'
 
 import {
@@ -11,12 +11,11 @@ import {
 
 import type { Test } from 'tape'
 
-import VECTOR from '@/test/vector/group.vec.json' assert { type: 'json' }
-
 export default function (tape : Test) {
   tape.test('lib/util function tests', t => {
     try {
-      const vec   = parse_group_vector(VECTOR)
+      // Generate a fresh package for testing
+      const vec = generate_dealer_package(2, 3)
       const group = vec.group
 
       // Test get_group_indexes
@@ -24,11 +23,11 @@ export default function (tape : Test) {
         const indexes = get_group_indexes(group)
 
         st.ok(Array.isArray(indexes), 'returns an array')
-        st.equal(indexes.length, group.commits.length, 'returns index for each commit')
+        st.equal(indexes.length, group.members.length, 'returns index for each member')
 
-        // Each index matches the commit idx
-        group.commits.forEach((commit, i) => {
-          st.equal(indexes[i], commit.idx, `index ${i} matches commit idx`)
+        // Each index matches the member idx
+        group.members.forEach((member, i) => {
+          st.equal(indexes[i], member.idx, `index ${i} matches member idx`)
         })
         st.end()
       })
@@ -80,17 +79,17 @@ export default function (tape : Test) {
 
       // Test get_member_indexes
       t.test('get_member_indexes()', st => {
-        // Get pubkeys from commits (converted to bip340 format)
-        const pubkeys = group.commits.map(c => convert_pubkey(c.pubkey, 'bip340'))
+        // Get pubkeys from members (converted to bip340 format)
+        const pubkeys = group.members.map(m => convert_pubkey(m.pubkey, 'bip340'))
 
         // Should return indexes for all pubkeys
         const indexes = get_member_indexes(group, pubkeys)
         st.equal(indexes.length, pubkeys.length, 'returns index for each pubkey')
 
-        // Each index should match the commit idx
+        // Each index should match the member idx
         pubkeys.forEach((pk, i) => {
-          const commit = group.commits.find(c => convert_pubkey(c.pubkey, 'bip340') === pk)
-          st.ok(indexes.includes(commit!.idx), `pubkey ${i} maps to correct index`)
+          const member = group.members.find(m => convert_pubkey(m.pubkey, 'bip340') === pk)
+          st.ok(indexes.includes(member!.idx), `pubkey ${i} maps to correct index`)
         })
 
         // Subset of pubkeys
@@ -148,12 +147,10 @@ export default function (tape : Test) {
           )
         }
 
-        // Should throw for shares not in group
+        // Should throw for shares not in group (new simplified format)
         const fakeShare = {
           idx: 999,
-          seckey: 'a'.repeat(64),
-          binder_sn: 'b'.repeat(64),
-          hidden_sn: 'c'.repeat(64)
+          seckey: 'a'.repeat(64)
         }
         st.throws(
           () => recover_secret_key(group, [fakeShare, fakeShare]),

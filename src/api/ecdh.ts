@@ -12,7 +12,7 @@ import {
   select_random_peers
 } from '@/lib/util.js'
 
-import type { SignedMessage }            from '@cmdcode/nostr-p2p'
+import type { SignedMessage } from '@cmdcode/nostr-p2p'
 import type { ApiResponse, ECDHPackage } from '@/types/index.js'
 
 /**
@@ -22,8 +22,10 @@ import type { ApiResponse, ECDHPackage } from '@/types/index.js'
  * this handler processes the request by:
  * 1. Emitting the request for debugging/logging
  * 2. Applying any configured middleware
- * 3. Generating a partial ECDH share using the local signer
- * 4. Publishing the ECDH share back to the requesting peer
+ * 3. Generating partial ECDH shares for all requested keys
+ * 4. Publishing the ECDH shares back to the requesting peer
+ *
+ * Supports batched requests where entries contains multiple ecdh_pks.
  *
  * Events emitted:
  * - `/ecdh/handler/req` - When a request is received
@@ -47,11 +49,12 @@ export async function ecdh_handler_api (
     if (typeof middleware === 'function') {
       msg = middleware(node, msg)
     }
-    // Get the members and ECDH public key.
-    const { members, ecdh_pk } = msg.data
-    // TODO: Verify ECDH request.
-    // Generate the ECDH share.
-    const pkg = node.signer.gen_ecdh_share(members, ecdh_pk)
+    // Get the members and entries from request.
+    const { members, entries } = msg.data
+    // Extract all ecdh_pks from entries.
+    const ecdh_pks = entries.map(e => e.ecdh_pk)
+    // Generate ECDH shares for all requested keys.
+    const pkg = node.signer.gen_batched_ecdh_shares(members, ecdh_pks)
     // Finalize the response package.
     const envelope = finalize_message({
       data : JSON.stringify(pkg),
@@ -151,8 +154,8 @@ export function ecdh_request_api (node : BifrostNode) {
       Assert.ok(msgs !== null, 'no responses from peers')
       // Collect the response packages.
       const pkgs    = [ self_pkg, ...msgs.map(e => e.data) ]
-      // Derive the secret from the packages.
-      const secret  = finalize_ecdh_response(pkgs)
+      // Derive the secret from the packages for this specific ecdh_pk.
+      const secret  = finalize_ecdh_response(pkgs, ecdh_pk)
       // Wrap the secret with encryption.
       const content = node.signer.wrap(secret, ecdh_pk)
       // Store the encrypted secret in cache.
@@ -207,12 +210,45 @@ async function create_ecdh_request (
  * Finalizes an ECDH operation by combining partial shares.
  *
  * @param pkgs - Array of ECDH packages (shares) to combine.
+ * @param ecdh_pk - The public key to derive the secret for.
  * @returns The derived shared secret as a hex string.
  * @internal
  */
 function finalize_ecdh_response (
-  pkgs : ECDHPackage[]
+  pkgs    : ECDHPackage[],
+  ecdh_pk : string
 ) : string {
-  // Return the combined ECDH share.
-  return combine_ecdh_pkgs(pkgs)
+  // Return the combined ECDH share for the specified key.
+  return combine_ecdh_pkgs(pkgs, ecdh_pk)
+}
+
+/**
+ * Creates a batched ECDH request API function.
+ *
+ * Returns a function that queues ECDH requests for batch processing.
+ * Multiple ECDH operations requested in quick succession are combined
+ * into a single network request, reducing overhead.
+ *
+ * @param node - The BifrostNode to create the batched API for.
+ * @returns An async function that performs batched threshold ECDH.
+ *
+ * @example
+ * ```typescript
+ * const ecdh = ecdh_batched_request_api(node)
+ * // These will be batched together
+ * const [secret1, secret2] = await Promise.all([
+ *   ecdh('pubkey1'),
+ *   ecdh('pubkey2')
+ * ])
+ * ```
+ */
+export function ecdh_batched_request_api (node : BifrostNode) {
+  return async (ecdh_pk : string) : Promise<ApiResponse<string>> => {
+    try {
+      const secret = await node.ecdh_batcher.push(ecdh_pk)
+      return { ok : true, data : secret }
+    } catch (err) {
+      return { ok : false, err : parse_error(err) }
+    }
+  }
 }

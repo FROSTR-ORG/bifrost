@@ -3,8 +3,8 @@ import { Buff } from '@cmdcode/buff'
 import { create_session_shares } from '@/test/lib/util.js'
 
 import {
-  decode_group_pkg,
-  decode_share_pkg
+  decode_group_package,
+  decode_share_package
 } from '@frostr/bifrost/encoder'
 
 import {
@@ -29,8 +29,8 @@ const DEFAULT_CONFIG = {
 export default function (opt ?: Partial<typeof DEFAULT_CONFIG>) {
   const config   = { ...DEFAULT_CONFIG, ...opt }
   const vector   = generate_group(config.secrets)
-  const group    = decode_group_pkg(vector.group)
-  const shares   = vector.shares.map(e => decode_share_pkg(e))
+  const group    = decode_group_package(vector.group)
+  const shares   = vector.shares.map(e => decode_share_package(e))
   const template = create_session_template(config.members, config.messages)
   if (template === null) throw new Error('template is null')
   const session     = create_session_pkg(group, template)

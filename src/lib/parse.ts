@@ -3,6 +3,7 @@ import type { SignedMessage } from '@cmdcode/nostr-p2p'
 import type {
   ECDHPackage,
   GroupPackage,
+  OnboardRequest,
   SignSessionPackage,
   SharePackage,
   PartialSigPackage
@@ -87,7 +88,7 @@ export function parse_group_pkg (
 
 /**
  * Parse a member share package.
- * 
+ *
  * @param share_pkg - The message to parse.
  * @returns The parsed message.
  */
@@ -99,5 +100,24 @@ export function parse_share_pkg (
     return schema.parse(share_pkg)
   } catch (err) {
     throw new Error('share package failed validation: ' + parse_error(err))
+  }
+}
+
+/**
+ * Parse an onboard request message.
+ *
+ * @param msg - The message to parse.
+ * @returns The parsed message.
+ */
+export function parse_onboard_message (
+  msg : SignedMessage
+) : SignedMessage<OnboardRequest> {
+  try {
+    const schema = Schema.onboard.onboard_req
+    const json   = JSON.parse(msg.data)
+    const parsed = schema.parse(json)
+    return { ...msg, data : parsed }
+  } catch {
+    throw new Error('onboard request failed validation')
   }
 }

@@ -3,27 +3,42 @@ import { get_group_signing_ctx } from '@cmdcode/frost/lib'
 import { now }                   from '@/util/index.js'
 
 import {
-  get_commit_by_idx,
+  get_member_by_idx,
   get_group_id
 } from './group.js'
 
-import {
-  create_sighash_commit,
-  create_sighash_share
-} from './sighash.js'
-
 import type {
   GroupPackage,
+  MemberPackage,
+  MemberPublicNonce,
   SignSessionPackage,
-  SharePackage,
   SignSessionContext,
   SignSessionTemplate,
-  SignSessionConfig,
-  SighashCommit,
-  SighashShare
+  SignSessionConfig
 } from '@/types/index.js'
 
 import Schema from '@/schema/index.js'
+
+/**
+ * CommitData represents public nonces for a member during signing.
+ * This can come from session.nonces (MemberPublicNonce) or be constructed
+ * from MemberPackage + nonces.
+ */
+interface CommitData {
+  idx       : number
+  pubkey    : string
+  binder_pn : string
+  hidden_pn : string
+}
+
+/**
+ * SighashCommit is a commit bound to a specific sighash.
+ */
+interface SighashCommit extends CommitData {
+  sid       : string
+  sighash   : string
+  bind_hash : string
+}
 
 export const GET_DEFAULT_SESSION_CONFIG : () => SignSessionConfig = () => {
   return {
@@ -35,7 +50,7 @@ export const GET_DEFAULT_SESSION_CONFIG : () => SignSessionConfig = () => {
 
 /**
  * Create a signature session template.
- * 
+ *
  * @param members  - The members to include in the session.
  * @param messages - The message to sign.
  * @param options  - The options to use for the session.
@@ -64,7 +79,7 @@ export function create_session_template (
 
 /**
  * Create a signature session package.
- * 
+ *
  * @param group    - The group package.
  * @param template - The session template.
  * @returns The signature session package.
@@ -83,7 +98,7 @@ export function create_session_pkg (
 
 /**
  * Verify a signature session package.
- * 
+ *
  * @param group   - The group package.
  * @param session - The session package to verify.
  * @returns True if the session package is valid, false otherwise.
@@ -101,7 +116,7 @@ export function verify_session_pkg (
 
 /**
  * Get the session ID for a given group and session configuration.
- * 
+ *
  * @param group_id - The group ID.
  * @param session  - The session configuration.
  * @returns The session ID.
@@ -123,51 +138,93 @@ export function get_session_id (
 }
 
 /**
- * Get the tweaked commitment for a given session and commitment package.
- * 
+ * Create commit data from a member and their nonces.
+ *
+ * @param member - The member package.
+ * @param nonce - The member public nonce for this member.
+ * @returns The commit data.
+ */
+function create_commit_data (
+  member : MemberPackage,
+  nonce  : MemberPublicNonce
+) : CommitData {
+  return {
+    idx       : member.idx,
+    pubkey    : member.pubkey,
+    binder_pn : nonce.binder_pn,
+    hidden_pn : nonce.hidden_pn
+  }
+}
+
+/**
+ * Create a sighash commit from commit data.
+ *
+ * @param session_id - The session ID.
+ * @param commit - The commit data.
+ * @param sigvec - The sighash vector.
+ * @returns The sighash commit.
+ */
+function create_sighash_commit_from_data (
+  session_id : string,
+  commit     : CommitData,
+  sigvec     : [ string, ...string[] ]
+) : SighashCommit {
+  const [ sighash ] = sigvec
+  // Create bind hash from session, index, and sighash
+  const bind_hash = Buff.join([
+    Buff.hex(session_id),
+    Buff.num(commit.idx, 4),
+    Buff.hex(sighash)
+  ]).digest.hex
+
+  return {
+    ...commit,
+    sid       : session_id,
+    sighash,
+    bind_hash
+  }
+}
+
+/**
+ * Get the tweaked commitment for a given session, using dynamic nonces.
+ *
  * @param group   - The group package.
- * @param session - The session package.
- * @param idx     - The index of the commitment.
- * @returns The tweaked commitment.
+ * @param session - The session package (must include nonces).
+ * @param idx     - The index of the member.
+ * @returns The tweaked commitments for each sighash.
  */
 export function create_member_commits (
   group   : GroupPackage,
   session : SignSessionPackage,
   idx     : number
 ) : SighashCommit[] {
-  // Get the group commitment.
-  const commit = get_commit_by_idx(group.commits, idx)
-  // Return the tweaked commitment for each sighash.
-  return session.hashes.map(vec => create_sighash_commit(session.sid, commit, vec))
-}
+  // Get the member.
+  const member = get_member_by_idx(group.members, idx)
 
-/**
- * Get the tweaked member share for a given session and share package.
- * 
- * @param session - The session package.
- * @param share   - The share package.
- * @returns The tweaked member share.
- */
-export function create_member_shares (
-  session : SignSessionPackage,
-  share   : SharePackage
-) : SighashShare[] {
-  // Return the tweaked member share for each sighash.
-  return session.hashes.map(vec => create_sighash_share(session.sid, share, vec))
+  // Get the nonce for this member from the session.
+  const nonce = session.nonces?.find(n => n.idx === idx)
+  if (!nonce) {
+    throw new Error(`no nonce found for member ${idx} in session`)
+  }
+
+  // Create commit data.
+  const commit = create_commit_data(member, nonce)
+
+  // Return the tweaked commitment for each sighash.
+  return session.hashes.map(vec => create_sighash_commit_from_data(session.sid, commit, vec))
 }
 
 /**
  * Create the session commits for a given session and group package.
- * 
+ *
  * @param group   - The group package.
- * @param session - The session package.
+ * @param session - The session package (must include nonces).
  * @returns The session commits.
  */
 export function create_session_commits (
   group   : GroupPackage,
   session : SignSessionPackage
 ) : SighashCommit[] {
-  // Get the group commitment.
   return session.members
     .map(idx => create_member_commits(group, session, idx))
     .flat()
@@ -175,22 +232,32 @@ export function create_session_commits (
 
 /**
  * Get the session context for a given session and group package.
- * 
+ *
+ * The session must include nonces with the public nonces
+ * for all participating members.
+ *
  * @param group   - The group package.
- * @param session - The session package.
- * @param tweaks  - The tweaks to use for the session.
+ * @param session - The session package (must include nonces).
  * @returns The session context.
  */
 export function get_session_ctx (
   group   : GroupPackage,
   session : SignSessionPackage
 ) : SignSessionContext {
+  // Validate that nonces are present
+  if (!session.nonces || session.nonces.length === 0) {
+    throw new Error('session must include nonces for dynamic nonce signing')
+  }
+
   // Get the public keys for the group.
-  const pubkeys = group.commits.map(e => e.pubkey)
+  const pubkeys = group.members.map(e => e.pubkey)
+
   // Create the sighash commitments.
   const session_commits = create_session_commits(group, session)
+
   // Create the context map.
   const sigmap = new Map()
+
   // For each sighash vector,
   for (const vec of session.hashes) {
     // Unpack the sighash vector.
@@ -202,6 +269,7 @@ export function get_session_ctx (
     // Add the context to the map.
     sigmap.set(sighash, context)
   }
+
   // Return the session context.
   return { pubkeys, session, sigmap }
 }

@@ -1,63 +1,75 @@
-import { Buff }               from '@cmdcode/buff'
-import { get_commits_prefix } from '@cmdcode/frost/lib'
-import { get_pubkey }         from '@/util/crypto.js'
-import { Assert }             from '@/util/assert.js'
+import { Buff }       from '@cmdcode/buff'
+import { get_pubkey } from '@/util/crypto.js'
+import { Assert }     from '@/util/assert.js'
 
 import type {
-  CommitPackage,
+  MemberPackage,
   GroupPackage,
   SharePackage
 } from '@/types/index.js'
 
 /**
  * Get the group ID from the given group package.
- * 
+ *
+ * For the new format (MemberPackage), the ID is computed from:
+ * - group_pk
+ * - threshold
+ * - sorted member pubkeys
+ *
  * @param group - The group package to get the ID from.
  * @returns The group ID.
  */
 export function get_group_id (
   group : GroupPackage
 ) : string {
-  const prefix = get_commits_prefix(group.commits)
-  const preimg = Buff.join([ prefix, group.group_pk ])
+  // Sort members by index for deterministic ordering
+  const sorted_members = [...group.members].sort((a, b) => a.idx - b.idx)
+
+  // Build preimage: group_pk || threshold || member_pubkeys
+  const parts = [
+    Buff.hex(group.group_pk),
+    Buff.num(group.threshold, 4),
+    ...sorted_members.map(m => Buff.hex(m.pubkey))
+  ]
+  const preimg = Buff.join(parts)
   return preimg.digest.hex
 }
 
 /**
- * Find a commitment package for a given member public key.
- * 
- * @param commits - The commits to search.
+ * Find a member package for a given member public key.
+ *
+ * @param members - The members to search.
  * @param pubkey  - The public key to search for.
- * @returns The commit package.
+ * @returns The member package.
  */
-export function get_commit_by_pubkey (
-  commits : CommitPackage[],
+export function get_member_by_pubkey (
+  members : MemberPackage[],
   pubkey  : string
-) : CommitPackage {
-  const commit = commits.find(e => e.pubkey === pubkey)
-  Assert.exists(commit, 'commit package not found for pubkey: ' + pubkey)
-  return commit
+) : MemberPackage {
+  const member = members.find(e => e.pubkey === pubkey)
+  Assert.exists(member, 'member package not found for pubkey: ' + pubkey)
+  return member
 }
 
 /**
- * Find a commitment package for a given member's index.
- * 
- * @param commits - The commits to search.
+ * Find a member package for a given member's index.
+ *
+ * @param members - The members to search.
  * @param idx     - The index to search for.
- * @returns The commit package.
+ * @returns The member package.
  */
-export function get_commit_by_idx (
-  commits : CommitPackage[],
+export function get_member_by_idx (
+  members : MemberPackage[],
   idx     : number
-) : CommitPackage {
-  const commit = commits.find(e => e.idx === idx)
-  Assert.exists(commit, 'commit package not found for idx: ' + idx)
-  return commit
+) : MemberPackage {
+  const member = members.find(e => e.idx === idx)
+  Assert.exists(member, 'member package not found for idx: ' + idx)
+  return member
 }
 
 /**
  * Check if a share package is a member of a group.
- * 
+ *
  * @param group - The group package.
  * @param share - The share package.
  * @returns True if the share package is a member of the group, false otherwise.
@@ -68,5 +80,6 @@ export function is_group_member (
 ) : boolean {
   const idx    = share.idx
   const pubkey = get_pubkey(share.seckey, 'ecdsa')
-  return group.commits.some(e => e.idx === idx && e.pubkey === pubkey)
+  return group.members.some(e => e.idx === idx && e.pubkey === pubkey)
 }
+

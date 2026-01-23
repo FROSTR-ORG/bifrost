@@ -1,30 +1,49 @@
-export interface ECDHPackage {
+/**
+ * A single ECDH entry containing a public key and its corresponding keyshare.
+ */
+export interface ECDHEntry {
   ecdh_pk  : string
-  idx      : number
-  members  : number[]
   keyshare : string
 }
 
+/**
+ * Package for batched ECDH operations.
+ * Contains member info and an array of ECDH entries.
+ */
+export interface ECDHPackage {
+  idx     : number
+  members : number[]
+  entries : ECDHEntry[]
+}
+
+/**
+ * Simplified SharePackage - nonces are now managed by NoncePool.
+ */
 export interface SharePackage {
-  idx       : number
-  binder_sn : string
-  hidden_sn : string
-  seckey    : string
+  idx    : number
+  seckey : string
 }
 
-export interface CommitPackage {
-  idx       : number
-  binder_pn : string
-  hidden_pn : string
-  pubkey    : string
+/**
+ * Member information within a group.
+ */
+export interface MemberPackage {
+  idx    : number
+  pubkey : string
 }
 
+/**
+ * Group package containing group public key and member information.
+ */
 export interface GroupPackage {
-  commits   : CommitPackage[]
+  members   : MemberPackage[]
   group_pk  : string
   threshold : number
 }
 
+/**
+ * Dealer package containing group and share information.
+ */
 export interface DealerPackage {
   group  : GroupPackage
   shares : SharePackage[]

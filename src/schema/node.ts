@@ -15,7 +15,8 @@ const config = z.object({
   debug      : z.boolean(),
   middleware : middleware,
   policies   : peer.config.array(),
-  sign_ival  : base.num
+  sign_interval  : base.num,
+  ecdh_interval  : base.num
 })
 
 export default { cache, config, middleware }

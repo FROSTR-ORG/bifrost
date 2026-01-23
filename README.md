@@ -23,9 +23,9 @@ The following example demonstrates how to create a set of commits and shares for
 
 ```ts
 import {
-  encode_group_pkg,
-  encode_share_pkg,
-  generate_dealer_pkg
+  encode_group_package,
+  encode_share_package,
+  generate_dealer_package
 } from '@frostr/bifrost/lib'
 
 const THRESHOLD  = 2  // Number of shares required to sign.
@@ -33,11 +33,11 @@ const MEMBERS    = 3  // Total number of shares to create.
 const SECRET_KEY = 'your hex-encoded secret key'
 
 // Generate a 2-of-3 threshold share package.
-const { group, shares } = generate_dealer_pkg(THRESHOLD, MEMBERS, [ SECRET_KEY ])
+const { group, shares } = generate_dealer_package(THRESHOLD, MEMBERS, [ SECRET_KEY ])
 
 // Encode the group and shares as bech32 strings.
-const group_cred  = encode_group_pkg(group)
-const share_creds = shares.map(encode_share_pkg)
+const group_cred  = encode_group_package(group)
+const share_creds = shares.map(encode_share_package)
 ```
 
 ### Initializing a Bifrost Node

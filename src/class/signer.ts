@@ -1,7 +1,7 @@
 import { Buff }            from '@cmdcode/buff'
 import { schnorr }         from '@noble/curves/secp256k1'
 import { get_pubkey }      from '@/util/crypto.js'
-import { create_ecdh_pkg } from '@/lib/ecdh.js'
+import { create_ecdh_pkg, create_batched_ecdh_pkg } from '@/lib/ecdh.js'
 import { get_session_ctx } from '@/lib/session.js'
 import { create_psig_pkg } from '@/lib/sign.js'
 
@@ -20,6 +20,7 @@ import type {
   SignerConfig,
   ECDHPackage,
   GroupPackage,
+  SecretNoncePair,
   SignSessionPackage,
   SharePackage,
   PartialSigPackage
@@ -59,7 +60,7 @@ export class BifrostSigner {
 
   /** Signer configuration options. */
   private readonly _config : SignerConfig
-  /** The group package containing group public key and commitments. */
+  /** The group package containing group public key and members. */
   private readonly _group  : GroupPackage
   /** The share package containing this signer's secret share. */
   private readonly _share  : SharePackage
@@ -69,7 +70,7 @@ export class BifrostSigner {
   /**
    * Creates a new BifrostSigner instance.
    *
-   * @param group - The group package containing the group public key and member commitments.
+   * @param group - The group package containing the group public key and member info.
    * @param share - The share package containing this signer's secret share and index.
    * @param options - Optional signer configuration.
    */
@@ -94,10 +95,18 @@ export class BifrostSigner {
 
   /**
    * Gets the group package.
-   * @returns The GroupPackage containing group public key and member commitments.
+   * @returns The GroupPackage containing group public key and member info.
    */
   get group () {
     return this._group
+  }
+
+  /**
+   * Gets this signer's member index.
+   * @returns The member index in the group.
+   */
+  get idx () {
+    return this._share.idx
   }
 
   /**
@@ -116,13 +125,30 @@ export class BifrostSigner {
    *
    * @param members - Array of member indexes participating in this ECDH operation.
    * @param ecdh_pk - The remote public key to perform ECDH with (hex-encoded).
-   * @returns An ECDHPackage containing the partial ECDH share.
+   * @returns An ECDHPackage containing the partial ECDH share (single entry).
    */
   gen_ecdh_share (
     members : number[],
     ecdh_pk : string
   ) : ECDHPackage {
     return create_ecdh_pkg(members, ecdh_pk, this._share)
+  }
+
+  /**
+   * Generates ECDH shares for multiple public keys (batched operation).
+   *
+   * Creates partial ECDH shares for multiple remote public keys that can
+   * be combined with shares from other group members.
+   *
+   * @param members - Array of member indexes participating in this ECDH operation.
+   * @param ecdh_pks - The remote public keys to perform ECDH with (hex-encoded).
+   * @returns An ECDHPackage containing partial ECDH shares for all keys.
+   */
+  gen_batched_ecdh_shares (
+    members  : number[],
+    ecdh_pks : string[]
+  ) : ECDHPackage {
+    return create_batched_ecdh_pkg(members, ecdh_pks, this._share)
   }
 
   /**
@@ -150,14 +176,16 @@ export class BifrostSigner {
    * from other group members to create a valid group signature.
    *
    * @param session - The signing session package containing nonces and message hashes.
+   * @param nonce - The secret nonce to use for this signature (from NoncePool).
    * @returns A PartialSigPackage containing the partial signature share.
    */
   sign_session (
-    session : SignSessionPackage
+    session : SignSessionPackage,
+    nonce   : SecretNoncePair
   ) : PartialSigPackage {
     const ctx = get_session_ctx(this._group, session)
 
-    return create_psig_pkg(ctx, this._share)
+    return create_psig_pkg(ctx, this._share, nonce)
   }
 
   /**

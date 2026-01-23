@@ -42,7 +42,8 @@ dist
 .vscode
 
 #Core Data
+local/
 test/data
-
+demo/data/
 TODO.md
 NOTES.md

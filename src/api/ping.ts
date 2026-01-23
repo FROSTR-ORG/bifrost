@@ -8,13 +8,22 @@ import {
   parse_error
 } from '@/util/index.js'
 
+import {
+  normalize_pubkey,
+  pubkeys_match
+} from '@/lib/util.js'
+
 import type { SignedMessage } from '@cmdcode/nostr-p2p'
 
 import type {
   ApiResponse,
-  PeerPolicy,
-  PeerStatus
+  PeerStatus,
+  PingRequest,
+  PingResponse
 } from '@/types/index.js'
+
+/** Current protocol version for ping messages */
+const PROTOCOL_VERSION = 2
 
 /**
  * Handles incoming ping requests from peers.
@@ -22,8 +31,9 @@ import type {
  * When another node sends a ping request, this handler:
  * 1. Emits the request for debugging/logging
  * 2. Looks up the peer's data
- * 3. Responds with this node's policy for that peer
- * 4. Updates the peer's status to 'online'
+ * 3. Processes incoming nonces if present
+ * 4. Responds with policy, pool status, and optional nonces
+ * 5. Updates the peer's status to 'online'
  *
  * Events emitted:
  * - `/ping/handler/req` - When a ping request is received
@@ -37,36 +47,69 @@ export async function ping_handler_api (
   node : BifrostNode,
   msg  : SignedMessage<string>
 ) {
-  // Try to parse the message.
   try {
-    // Emit the request message.
+    // Emit the request message
     node.emit('/ping/handler/req', msg)
-    // Get the peer data.
+
+    // Get the peer data
     const peer_data = node.peers.find(e => e.pubkey === msg.env.pubkey)
-    // If the peer data is not found, throw an error.
     if (peer_data === undefined) throw new Error('peer data not found')
-    // Finalize the response package.
+
+    // Try to parse enhanced ping request
+    const request = parse_ping_request(msg.data)
+
+    // Get peer index from group
+    const peer_member = node.group.members.find(m => pubkeys_match(m.pubkey, peer_data.pubkey))
+    const peer_idx = peer_member?.idx
+
+    // Process incoming nonces if present (pass peer_idx)
+    if (request?.nonces && node.pool && peer_idx !== undefined) {
+      node.pool.store_incoming(peer_idx, request.nonces)
+    }
+
+    // Build response with nonce pool information
+    const response : PingResponse = {
+      policy : peer_data.policy
+    }
+
+    // Include pool status if we have a pool
+    if (node.pool && peer_idx !== undefined) {
+      // Get pool status for all peers
+      const peer_pks = new Map<number, string>()
+      for (const member of node.group.members) {
+        peer_pks.set(member.idx, normalize_pubkey(member.pubkey))
+      }
+      response.pool_status = node.pool.get_pool_status(peer_pks)
+
+      // Include nonces if peer needs them FROM US (check OUTGOING pool)
+      // This is the correct direction check - we're deciding whether to SEND nonces
+      if (node.pool.should_send_nonces_to(peer_idx)) {
+        response.nonces = node.pool.generate_for_peer(peer_idx)
+      }
+    }
+
+    // Finalize and publish the response
     const envelope = finalize_message({
-      data : JSON.stringify(peer_data.policy),
+      data : JSON.stringify(response),
       id   : msg.id,
       tag  : '/ping/res'
     })
-    // Publish the response package.
+
     const res = await node.client.publish(envelope, msg.env.pubkey)
-    // If the response is not ok, throw an error.
     if (!res.ok) throw new Error('failed to publish response')
-    // Update the peer state.
+
+    // Update the peer state
     node.update_peer({
       ...peer_data,
       status  : 'online',
       updated : now()
     })
-    // Emit the response package.
+
+    // Emit the response
     node.emit('/ping/handler/res', res.data)
+
   } catch (err) {
-    // Log the error.
     if (node.debug) console.log(err)
-    // Emit the error.
     node.emit('/ping/handler/rej', [ parse_error(err), msg ])
   }
 }
@@ -75,12 +118,13 @@ export async function ping_handler_api (
  * Creates a request API function for pinging peers.
  *
  * Returns a function that sends a ping request to a specific peer
- * to check if they are online and get their policy for this node.
+ * to check if they are online, get their policy, and exchange nonces.
  *
  * The process:
- * 1. Send a ping request to the peer
- * 2. Wait for their response containing their policy
- * 3. Update the peer's status to 'online' or 'offline'
+ * 1. Build ping request with pool status and optional nonces
+ * 2. Send request to the peer
+ * 3. Process response (policy, pool status, nonces)
+ * 4. Update peer status and nonce pool
  *
  * Events emitted:
  * - `/ping/sender/res` - When a response is received
@@ -96,110 +140,167 @@ export async function ping_handler_api (
  * const ping = ping_request_api(node)
  * const result = await ping(peerPubkey)
  * if (result.ok) {
- *   console.log('Peer policy:', result.data)
+ *   console.log('Peer policy:', result.data.policy)
  * }
  * ```
  */
 export function ping_request_api (node : BifrostNode) {
 
-  return async (pubkey : string) : Promise<ApiResponse<PeerPolicy>> => {
+  return async (pubkey : string) : Promise<ApiResponse<PingResponse>> => {
 
-    // Get the peer data.
+    // Get the peer data
     const peer_data = node.peers.find(e => e.pubkey === pubkey)
-    // If the peer data is not found, throw an error.
     Assert.exists(peer_data, 'peer data not found')
+
+    // Get peer index
+    const peer_member = node.group.members.find(m => pubkeys_match(m.pubkey, pubkey))
+    const peer_idx = peer_member?.idx
 
     let msg : SignedMessage<string> | null = null
 
     try {
-      // Send the request to the peers.
-      msg = await create_ping_request(node, pubkey)
-      // Emit the response.
+      // Build the enhanced ping request
+      const request : PingRequest = {
+        version : PROTOCOL_VERSION
+      }
+
+      // Add pool status if we have a pool
+      if (node.pool && peer_idx !== undefined) {
+        const peer_pks = new Map<number, string>()
+        for (const member of node.group.members) {
+          peer_pks.set(member.idx, normalize_pubkey(member.pubkey))
+        }
+        request.pool_status = node.pool.get_pool_status(peer_pks)
+
+        // Include nonces if peer needs them FROM US (check OUTGOING pool)
+        // This is the correct direction check - we're deciding whether to SEND nonces
+        if (node.pool.should_send_nonces_to(peer_idx)) {
+          request.nonces = node.pool.generate_for_peer(peer_idx)
+        }
+      }
+
+      // Send the request
+      msg = await create_ping_request(node, pubkey, request)
       node.emit('/ping/sender/res', msg)
+
     } catch (err) {
-      // Log the error.
       if (node.debug) console.log(err)
-      // Parse the error.
       const reason = parse_error(err)
-      // Emit the error.
       node.emit('/ping/sender/rej', [ reason, msg ])
-      // Return the error.
-      return { ok : false, err : reason }
+      return { ok: false, err: reason }
     }
 
     try {
       Assert.ok(msg !== null, 'no response from peer')
-      // Parse the response.
-      const policy = parse_ping_response(msg)
-      // If the policy is null, throw an error.
-      if (policy === null) throw new Error('invalid ping response')
-      // Update the peer state.
+
+      // Parse the response
+      const response = parse_ping_response(msg)
+      if (response === null) throw new Error('invalid ping response')
+
+      // Store incoming nonces if present (pass peer_idx)
+      if (response.nonces && node.pool && peer_idx !== undefined) {
+        node.pool.store_incoming(peer_idx, response.nonces)
+      }
+
+      // Update the peer state
       const new_data = {
         ...peer_data,
         status  : 'online' as PeerStatus,
         updated : now()
       }
       node.update_peer(new_data)
-      // Emit the pong event.
+
+      // Emit success
       node.emit('/ping/sender/ret', new_data)
-      // Return the pong event.
-      return { ok : true, data : policy }
+      return { ok: true, data: response }
+
     } catch (err) {
-      // Log the error.
       if (node.debug) console.log(err)
-      // Parse the error.
       const reason = parse_error(err)
-      // Emit the error.
       node.emit('/ping/sender/err', [ reason, msg ])
-      // Update the peer state.
+
+      // Update peer to offline
       node.update_peer({
         ...peer_data,
         status  : 'offline',
         updated : now()
       })
-      // Return the error.
-      return { ok : false, err : reason }
+
+      return { ok: false, err: reason }
     }
   }
 }
 
 /**
- * Sends a ping request to a specific peer.
+ * Sends an enhanced ping request to a specific peer.
  *
  * @param node - The BifrostNode sending the request.
  * @param pubkey - The public key of the peer to ping.
+ * @param request - The enhanced ping request payload.
  * @returns A Promise resolving to the signed ping response.
  * @throws Error if the request fails or times out.
  * @internal
  */
 async function create_ping_request (
-  node   : BifrostNode,
-  pubkey : string
+  node    : BifrostNode,
+  pubkey  : string,
+  request : PingRequest
 ) : Promise<SignedMessage<string>> {
-  // Send a request to the peer nodes.
   const res = await node.client.request({
-    data : 'ping',
+    data : JSON.stringify(request),
     tag  : '/ping/req'
   }, pubkey, {})
-  // If the response is not ok, throw an error.
+
   if (!res.ok) throw new Error(res.reason)
-  // Return the response.
   return res.inbox[0]
 }
 
 /**
- * Parses a ping response to extract the peer's policy.
+ * Parses an incoming ping request.
  *
- * @param msg - The signed message containing the ping response.
- * @returns The peer's policy object, or null if parsing fails.
+ * @param data - The raw request data.
+ * @returns The parsed ping request, or null if parsing fails.
  * @internal
  */
-function parse_ping_response (msg : SignedMessage<string>) : PeerPolicy | null {
+function parse_ping_request (data : string) : PingRequest | null {
   try {
-    const json   = JSON.parse(msg.data)
-    const parsed = Schema.peer.policy.safeParse(json)
+    // Handle legacy "ping" string
+    if (data === 'ping') {
+      return { version: 1 }
+    }
+    const json   = JSON.parse(data)
+    const parsed = Schema.peer.ping_req.safeParse(json)
     if (!parsed.success) return null
-    return parsed.data
+    return parsed.data as PingRequest
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Parses a ping response to extract policy and nonce information.
+ *
+ * @param msg - The signed message containing the ping response.
+ * @returns The parsed ping response, or null if parsing fails.
+ * @internal
+ */
+function parse_ping_response (msg : SignedMessage<string>) : PingResponse | null {
+  try {
+    const json = JSON.parse(msg.data)
+
+    // Try enhanced response format first
+    const parsed = Schema.peer.ping_res.safeParse(json)
+    if (parsed.success) {
+      return parsed.data as PingResponse
+    }
+
+    // Fall back to legacy policy-only format
+    const legacy = Schema.peer.policy.safeParse(json)
+    if (legacy.success) {
+      return { policy: legacy.data }
+    }
+
+    return null
   } catch {
     return null
   }

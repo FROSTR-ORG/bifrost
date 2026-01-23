@@ -8,16 +8,16 @@ import type {
 } from '@/types/index.js'
 
 /**
- * SignerQueue batches signature requests for efficient processing.
+ * SignBatcher batches signature requests for efficient processing.
  *
  * Instead of sending individual signing requests to peers immediately,
- * the queue collects requests and processes them in batches at a
+ * the batcher collects requests and processes them in batches at a
  * configurable interval. This reduces network overhead and improves
  * performance when multiple messages need to be signed in quick succession.
  *
  * How it works:
  * 1. Requests are added via `push()` which returns a Promise
- * 2. A timer schedules batch processing after `sign_ival` milliseconds
+ * 2. A timer schedules batch processing after `sign_interval` milliseconds
  * 3. When the timer fires, `process()` sends all queued requests as a batch
  * 4. Each request's Promise is resolved or rejected based on the batch result
  *
@@ -29,7 +29,7 @@ import type {
  * const [result1, result2] = await Promise.all([sig1, sig2])
  * ```
  */
-export class SignerQueue {
+export class SignBatcher {
 
   /** Batch processing interval in milliseconds. */
   private readonly _ival : number
@@ -42,20 +42,20 @@ export class SignerQueue {
   private _timer : NodeJS.Timeout | null
 
   /**
-   * Creates a new SignerQueue instance.
+   * Creates a new SignBatcher instance.
    *
-   * @param node - The BifrostNode this queue belongs to.
+   * @param node - The BifrostNode this batcher belongs to.
    */
   constructor (node : BifrostNode) {
     this._node  = node
-    this._ival  = node.config.sign_ival
+    this._ival  = node.config.sign_interval
     this._queue = []
     this._timer = null
   }
 
   /**
    * Gets the parent BifrostNode.
-   * @returns The BifrostNode this queue belongs to.
+   * @returns The BifrostNode this batcher belongs to.
    */
   get node () {
     return this._node
@@ -146,7 +146,7 @@ export class SignerQueue {
    * Schedules batch processing if not already scheduled.
    *
    * Sets a timer to call `process()` after the configured interval
-   * (sign_ival). If a timer is already active, this method does nothing.
+   * (sign_interval). If a timer is already active, this method does nothing.
    */
   schedule () {
     if (this.timer === null) {

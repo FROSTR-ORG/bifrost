@@ -33,12 +33,14 @@ function create_mock_message (data : string) : SignedMessage {
   } as SignedMessage
 }
 
-// Valid ECDH package
+// Valid ECDH package (new format with entries array)
 const VALID_ECDH = {
-  idx      : 1,
-  keyshare : HEX32,
-  members  : [ 1, 2, 3 ],
-  ecdh_pk  : HEX33
+  idx     : 1,
+  members : [ 1, 2, 3 ],
+  entries : [{
+    ecdh_pk  : HEX33,
+    keyshare : HEX32
+  }]
 }
 
 // Valid session package
@@ -60,24 +62,20 @@ const VALID_PSIG = {
   sid    : HEX32
 }
 
-// Valid group package
+// Valid group package (new format with members instead of commits)
 const VALID_GROUP = {
-  commits : [{
-    idx       : 1,
-    pubkey    : HEX33,
-    hidden_pn : HEX33,
-    binder_pn : HEX33
+  members : [{
+    idx    : 1,
+    pubkey : HEX33
   }],
   group_pk  : HEX33,
   threshold : 2
 }
 
-// Valid share package
+// Valid share package (new simplified format without nonces)
 const VALID_SHARE = {
-  idx       : 1,
-  binder_sn : HEX32,
-  hidden_sn : HEX32,
-  seckey    : HEX32
+  idx    : 1,
+  seckey : HEX32
 }
 
 export default function (tape : Test) {
@@ -89,9 +87,11 @@ export default function (tape : Test) {
         const parsed = parse_ecdh_message(msg)
 
         st.equal(parsed.data.idx, VALID_ECDH.idx, 'idx is parsed correctly')
-        st.equal(parsed.data.keyshare, VALID_ECDH.keyshare, 'keyshare is parsed correctly')
         st.deepEqual(parsed.data.members, VALID_ECDH.members, 'members are parsed correctly')
-        st.equal(parsed.data.ecdh_pk, VALID_ECDH.ecdh_pk, 'ecdh_pk is parsed correctly')
+        st.ok(Array.isArray(parsed.data.entries), 'entries is an array')
+        st.equal(parsed.data.entries.length, 1, 'entries has one element')
+        st.equal(parsed.data.entries[0].ecdh_pk, VALID_ECDH.entries[0].ecdh_pk, 'entry ecdh_pk is parsed correctly')
+        st.equal(parsed.data.entries[0].keyshare, VALID_ECDH.entries[0].keyshare, 'entry keyshare is parsed correctly')
         st.end()
       })
 
@@ -105,10 +105,10 @@ export default function (tape : Test) {
         const missingField = create_mock_message(JSON.stringify({ idx: 1 }))
         st.throws(() => parse_ecdh_message(missingField), /ecdh message failed validation/, 'throws on missing field')
 
-        // Invalid hex
+        // Invalid hex in entries
         const invalidHex = create_mock_message(JSON.stringify({
           ...VALID_ECDH,
-          keyshare : 'not-hex'
+          entries : [{ ecdh_pk: VALID_ECDH.entries[0].ecdh_pk, keyshare : 'not-hex' }]
         }))
         st.throws(() => parse_ecdh_message(invalidHex), /ecdh message failed validation/, 'throws on invalid hex')
 
@@ -178,7 +178,7 @@ export default function (tape : Test) {
 
         st.equal(parsed.threshold, VALID_GROUP.threshold, 'threshold is parsed correctly')
         st.equal(parsed.group_pk, VALID_GROUP.group_pk, 'group_pk is parsed correctly')
-        st.equal(parsed.commits.length, 1, 'commits array is parsed correctly')
+        st.equal(parsed.members.length, 1, 'members array is parsed correctly')
         st.end()
       })
 
@@ -187,14 +187,14 @@ export default function (tape : Test) {
         // Null input
         st.throws(() => parse_group_pkg(null), /group package failed validation/, 'throws on null')
 
-        // Missing commits
-        st.throws(() => parse_group_pkg({ threshold: 2 }), /group package failed validation/, 'throws on missing commits')
+        // Missing members
+        st.throws(() => parse_group_pkg({ threshold: 2 }), /group package failed validation/, 'throws on missing members')
 
-        // Invalid commit structure
+        // Invalid member structure
         st.throws(() => parse_group_pkg({
           ...VALID_GROUP,
-          commits : [{ idx: 1 }]  // missing required fields
-        }), /group package failed validation/, 'throws on invalid commit')
+          members : [{ idx: 1 }]  // missing required pubkey field
+        }), /group package failed validation/, 'throws on invalid member')
 
         st.end()
       })
@@ -205,8 +205,6 @@ export default function (tape : Test) {
 
         st.equal(parsed.idx, VALID_SHARE.idx, 'idx is parsed correctly')
         st.equal(parsed.seckey, VALID_SHARE.seckey, 'seckey is parsed correctly')
-        st.equal(parsed.binder_sn, VALID_SHARE.binder_sn, 'binder_sn is parsed correctly')
-        st.equal(parsed.hidden_sn, VALID_SHARE.hidden_sn, 'hidden_sn is parsed correctly')
         st.end()
       })
 

@@ -1,0 +1,239 @@
+/**
+ * Onboard API
+ *
+ * Handles the onboarding process for new nodes joining the group.
+ * When a node starts with just an OnboardPackage (share + peer info),
+ * it uses this API to receive the full GroupPackage and initial nonces.
+ */
+
+import { BifrostNode }      from '@/class/client.js'
+import { finalize_message } from '@cmdcode/nostr-p2p/lib'
+import Schema               from '@/schema/index.js'
+
+import { pubkeys_match }    from '@/lib/util.js'
+
+import {
+  Assert,
+  parse_error
+} from '@/util/index.js'
+
+import type { SignedMessage } from '@cmdcode/nostr-p2p'
+
+import type {
+  ApiResponse,
+  OnboardRequest,
+  OnboardResponse
+} from '@/types/index.js'
+
+/**
+ * Handles incoming onboard requests from new nodes.
+ *
+ * When a new node contacts us for onboarding, this handler:
+ * 1. Validates the request (checks the node is a valid group member)
+ * 2. Generates initial nonces for the new node
+ * 3. Returns the GroupPackage and nonce package
+ *
+ * Events emitted:
+ * - `/onboard/handler/req` - When an onboard request is received
+ * - `/onboard/handler/res` - When a response is sent successfully
+ * - `/onboard/handler/rej` - When an error occurs
+ *
+ * @param node - The BifrostNode handling the request.
+ * @param msg - The signed message containing the onboard request.
+ */
+export async function onboard_handler_api (
+  node : BifrostNode,
+  msg  : SignedMessage<OnboardRequest>
+) {
+  try {
+    // Emit the request message
+    node.emit('/onboard/handler/req', msg)
+
+    // Parse and validate the request
+    const request = msg.data
+    const parsed  = Schema.onboard.onboard_req.safeParse(request)
+    if (!parsed.success) {
+      throw new Error('invalid onboard request format')
+    }
+
+    // Verify the requester is a valid group member
+    const member = node.group.members.find(m => m.idx === request.idx)
+    if (!member) {
+      throw new Error('requester not a valid group member')
+    }
+
+    // Generate initial nonces for the new node
+    const nonce_pkg = node.pool.generate_for_peer(
+      request.idx,
+      node.pool.config.pool_size
+    )
+
+    // Build the response
+    const response : OnboardResponse = {
+      group  : node.group,
+      nonces : nonce_pkg,
+      status : 'ok'
+    }
+
+    // Finalize and publish the response
+    const envelope = finalize_message({
+      data : JSON.stringify(response),
+      id   : msg.id,
+      tag  : '/onboard/res'
+    })
+
+    const res = await node.client.publish(envelope, msg.env.pubkey)
+    if (!res.ok) throw new Error('failed to publish onboard response')
+
+    // Emit success
+    node.emit('/onboard/handler/res', res.data)
+
+  } catch (err) {
+    // Log and emit error
+    if (node.debug) console.log(err)
+    node.emit('/onboard/handler/rej', [ parse_error(err), msg ])
+
+    // Try to send error response
+    try {
+      const error_response : OnboardResponse = {
+        group  : node.group,
+        nonces : [],
+        status : 'error',
+        error  : parse_error(err)
+      }
+      const envelope = finalize_message({
+        data : JSON.stringify(error_response),
+        id   : msg.id,
+        tag  : '/onboard/res'
+      })
+      await node.client.publish(envelope, msg.env.pubkey)
+    } catch {
+      // Ignore publish errors for error response
+    }
+  }
+}
+
+/**
+ * Creates a request API function for onboarding.
+ *
+ * Returns a function that sends an onboard request to a specific peer
+ * to receive the GroupPackage and initial nonces.
+ *
+ * The process:
+ * 1. Send onboard request with our share pubkey and index
+ * 2. Receive GroupPackage and initial nonces
+ * 3. Store the nonces in our pool
+ *
+ * Events emitted:
+ * - `/onboard/sender/res` - When a response is received
+ * - `/onboard/sender/rej` - When the request fails
+ * - `/onboard/sender/ret` - When onboarding completes successfully
+ * - `/onboard/sender/err` - When the response is invalid
+ *
+ * @param node - The BifrostNode to create the request API for.
+ * @returns An async function that requests onboarding from a peer.
+ *
+ * @example
+ * ```typescript
+ * const onboard = onboard_request_api(node)
+ * const result = await onboard(peerPubkey)
+ * if (result.ok) {
+ *   console.log('Onboarded successfully')
+ * }
+ * ```
+ */
+export function onboard_request_api (node : BifrostNode) {
+
+  return async (peer_pubkey : string) : Promise<ApiResponse<OnboardResponse>> => {
+
+    let msg : SignedMessage<string> | null = null
+
+    try {
+      // Create the onboard request
+      const request : OnboardRequest = {
+        share_pk : node.signer.pubkey,
+        idx      : node.signer.idx
+      }
+
+      // Send the request
+      msg = await create_onboard_request(node, peer_pubkey, request)
+      node.emit('/onboard/sender/res', msg)
+
+    } catch (err) {
+      if (node.debug) console.log(err)
+      const reason = parse_error(err)
+      node.emit('/onboard/sender/rej', [ reason, msg ])
+      return { ok: false, err: reason }
+    }
+
+    try {
+      Assert.ok(msg !== null, 'no response from peer')
+
+      // Parse the response
+      const response = parse_onboard_response(msg)
+      if (response === null) {
+        throw new Error('invalid onboard response')
+      }
+
+      if (response.status === 'error') {
+        throw new Error(response.error ?? 'onboard request rejected')
+      }
+
+      // Find the peer's member index
+      const peer_member = node.group.members.find(m => pubkeys_match(m.pubkey, peer_pubkey))
+      if (!peer_member) {
+        throw new Error('peer not found in group members')
+      }
+
+      // Store the received nonces
+      const stored = node.pool.store_incoming(peer_member.idx, response.nonces)
+
+      // Emit success
+      node.emit('/onboard/sender/ret', [ response, stored ])
+      return { ok: true, data: response }
+
+    } catch (err) {
+      if (node.debug) console.log(err)
+      const reason = parse_error(err)
+      node.emit('/onboard/sender/err', [ reason, msg ])
+      return { ok: false, err: reason }
+    }
+  }
+}
+
+/**
+ * Sends an onboard request to a specific peer.
+ *
+ * @internal
+ */
+async function create_onboard_request (
+  node    : BifrostNode,
+  pubkey  : string,
+  request : OnboardRequest
+) : Promise<SignedMessage<string>> {
+  const res = await node.client.request({
+    data : JSON.stringify(request),
+    tag  : '/onboard/req'
+  }, pubkey, {})
+
+  if (!res.ok) throw new Error(res.reason)
+  return res.inbox[0]
+}
+
+/**
+ * Parses an onboard response.
+ *
+ * @internal
+ */
+function parse_onboard_response (
+  msg : SignedMessage<string>
+) : OnboardResponse | null {
+  try {
+    const json   = JSON.parse(msg.data)
+    const parsed = Schema.onboard.onboard_res.safeParse(json)
+    if (!parsed.success) return null
+    return parsed.data as OnboardResponse
+  } catch {
+    return null
+  }
+}

@@ -1,6 +1,8 @@
 import { EventEmitter }  from './emitter.js'
 import { BifrostSigner } from './signer.js'
-import { SignerQueue }   from './queue.js'
+import { SignBatcher }   from './sign-batcher.js'
+import { ECDHBatcher }   from './ecdh-batcher.js'
+import { NoncePool }     from './pool.js'
 
 import { NostrNode }      from '@cmdcode/nostr-p2p'
 import { parse_error }    from '@cmdcode/nostr-p2p/util'
@@ -9,7 +11,8 @@ import { now }            from '@/util/helpers.js'
 
 import {
   parse_ecdh_message,
-  parse_session_message
+  parse_session_message,
+  parse_onboard_message
 } from '@/lib/parse.js'
 
 import {
@@ -51,7 +54,9 @@ const DEFAULT_CONFIG : () => BifrostNodeConfig = () => {
     debug      : false,
     middleware : {},
     policies   : [],
-    sign_ival  : 100
+    sign_interval  : 100,
+    ecdh_interval  : 100,
+    nonce_pool : {}
   }
 }
 
@@ -89,10 +94,14 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   private readonly _config : BifrostNodeConfig
   /** List of peer data including pubkeys, policies, and status. */
   private readonly _peers  : PeerData[]
-  /** Queue for batching signature requests. */
-  private readonly _queue  : SignerQueue
+  /** Nonce pool for managing dynamic nonces. */
+  private readonly _pool         : NoncePool
+  /** Batcher for signature requests. */
+  private readonly _sign_batcher : SignBatcher
+  /** Batcher for ECDH requests. */
+  private readonly _ecdh_batcher : ECDHBatcher
   /** Signer instance for cryptographic operations. */
-  private readonly _signer : BifrostSigner
+  private readonly _signer       : BifrostSigner
 
   /** Whether the node is connected and ready to process requests. */
   private _is_ready : boolean = false
@@ -112,11 +121,16 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     options? : BifrostNodeOptions
   ) {
     super()
-    this._cache  = get_node_cache(options?.cache)
-    this._config = get_node_config(options)
-    this._queue  = new SignerQueue(this)
-    this._signer = new BifrostSigner(group, share, options)
+    this._cache        = get_node_cache(options?.cache)
+    this._config       = get_node_config(options)
+    this._sign_batcher = new SignBatcher(this)
+    this._ecdh_batcher = new ECDHBatcher(this)
+    this._signer       = new BifrostSigner(group, share, options)
     this._peers  = init_peer_data(this)
+    this._pool   = new NoncePool(share.idx, share.seckey, this._config.nonce_pool)
+
+    // Initialize nonce pools for all peers
+    this._pool.init_peers(group.members)
 
     const authors = [ ...get_peer_pubkeys(this.peers), this.pubkey ]
 
@@ -150,6 +164,13 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
             const parsed = parse_ecdh_message(msg)
             // Handle the request.
             API.ecdh_handler_api(this, parsed)
+            break
+          }
+          case '/onboard/req': {
+            // Parse the request message.
+            const parsed = parse_onboard_message(msg)
+            // Handle the request.
+            API.onboard_handler_api(this, parsed)
             break
           }
           case '/sign/req': {
@@ -247,11 +268,21 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   }
 
   /**
-   * Gets the signature request queue for batch processing.
-   * @returns The SignerQueue instance.
+   * Gets the signature batcher for batch processing.
+   * @returns The SignBatcher instance.
+   * @internal
    */
-  get queue () {
-    return this._queue
+  get sign_batcher () {
+    return this._sign_batcher
+  }
+
+  /**
+   * Gets the ECDH batcher for batch processing.
+   * @returns The ECDHBatcher instance.
+   * @internal
+   */
+  get ecdh_batcher () {
+    return this._ecdh_batcher
   }
 
   /**
@@ -260,6 +291,14 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
    */
   get peers () {
     return this._peers
+  }
+
+  /**
+   * Gets the nonce pool for managing dynamic nonces.
+   * @returns The NoncePool instance.
+   */
+  get pool () {
+    return this._pool
   }
 
   /**
@@ -274,8 +313,9 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
    * Gets the request API object for initiating operations.
    *
    * Available methods:
-   * - `ecdh(pubkey)` - Perform threshold ECDH with a remote public key
+   * - `ecdh(pubkey)` - Perform threshold ECDH with a remote public key (batched)
    * - `echo(challenge)` - Test self-messaging through relays
+   * - `onboard(pubkey)` - Request onboarding from a peer
    * - `ping(pubkey)` - Check if a peer is online
    * - `queue(message)` - Queue a message for batch signing
    * - `sign(message)` - Request threshold signature from peers
@@ -284,11 +324,12 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
    */
   get req () {
     return {
-      ecdh  : API.ecdh_request_api(this),
-      echo  : API.echo_request_api(this),
-      ping  : API.ping_request_api(this),
-      queue : API.sign_queue_api(this),
-      sign  : API.sign_request_api(this)
+      ecdh    : API.ecdh_batched_request_api(this),
+      echo    : API.echo_request_api(this),
+      onboard : API.onboard_request_api(this),
+      ping    : API.ping_request_api(this),
+      queue   : API.sign_queue_api(this),
+      sign    : API.sign_request_api(this)
     }
   }
 
@@ -382,8 +423,8 @@ function init_peer_data (
   const current = now()
   // Get the pubkey of the node.
   const node_pk = node.pubkey
-  // Get the peers of the group.
-  const peers_pks = node.group.commits
+  // Get the peers of the group (using members instead of commits).
+  const peers_pks = node.group.members
     .map(e => convert_pubkey(e.pubkey, 'bip340'))
     .filter(e => e !== node_pk)
   // Define a list of policies.

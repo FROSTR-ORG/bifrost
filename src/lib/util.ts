@@ -9,15 +9,41 @@ import {
 import type { GroupPackage, SharePackage } from '@/types/index.js'
 
 /**
+ * Normalize a public key to x-only (32-byte) format.
+ *
+ * Removes the leading prefix byte from a 33-byte compressed pubkey
+ * to produce a 32-byte x-only pubkey (BIP-340 format).
+ *
+ * @param pk - The public key (33 or 32 bytes hex).
+ * @returns The 32-byte x-only pubkey.
+ */
+export function normalize_pubkey (pk : string) : string {
+  return pk.length === 66 ? pk.slice(2) : pk
+}
+
+/**
+ * Check if two public keys match, regardless of format.
+ *
+ * Handles both 33-byte compressed and 32-byte x-only pubkeys.
+ *
+ * @param pk1 - First public key.
+ * @param pk2 - Second public key.
+ * @returns True if the pubkeys represent the same key.
+ */
+export function pubkeys_match (pk1 : string, pk2 : string) : boolean {
+  return normalize_pubkey(pk1) === normalize_pubkey(pk2)
+}
+
+/**
  * Get the indexes of the members in the group.
- * 
+ *
  * @param group - The group package.
  * @returns The indexes of the members in the group.
  */
 export function get_group_indexes (
   group : GroupPackage
 ) : number[] {
-  return group.commits.map(e => e.idx)
+  return group.members.map(e => e.idx)
 }
 
 /**
@@ -45,7 +71,7 @@ export function select_random_peers (
 
 /**
  * Get the indexes for a given group and list of pubkeys.
- * 
+ *
  * @param group   - The group package.
  * @param pubkeys - The list of pubkeys.
  * @returns The indexes of the members in the group.
@@ -54,7 +80,7 @@ export function get_member_indexes (
   group   : GroupPackage,
   pubkeys : string[]
 ) : number[] {
-  const indexes = group.commits
+  const indexes = group.members
     .filter(e => pubkeys.includes(convert_pubkey(e.pubkey, 'bip340')))
     .map(e => e.idx)
   Assert.ok(indexes.length === pubkeys.length, 'index count does not match pubkey count')
@@ -63,7 +89,7 @@ export function get_member_indexes (
 
 /**
  * Recover the secret key from the given shares.
- * 
+ *
  * @param group  - The group package.
  * @param shares - The list of shares.
  * @returns The secret key.
@@ -73,7 +99,7 @@ export function recover_secret_key (
   shares : SharePackage[]
 ) : string {
   Assert.ok(shares.length >= group.threshold, 'not enough shares provided')
-  const pubkeys = group.commits.map(e => e.pubkey)
+  const pubkeys = group.members.map(e => e.pubkey)
   for (const share of shares) {
     const pk = get_pubkey(share.seckey, 'ecdsa')
     Assert.ok(pubkeys.includes(pk), 'share not found in group: ' + share.idx)

@@ -1,6 +1,6 @@
 {
-  "name": "@frostr/bifrost",
-  "version": "1.0.8",
+  "name": "@frostr/bifrost-ts",
+  "version": "2.0.0",
   "description": "Core library for the FROSTR protocol.",
   "author": "Christopher Scott",
   "license": "MIT",
@@ -47,7 +47,14 @@
     "keygen": "npm run loader test/keygen.ts",
     "release": "npm test | faucet && npm run build",
     "scratch": "npm run loader test/scratch.ts",
-    "test": "npm run loader test/tape.ts"
+    "test": "npm run loader test/tape.ts",
+    "tmux": "./scripts/tmux.sh",
+    "demo:relay": "npm run loader demo/relay.ts",
+    "demo:keygen": "npm run loader demo/keygen.ts",
+    "demo:onboard": "npm run loader demo/onboard.ts",
+    "demo:alice": "npm run loader demo/node.ts -- --name alice",
+    "demo:bob": "npm run loader demo/node.ts -- --name bob",
+    "demo:carol": "npm run loader demo/node.ts -- --name carol"
   },
   "devDependencies": {
     "@noble/hashes": "^1.7.1",

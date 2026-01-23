@@ -7,6 +7,7 @@ import { format_sigvector }   from '@/lib/sighash.js'
 
 import {
   get_member_indexes,
+  pubkeys_match,
   select_random_peers
 } from '@/lib/util.js'
 
@@ -31,6 +32,8 @@ import type { SignedMessage } from '@cmdcode/nostr-p2p'
 
 import type {
   ApiResponse,
+  MemberPublicNonce,
+  SecretNoncePair,
   SignSessionPackage,
   PartialSigPackage,
   SignRequestConfig,
@@ -45,8 +48,10 @@ import type {
  * this handler processes the request by:
  * 1. Emitting the request for debugging/logging
  * 2. Applying any configured middleware
- * 3. Creating a partial signature using the local signer
- * 4. Publishing the partial signature back to the requesting peer
+ * 3. Finding our nonce in the session and deriving the secret
+ * 4. Creating a partial signature using the local signer
+ * 5. Marking the nonce as spent
+ * 6. Publishing the partial signature back to the requesting peer
  *
  * Events emitted:
  * - `/sign/handler/req` - When a request is received
@@ -66,30 +71,70 @@ export async function sign_handler_api (
   try {
     // Emit the request package.
     node.emit('/sign/handler/req', copy_obj(msg))
+
     // If the middleware is a function, apply it.
     if (typeof middleware === 'function') {
       msg = middleware(node, msg)
     }
-    // Sign the session.
-    const pkg = node.signer.sign_session(msg.data)
+
+    const session = msg.data
+
+    // Get our nonce from the session
+    const our_idx = node.signer.idx
+    const requester_idx = get_member_idx_by_pubkey(node, msg.env.pubkey)
+
+    // Find our nonce in the session's unified nonces array
+    const our_nonce = session.nonces?.find(n => n.idx === our_idx)
+    if (!our_nonce) {
+      throw new Error('no nonce found for our index in session')
+    }
+
+    // Derive secret from the nonce sent by requester
+    const secret_nonce = node.pool.derive_secret_for_signing(
+      requester_idx,
+      our_nonce
+    )
+    if (!secret_nonce) {
+      throw new Error('failed to derive secret from nonce code: ' + our_nonce.code)
+    }
+
+    // Sign the session with the secret nonce.
+    const pkg = node.signer.sign_session(session, secret_nonce)
+
+    // Mark the nonce as spent
+    node.pool.mark_spent(requester_idx, our_nonce.code)
+
     // Publish the response package.
     const envelope = finalize_message({
       data : JSON.stringify(pkg),
       id   : msg.id,
       tag  : '/sign/res'
     })
+
     // Send the response package to the peer.
     const res = await node.client.publish(envelope, msg.env.pubkey)
-    // If the response is not ok, throw an error.
     if (!res.ok) throw new Error('failed to publish response')
+
     // Emit the response package.
     node.emit('/sign/handler/res', copy_obj(res.data))
+
   } catch (err) {
-    // Log the error.
     if (node.debug) console.log(err)
-    // Emit the error.
     node.emit('/sign/handler/rej', [ parse_error(err), copy_obj(msg) ])
   }
+}
+
+/**
+ * Get member index by pubkey.
+ * @internal
+ */
+function get_member_idx_by_pubkey (
+  node   : BifrostNode,
+  pubkey : string
+) : number {
+  const member = node.group.members.find(m => pubkeys_match(m.pubkey, pubkey))
+  if (!member) throw new Error('member not found for pubkey: ' + pubkey)
+  return member.idx
 }
 
 /**
@@ -113,7 +158,7 @@ export function sign_queue_api (node : BifrostNode) {
     message : string | string[]
   ) : Promise<SignatureEntry> => {
     const sigvec = format_sigvector(message)
-    return node.queue.push(sigvec)
+    return node.sign_batcher.push(sigvec)
   }
 }
 
@@ -124,10 +169,11 @@ export function sign_queue_api (node : BifrostNode) {
  * The process:
  * 1. Formats the message(s) into sighash vectors
  * 2. Selects random peers to meet the threshold
- * 3. Creates a signing session with nonces
- * 4. Sends requests to selected peers
- * 5. Collects partial signatures and combines them
- * 6. Returns the final aggregated signatures
+ * 3. Collects nonces from peer pools
+ * 4. Creates a signing session with unified nonces array
+ * 5. Sends requests to selected peers
+ * 6. Collects partial signatures and combines them
+ * 7. Returns the final aggregated signatures
  *
  * Events emitted:
  * - `/sign/sender/res` - When responses are received from peers
@@ -170,8 +216,17 @@ export function sign_request_api (node : BifrostNode) {
     const template = create_session_template(members, sigvecs, options)
     // Assert the template is not null.
     Assert.ok(template !== null, 'invalid session template')
-    // Create the session package.
-    const session  = create_session_pkg(node.group, template)
+
+    // Collect nonces for all participating members (unified format)
+    const { nonces, our_secret } = collect_nonces_for_session(node, selected)
+
+    // Create the session package with unified nonces array.
+    const base_session = create_session_pkg(node.group, template)
+    const session : SignSessionPackage = {
+      ...base_session,
+      nonces
+    }
+
     // Initialize the list of response packages.
     let msgs : SignedMessage<PartialSigPackage>[] | null = null
 
@@ -181,35 +236,88 @@ export function sign_request_api (node : BifrostNode) {
       // Emit the response.
       node.emit('/sign/sender/res', copy_obj(msgs))
     } catch (err) {
-      // Log the error.
       if (node.debug) console.log(err)
-      // Parse the error.
       const reason = parse_error(err)
-      // Emit the error.
       node.emit('/sign/sender/rej', [ reason, session ])
-      // Return the error.
       return { ok : false, err : reason }
     }
 
     try {
       Assert.ok(msgs !== null, 'no responses from peers')
       // Finalize the response.
-      const sigs = finalize_sign_response(node, msgs, session)
+      const sigs = finalize_sign_response(node, msgs, session, our_secret)
       // Emit the response.
       node.emit('/sign/sender/ret', [ session.sid, sigs ])
       // Return the signature.
-      return { ok : true, data :sigs }
+      return { ok : true, data : sigs }
     } catch (err) {
-      // Log the error.
       if (node.debug) console.log(err)
-      // Parse the error.
       const reason = parse_error(err)
-      // Emit the error.
       node.emit('/sign/sender/err', [ reason, msgs ?? [] ])
-      // Return the error.
       return { ok : false, err : reason }
     }
   }
+}
+
+/**
+ * Collects nonces from peer pools for a signing session.
+ *
+ * For each peer in the signing group:
+ * - We consume a nonce from our incoming pool (nonces they sent us)
+ * - The returned MemberPublicNonce includes idx, code, and public points
+ * For ourselves:
+ * - We generate a fresh nonce pair and keep the secret for signing
+ *
+ * Returns a unified nonces array where each entry is a MemberPublicNonce
+ * containing idx (member index), code (derivation code), and public points.
+ *
+ * @param node - The BifrostNode.
+ * @param peer_pubkeys - The pubkeys of peers participating in signing.
+ * @returns Object with unified nonces array and our secret nonce.
+ * @internal
+ */
+function collect_nonces_for_session (
+  node         : BifrostNode,
+  peer_pubkeys : string[]
+) : { nonces: MemberPublicNonce[], our_secret: SecretNoncePair } {
+  const nonces : MemberPublicNonce[] = []
+  const our_idx = node.signer.idx
+
+  // For each peer, consume a nonce from incoming pool
+  // These are nonces they sent us; we send the full nonce (with code) back
+  for (const pk of peer_pubkeys) {
+    const peer_idx = get_member_idx_by_pubkey(node, pk)
+    const nonce = node.pool.consume_incoming(peer_idx)
+    if (!nonce) {
+      throw new Error(`no nonces available from peer ${peer_idx}`)
+    }
+    // MemberPublicNonce includes idx, code, and public points
+    nonces.push(nonce)
+  }
+
+  // Generate our own nonce for this signing session
+  // generate_for_peer returns NoncePackage (array of DerivedPublicNonce)
+  const our_nonces = node.pool.generate_for_peer(our_idx, 1)
+  if (our_nonces.length === 0) {
+    throw new Error('failed to generate self nonce')
+  }
+  const our_derived = our_nonces[0]
+
+  // Add our nonce with our idx
+  nonces.push({
+    idx       : our_idx,
+    binder_pn : our_derived.binder_pn,
+    hidden_pn : our_derived.hidden_pn,
+    code      : our_derived.code
+  })
+
+  // Get the secret nonce we just generated
+  const our_secret = node.pool.get_secret_nonce(our_idx, our_derived.code)
+  if (!our_secret) {
+    throw new Error('self nonce secret not found after generation')
+  }
+
+  return { nonces, our_secret }
 }
 
 /**
@@ -247,25 +355,37 @@ async function create_sign_request (
  * @param node - The BifrostNode that initiated the request.
  * @param responses - Array of signed partial signature responses from peers.
  * @param session - The original signing session package.
+ * @param our_secret - Our secret nonce for signing.
  * @returns Array of signature entries [id, signature].
  * @throws Error if any partial signature is invalid.
  * @internal
  */
 function finalize_sign_response (
-  node      : BifrostNode,
-  responses : SignedMessage<PartialSigPackage>[],
-  session   : SignSessionPackage
+  node       : BifrostNode,
+  responses  : SignedMessage<PartialSigPackage>[],
+  session    : SignSessionPackage,
+  our_secret : SecretNoncePair
 ) : SignatureEntry[] {
-  // Initialize the list of response packages.
-  const ctx  = get_session_ctx(node.group, session)
-  const pkgs = [ node.signer.sign_session(session) ]
-  // Parse the response packages.
+  // Get the session context.
+  const ctx = get_session_ctx(node.group, session)
+
+  // Create our partial signature using our secret nonce
+  const our_pkg = node.signer.sign_session(session, our_secret)
+
+  // Mark our nonce as spent
+  node.pool.mark_spent(node.signer.idx, our_secret.code)
+
+  // Collect all partial signatures
+  const pkgs = [ our_pkg ]
+
+  // Parse and verify peer responses.
   responses.forEach(e => {
     const parsed = parse_psig_message(e)
     const error  = verify_psig_pkg(ctx, parsed.data)
     Assert.ok(error === null, error + ' : ' + e.env.pubkey)
     pkgs.push(parsed.data)
   })
+
   // Return the aggregate signature.
   return combine_signature_pkgs(ctx, pkgs)
 }

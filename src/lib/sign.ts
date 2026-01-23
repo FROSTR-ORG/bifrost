@@ -1,6 +1,5 @@
-import { get_pubkey }           from '../util/crypto.js'
-import { create_member_shares } from './session.js'
-import { Assert }               from '@/util/assert.js'
+import { get_pubkey } from '../util/crypto.js'
+import { Assert }     from '@/util/assert.js'
 
 import {
   combine_partial_sigs,
@@ -13,6 +12,7 @@ import type { GroupSigningCtx } from '@cmdcode/frost'
 import type {
   SignSessionContext,
   SharePackage,
+  SecretNoncePair,
   PartialSigPackage,
   PartialSigEntry,
   PartialSigRecord,
@@ -20,29 +20,38 @@ import type {
 } from '@/types/index.js'
 
 /**
- * Create a partial signature package for a given session and share package.
- * 
+ * Create a partial signature package for a given session using dynamic nonces.
+ *
  * @param ctx   - The session context.
- * @param share - The share package.
+ * @param share - The share package (idx, seckey).
+ * @param nonce - The secret nonce to use for signing.
  * @returns The partial signature package.
  */
 export function create_psig_pkg (
   ctx   : SignSessionContext,
-  share : SharePackage
+  share : SharePackage,
+  nonce : SecretNoncePair
 ) : PartialSigPackage {
-  const sid        = ctx.session.sid
-  const pubkey     = get_pubkey(share.seckey, 'ecdsa')
-  const sighashes  = ctx.session.hashes.map(e => e[0])
-  const sig_shares = create_member_shares(ctx.session, share)
-  const psigs      = sighashes.map(sighash => {
-    const sig_share = sig_shares.find(e => e.sighash === sighash)
-    const sig_ctx   = ctx.sigmap.get(sighash)
-    Assert.exists(sig_share, 'share not found for sighash: '   + sighash)
-    Assert.exists(sig_ctx,   'context not found for sighash: ' + sighash)
-    const psig = create_partial_sig(sig_ctx, sig_share)
+  const sid       = ctx.session.sid
+  const pubkey    = get_pubkey(share.seckey, 'ecdsa')
+  const sighashes = ctx.session.hashes.map(e => e[0])
+
+  const psigs = sighashes.map(sighash => {
+    const sig_ctx = ctx.sigmap.get(sighash)
+    Assert.exists(sig_ctx, 'context not found for sighash: ' + sighash)
+
+    // Create the partial signature using the dynamic nonce
+    const psig = create_partial_sig(sig_ctx, share, nonce)
     return [ sighash, psig ] as PartialSigEntry
   })
-  return { idx : share.idx, psigs, pubkey, sid }
+
+  return {
+    idx        : share.idx,
+    psigs,
+    pubkey,
+    sid,
+    nonce_code : nonce.code
+  }
 }
 
 /**
@@ -117,22 +126,38 @@ export function combine_signature_pkgs (
 }
 
 /**
- * Create a partial signature for a given session and share package.
- * 
- * @param ctx   - The session context.
- * @param share - The share package.
- * @returns The partial signature.
+ * Create a partial signature for a given session using dynamic nonces.
+ *
+ * The nonce's idx comes from the share, not from the nonce itself,
+ * because SecretNoncePair doesn't include idx (it's implicit from context).
+ *
+ * @param ctx   - The group signing context.
+ * @param share - The share package (idx, seckey).
+ * @param nonce - The secret nonce pair to use.
+ * @returns The partial signature hex string.
  */
 export function create_partial_sig (
   ctx   : GroupSigningCtx,
-  share : SharePackage
+  share : SharePackage,
+  nonce : SecretNoncePair
 ) : string {
-  // Get the member's index, secret key, binder nonce, and hidden nonce.
-  const { idx, binder_sn, hidden_sn, seckey } = share
-  // Create the share signature.
-  const secshare = { idx, seckey }
-  const secnonce = { idx, binder_sn, hidden_sn }
+  // Create the share data for the FROST library
+  const secshare = {
+    idx    : share.idx,
+    seckey : share.seckey
+  }
+
+  // Create the nonce data for the FROST library
+  // Use share.idx since SecretNoncePair doesn't have idx
+  const secnonce = {
+    idx       : share.idx,
+    binder_sn : nonce.binder_sn,
+    hidden_sn : nonce.hidden_sn
+  }
+
+  // Sign the message
   const psig_pkg = sign_msg(ctx, secshare, secnonce)
-  // Return the partial signature.
+
+  // Return the partial signature
   return psig_pkg.psig
 }

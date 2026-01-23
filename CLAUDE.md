@@ -55,8 +55,8 @@ All APIs follow a consistent sender/handler pattern:
 
 ```typescript
 import { BifrostNode, BifrostSigner } from '@frostr/bifrost'
-import { encode_group_pkg, decode_group_pkg } from '@frostr/bifrost/encoder'
-import { generate_dealer_pkg } from '@frostr/bifrost/lib'
+import { encode_group_package, decode_group_package } from '@frostr/bifrost/encoder'
+import { generate_dealer_package } from '@frostr/bifrost/lib'
 import { get_pubkey } from '@frostr/bifrost/util'
 ```
 

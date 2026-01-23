@@ -3,7 +3,10 @@ import type { SignedMessage } from '@cmdcode/nostr-p2p'
 
 import type {
   ECDHPackage,
+  NoncePoolConfig,
+  OnboardResponse,
   PeerConfig,
+  PeerData,
   SighashVector,
   SignatureEntry,
   SignSessionPackage
@@ -42,13 +45,17 @@ export interface BifrostNodeMiddleware {
  * @property debug - Enable debug logging when true.
  * @property middleware - Request middleware functions.
  * @property policies - Per-peer send/receive policies.
- * @property sign_ival - Signature queue batch interval in milliseconds.
+ * @property sign_interval - Signature batch interval in milliseconds.
+ * @property ecdh_interval - ECDH batch interval in milliseconds.
+ * @property nonce_pool - Optional nonce pool configuration.
  */
 export interface BifrostNodeConfig {
   debug      : boolean
   middleware : BifrostNodeMiddleware
   policies   : PeerConfig[]
-  sign_ival  : number
+  sign_interval  : number
+  ecdh_interval  : number
+  nonce_pool : Partial<NoncePoolConfig>
 }
 
 /**
@@ -106,45 +113,52 @@ export interface SignRequest {
  * - `/{api}/sender/err` - Operation failed after receiving response.
  */
 export interface BifrostNodeEvent {
-  '*'                 : [ string, unknown ]
-  'info'              : unknown
-  'debug'             : unknown
-  'error'             : unknown
-  'ready'             : BifrostNode
-  'closed'            : BifrostNode
-  'bounced'           : [ string, SignedMessage   ]
-  'message'           : SignedMessage
-  '/ecdh/sender/req'  : SignedMessage
-  '/ecdh/sender/res'  : SignedMessage[]
-  '/ecdh/sender/rej'  : [ string, ECDHPackage     ]
-  '/ecdh/sender/ret'  : [ string, string          ]
-  '/ecdh/sender/err'  : [ string, SignedMessage[] ]
-  '/ecdh/handler/req' : SignedMessage
-  '/ecdh/handler/res' : SignedMessage
-  '/ecdh/handler/rej' : [ string, SignedMessage   ]
-  '/echo/handler/req' : SignedMessage
-  '/echo/handler/res' : SignedMessage
-  '/echo/handler/rej' : [ string, SignedMessage   ]
-  '/echo/sender/req'  : SignedMessage
-  '/echo/sender/res'  : SignedMessage
-  '/echo/sender/rej'  : [ string, SignedMessage | null ]
-  '/echo/sender/ret'  : [ string ]
-  '/echo/sender/err'  : [ string, SignedMessage ]
-  '/ping/handler/req' : SignedMessage
-  '/ping/handler/res' : SignedMessage
-  '/ping/handler/rej' : [ string, SignedMessage   ]
-  '/ping/handler/ret' : [ string, string          ]
-  '/ping/sender/req'  : SignedMessage
-  '/ping/sender/res'  : SignedMessage
-  '/ping/sender/rej'  : [ string, SignedMessage | null ]
-  '/ping/sender/ret'  : PeerConfig
-  '/ping/sender/err'  : [ string, SignedMessage ]
-  '/sign/sender/req'  : SignedMessage
-  '/sign/sender/res'  : SignedMessage[]
-  '/sign/sender/rej'  : [ string, SignSessionPackage  ]
-  '/sign/sender/ret'  : [ string, SignatureEntry[]    ]
-  '/sign/sender/err'  : [ string, SignedMessage[]     ]
-  '/sign/handler/req' : SignedMessage
-  '/sign/handler/res' : SignedMessage
-  '/sign/handler/rej' : [ string, SignedMessage   ]
+  '*'                    : [ string, unknown ]
+  'info'                 : unknown
+  'debug'                : unknown
+  'error'                : unknown
+  'ready'                : BifrostNode
+  'closed'               : BifrostNode
+  'bounced'              : [ string, SignedMessage   ]
+  'message'              : SignedMessage
+  '/ecdh/sender/req'     : SignedMessage
+  '/ecdh/sender/res'     : SignedMessage[]
+  '/ecdh/sender/rej'     : [ string, ECDHPackage     ]
+  '/ecdh/sender/ret'     : [ string, string          ]
+  '/ecdh/sender/err'     : [ string, SignedMessage[] ]
+  '/ecdh/handler/req'    : SignedMessage
+  '/ecdh/handler/res'    : SignedMessage
+  '/ecdh/handler/rej'    : [ string, SignedMessage   ]
+  '/echo/handler/req'    : SignedMessage
+  '/echo/handler/res'    : SignedMessage
+  '/echo/handler/rej'    : [ string, SignedMessage   ]
+  '/echo/sender/req'     : SignedMessage
+  '/echo/sender/res'     : SignedMessage
+  '/echo/sender/rej'     : [ string, SignedMessage | null ]
+  '/echo/sender/ret'     : [ string ]
+  '/echo/sender/err'     : [ string, SignedMessage ]
+  '/onboard/handler/req' : SignedMessage
+  '/onboard/handler/res' : SignedMessage
+  '/onboard/handler/rej' : [ string, SignedMessage   ]
+  '/onboard/sender/res'  : SignedMessage
+  '/onboard/sender/rej'  : [ string, SignedMessage | null ]
+  '/onboard/sender/ret'  : [ OnboardResponse, number ]
+  '/onboard/sender/err'  : [ string, SignedMessage | null ]
+  '/ping/handler/req'    : SignedMessage
+  '/ping/handler/res'    : SignedMessage
+  '/ping/handler/rej'    : [ string, SignedMessage   ]
+  '/ping/handler/ret'    : [ string, string          ]
+  '/ping/sender/req'     : SignedMessage
+  '/ping/sender/res'     : SignedMessage
+  '/ping/sender/rej'     : [ string, SignedMessage | null ]
+  '/ping/sender/ret'     : PeerData
+  '/ping/sender/err'     : [ string, SignedMessage ]
+  '/sign/sender/req'     : SignedMessage
+  '/sign/sender/res'     : SignedMessage[]
+  '/sign/sender/rej'     : [ string, SignSessionPackage  ]
+  '/sign/sender/ret'     : [ string, SignatureEntry[]    ]
+  '/sign/sender/err'     : [ string, SignedMessage[]     ]
+  '/sign/handler/req'    : SignedMessage
+  '/sign/handler/res'    : SignedMessage
+  '/sign/handler/rej'    : [ string, SignedMessage   ]
 }
