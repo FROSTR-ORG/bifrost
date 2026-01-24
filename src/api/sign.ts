@@ -1,8 +1,8 @@
 import { BifrostNode } from '@/class/client.js'
 
-import { parse_psig_message } from '@/lib/parse.js'
-import { get_send_pubkeys }   from '@/lib/peer.js'
-import { format_sigvector }   from '@/lib/sighash.js'
+import { parse_psig_message }                  from '@/lib/parse.js'
+import { get_send_pubkeys, get_signable_pubkeys } from '@/lib/peer.js'
+import { format_sigvector }                    from '@/lib/sighash.js'
 
 import {
   get_member_indexes,
@@ -134,6 +134,21 @@ function get_member_idx_by_pubkey (
 }
 
 /**
+ * Filter peer pubkeys to only those with available nonces.
+ * @internal
+ */
+function filter_peers_with_nonces (
+  node    : BifrostNode,
+  pubkeys : string[]
+) : string[] {
+  return pubkeys.filter(pk => {
+    const member = node.group.members.find(m => pubkeys_match(m.pubkey, pk))
+    if (!member) return false
+    return node.pool.can_sign(member.idx)
+  })
+}
+
+/**
  * Creates a queue API function for batched signature requests.
  *
  * Returns a function that queues messages for batch signing. Multiple
@@ -198,14 +213,30 @@ export function sign_request_api (node : BifrostNode) {
   ) : Promise<ApiResponse<SignatureEntry[]>> => {
     // Format the message as a sigvector.
     const sigvecs  = typeof message === 'string' ? [ [ message ] ] : message
-    // Get peers with send policy active.
-    const send_pks = get_send_pubkeys(node.peers)
-    // Get the peers to send the request to.
-    const peers    = options.peers ??= send_pks
     // Get the threshold for the group.
     const thold    = node.group.threshold
-    // Randomly select peers.
-    const selected = select_random_peers(peers, thold)
+    // Calculate required peers (we are one of the signers).
+    const required = thold - 1
+
+    // Get candidates filtered by send policy AND nonce availability.
+    let candidates : string[]
+    if (options.peers) {
+      // User provided specific peers - filter by nonce availability.
+      candidates = filter_peers_with_nonces(node, options.peers)
+    } else {
+      // Default: filter by send policy AND nonce availability.
+      candidates = get_signable_pubkeys(node.peers, node.pool, node.group)
+    }
+
+    // Check if we have enough candidates before selection.
+    if (candidates.length < required) {
+      const reason = `insufficient peers with available nonces: need ${required}, have ${candidates.length}`
+      node.emit('/sign/sender/rej', [ reason, null ])
+      return { ok: false, err: reason }
+    }
+
+    // Randomly select from valid candidates.
+    const selected = select_random_peers(candidates, thold)
     // Get the indexes of the members.
     const members  = get_member_indexes(node.group, [ node.pubkey, ...selected ])
     // Create the session template.

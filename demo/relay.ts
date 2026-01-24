@@ -87,6 +87,12 @@ async function main () {
   // Keep alive
   log_info('Press Ctrl+C to stop')
   console.log()
+
+  // Handle stdin close gracefully (e.g., in tmux panes)
+  process.stdin.on('end', () => {
+    // stdin closed, but keep relay running
+  })
+  process.stdin.resume()
 }
 
 main().catch(err => {

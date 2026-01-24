@@ -55,16 +55,22 @@ create_session() {
   cd "$PROJECT_DIR"
 
   # Create new tmux session with relay in first pane
-  tmux new-session -d -s "$SESSION_NAME" -n demo 'clear && npm run demo:relay'
+  # Use exec and call tsx directly for proper stdin handling
+  tmux new-session -d -s "$SESSION_NAME" -n demo \
+    "cd '$PROJECT_DIR' && clear && exec npx tsx --tsconfig ./test/tsconfig.json demo/relay.ts"
 
   # Split right side and run alice
-  tmux split-window -h -t "$SESSION_NAME" 'clear && npm run script demo/node.ts -- --name alice'
+  # Use exec to replace shell with the node process for proper stdin handling
+  tmux split-window -h -t "$SESSION_NAME" \
+    "cd '$PROJECT_DIR' && clear && exec npx tsx --tsconfig ./test/tsconfig.json demo/node.ts -- --name alice"
 
   # Split alice pane for bob
-  tmux split-window -v -t "$SESSION_NAME:demo.1" 'clear && npm run script demo/node.ts -- --name bob'
+  tmux split-window -v -t "$SESSION_NAME:demo.1" \
+    "cd '$PROJECT_DIR' && clear && exec npx tsx --tsconfig ./test/tsconfig.json demo/node.ts -- --name bob"
 
   # Split bob pane for carol
-  tmux split-window -v -t "$SESSION_NAME:demo.2" 'clear && npm run script demo/node.ts -- --name carol'
+  tmux split-window -v -t "$SESSION_NAME:demo.2" \
+    "cd '$PROJECT_DIR' && clear && exec npx tsx --tsconfig ./test/tsconfig.json demo/node.ts -- --name carol"
 
   # Select alice pane
   tmux select-pane -t "$SESSION_NAME:demo.1"

@@ -647,6 +647,26 @@ function setup_event_listeners (ctx : NodeContext) {
 /* ================ [ REPL ] ================ */
 
 async function run_repl (ctx : NodeContext) {
+  // Check if we have a proper TTY for interactive mode
+  if (!process.stdin.isTTY) {
+    log_warn('No TTY detected - running in headless mode')
+    log_info('Use Ctrl+C to exit')
+    console.log()
+
+    // Handle SIGINT for graceful shutdown
+    process.on('SIGINT', () => {
+      console.log()
+      log_info('Received SIGINT, closing...')
+      ctx.running = false
+      ctx.node.close()
+      process.exit(0)
+    })
+
+    // Keep process alive
+    await new Promise<void>(() => {})
+    return
+  }
+
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
