@@ -3,6 +3,14 @@ import { parse_error } from '@cmdcode/nostr-p2p/util'
 import type { Test }        from 'tape'
 import type { TestNetwork } from '@/test/types.js'
 
+/** Small delay between ping batches to avoid overwhelming the relay */
+const PING_DELAY_MS = 50
+
+/** Helper to add a delay */
+function sleep (ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
 export default function (
   ctx  : TestNetwork,
   tape : Test
@@ -15,16 +23,22 @@ export default function (
     try {
       // Ping all peers to exchange nonces
       // This is needed for signing to work with the nonce pool system
-      const pingPromises = [
-        Alice.req.ping(Bob.pubkey),
-        Alice.req.ping(Carol.pubkey),
-        Bob.req.ping(Alice.pubkey),
-        Bob.req.ping(Carol.pubkey),
-        Carol.req.ping(Alice.pubkey),
-        Carol.req.ping(Bob.pubkey)
+      // Execute pings in smaller batches with delays to avoid relay congestion
+      const pingBatches = [
+        // First batch: Alice pings others
+        [Alice.req.ping(Bob.pubkey), Alice.req.ping(Carol.pubkey)],
+        // Second batch: Bob pings others
+        [Bob.req.ping(Alice.pubkey), Bob.req.ping(Carol.pubkey)],
+        // Third batch: Carol pings others
+        [Carol.req.ping(Alice.pubkey), Carol.req.ping(Bob.pubkey)]
       ]
 
-      const results = await Promise.all(pingPromises)
+      const results = []
+      for (const batch of pingBatches) {
+        const batchResults = await Promise.all(batch)
+        results.push(...batchResults)
+        await sleep(PING_DELAY_MS)
+      }
 
       // Check if all pings succeeded
       for (const res of results) {

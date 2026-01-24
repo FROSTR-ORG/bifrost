@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import base  from './base.js'
+import nonce from './nonce.js'
 import peer  from './peer.js'
 
 const cache = z.object({
@@ -16,7 +17,8 @@ const config = z.object({
   middleware : middleware,
   policies   : peer.config.array(),
   sign_interval  : base.num,
-  ecdh_interval  : base.num
+  ecdh_interval  : base.num,
+  nonce_pool     : nonce.pool_config_partial.optional()
 })
 
 export default { cache, config, middleware }

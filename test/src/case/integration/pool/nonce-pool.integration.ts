@@ -4,7 +4,7 @@
  * Tests for nonce pool thresholds, replenishment, and exhaustion scenarios.
  */
 
-import { Buff }             from '@cmdcode/buff'
+import { Buff }             from '@vbyte/buff'
 import { verify_signature } from '@/util/crypto.js'
 import { parse_error }      from '@/util/index.js'
 

@@ -1,11 +1,12 @@
-import { Buff }    from '@cmdcode/buff'
-import { schnorr } from '@noble/curves/secp256k1'
+import { Buff }        from '@vbyte/buff'
+import { schnorr }     from '@noble/curves/secp256k1.js'
+import { hash_string } from '@/test/lib/hash.js'
 
 import {
   combine_partial_sigs,
   get_group_signing_ctx,
   verify_partial_sig
-} from '@cmdcode/frost/lib'
+} from '@vbyte/frost/lib'
 
 import { generate_dealer_package }   from '@/lib/package.js'
 import { create_partial_sig }    from '@/lib/sign.js'
@@ -39,7 +40,7 @@ export default function (tape : Test) {
 
     const members  = [ group.members[0], group.members[2] ]
     const group_pk = convert_pubkey(group.group_pk, 'bip340')
-    const message  = Buff.str('test message').digest.hex
+    const message  = hash_string('test message')
 
     try {
       // Generate nonces for each signing member
@@ -77,7 +78,7 @@ export default function (tape : Test) {
       })
 
       const group_sig = combine_partial_sigs(ctx, psigs)
-      const is_valid  = schnorr.verify(group_sig, message, group_pk)
+      const is_valid  = schnorr.verify(Buff.hex(group_sig), Buff.hex(message), Buff.hex(group_pk))
       t.ok(is_valid, 'signature is valid')
     } catch (err) {
       t.fail(parse_error(err))

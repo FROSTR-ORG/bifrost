@@ -1,5 +1,5 @@
-import { Buff }                 from '@cmdcode/buff'
-import { schnorr }              from '@noble/curves/secp256k1'
+import { Buff }                 from '@vbyte/buff'
+import { schnorr }              from '@noble/curves/secp256k1.js'
 import { parse_group_vector }   from '@/test/lib/parse.js'
 import { convert_pubkey }       from '@/util/crypto.js'
 
@@ -106,7 +106,7 @@ function test_random_signature (tape: Test) {
       const results     = sig_entries.map(e => {
         const [ sighash, pubkey, signature ] = e
         const group_pk = convert_pubkey(pubkey, 'bip340')
-        return schnorr.verify(signature, sighash, group_pk)
+        return schnorr.verify(Buff.hex(signature), Buff.hex(sighash), Buff.hex(group_pk))
       })
       t.true(results.every(e => e === true), 'all signatures are valid')
     } catch (err) {

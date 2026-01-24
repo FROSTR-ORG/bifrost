@@ -88,7 +88,7 @@ export class EventEmitter<T extends Record<string, any> = {}> {
    * Handles both synchronous and asynchronous event handlers.
    */
   public emit<K extends keyof T>(eventName: K, payload: T[K]): void {
-    const promises: Promise<any>[] = []
+    const promises: Promise<void>[] = []
 
     // Call specific event handlers
     this._get_event_handlers(eventName).forEach(handler => {
@@ -129,10 +129,11 @@ export class EventEmitter<T extends Record<string, any> = {}> {
 
 /**
  * Invokes a handler function with the given payload, handling both array and non-array payloads.
+ * Returns the handler result which may be a Promise for async handlers or void for sync handlers.
  */
-function invoke_handler(handler: Function, payload: any): any {
+function invoke_handler(handler: Function, payload: unknown): void | Promise<void> {
   if (Array.isArray(payload) && payload.length > 0) {
-    return handler.apply(null, payload)
+    return handler.apply(null, payload) as void | Promise<void>
   }
-  return handler(payload)
+  return handler(payload) as void | Promise<void>
 }

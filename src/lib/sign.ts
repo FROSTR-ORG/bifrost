@@ -5,9 +5,9 @@ import {
   combine_partial_sigs,
   sign_msg,
   verify_partial_sig
-} from '@cmdcode/frost/lib'
+} from '@vbyte/frost/lib'
 
-import type { GroupSigningCtx } from '@cmdcode/frost'
+import type { GroupSigningCtx } from '@vbyte/frost'
 
 import type {
   SignSessionContext,
@@ -34,7 +34,7 @@ export function create_psig_pkg (
 ) : PartialSigPackage {
   const sid       = ctx.session.sid
   const pubkey    = get_pubkey(share.seckey, 'ecdsa')
-  const sighashes = ctx.session.hashes.map(e => e[0])
+  const sighashes = ctx.session.hashes.map(hash => hash[0])
 
   const psigs = sighashes.map(sighash => {
     const sig_ctx = ctx.sigmap.get(sighash)
@@ -73,11 +73,11 @@ export function verify_psig_pkg (
   // For each entry in the signature context map,
   for (const [ sighash, sigctx ] of ctx.sigmap.entries()) {
     // Get the partial signature entry for the current sighash.
-    const psig_entry = psigs.find(e => e[0] === sighash)
+    const psig_entry = psigs.find(entry => entry[0] === sighash)
     // Check if the partial signature entry is undefined.
     if (psig_entry === undefined) return 'partial signature entry not found for sighash: ' + sighash
     // Get the commit package for the package index.
-    const pnonce = sigctx.pnonces.find(e => e.idx === idx)
+    const pnonce = sigctx.pnonces.find(nonce => nonce.idx === idx)
     // Check if the commit package is undefined.
     if (pnonce === undefined) return 'commit package not found for psig idx: ' + idx
     // Verify the partial signature.
@@ -96,9 +96,9 @@ export function verify_psig_pkg (
 export function create_psig_records (
   pkgs : PartialSigPackage[]
 ) : PartialSigRecord[] {
-  return pkgs.map(({ idx, psigs, pubkey, sid }) => {
-    return psigs.map(([ sighash, psig ]) => ({ sighash, idx, pubkey, psig, sid }))
-  }).flat()
+  return pkgs.flatMap(({ idx, psigs, pubkey, sid }) =>
+    psigs.map(([ sighash, psig ]) => ({ sighash, idx, pubkey, psig, sid }))
+  )
 }
 
 /**
@@ -116,7 +116,7 @@ export function combine_signature_pkgs (
   const records = create_psig_records(pkgs)
   const sigs : SignatureEntry[] = []
   for (const [ sighash, sigctx ] of ctx.sigmap.entries()) {
-    const psigs = records.filter(e => e.sighash === sighash)
+    const psigs = records.filter(record => record.sighash === sighash)
     Assert.ok(psigs.length === count, 'missing partial signatures for sighash: ' + sighash)
     const pubkey = sigctx.group_pk
     const sig    = combine_partial_sigs(sigctx, psigs)

@@ -4,7 +4,7 @@
  * Tests for self-messaging through relays to verify connectivity.
  */
 
-import { Buff }           from '@cmdcode/buff'
+import { Buff }           from '@vbyte/buff'
 import { parse_error }    from '@cmdcode/nostr-p2p/util'
 import { measure_time }   from '../lib/helpers.js'
 

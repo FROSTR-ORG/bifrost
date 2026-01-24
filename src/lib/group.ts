@@ -1,6 +1,7 @@
-import { Buff }       from '@cmdcode/buff'
-import { get_pubkey } from '@/util/crypto.js'
-import { Assert }     from '@/util/assert.js'
+import { Buff }          from '@vbyte/buff'
+import { get_pubkey }    from '@/util/crypto.js'
+import { Assert }        from '@/util/assert.js'
+import { sha256_digest } from '@/util/encoding.js'
 
 import type {
   MemberPackage,
@@ -32,7 +33,7 @@ export function get_group_id (
     ...sorted_members.map(m => Buff.hex(m.pubkey))
   ]
   const preimg = Buff.join(parts)
-  return preimg.digest.hex
+  return sha256_digest(preimg).hex
 }
 
 /**

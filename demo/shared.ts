@@ -12,9 +12,51 @@ import type { GroupPackage, SharePackage, OnboardPackage, PeerData } from '@/typ
 export const DEMO_RELAY_PORT = 8194
 export const DEMO_RELAY_URL  = `ws://localhost:${DEMO_RELAY_PORT}`
 export const DATA_DIR        = path.join(process.cwd(), 'demo', 'data')
+export const LOG_DIR         = path.join(process.cwd(), 'demo', 'logs')
 
 /** Default member names for demo */
 export const DEFAULT_MEMBERS = [ 'alice', 'bob', 'carol', 'dave', 'eve' ]
+
+/* ================ [ File Logging ] ================ */
+
+let logStream : fs.WriteStream | null = null
+
+/**
+ * Initialize file logging for a component.
+ * @param name - Component name (e.g., 'relay', 'alice', 'bob')
+ */
+export function init_logging (name : string) : void {
+  // Create log directory if it doesn't exist
+  if (!fs.existsSync(LOG_DIR)) {
+    fs.mkdirSync(LOG_DIR, { recursive: true })
+  }
+
+  // Create/truncate log file
+  const logPath = path.join(LOG_DIR, `${name}.log`)
+  logStream = fs.createWriteStream(logPath, { flags: 'w' })
+
+  // Write header
+  const timestamp = new Date().toISOString()
+  logStream.write(`=== ${name.toUpperCase()} LOG - Started ${timestamp} ===\n\n`)
+}
+
+/**
+ * Write to log file (strips ANSI color codes).
+ */
+function write_to_log (prefix : string, args : unknown[]) : void {
+  if (!logStream) return
+
+  const timestamp = new Date().toISOString().slice(11, 23) // HH:MM:SS.mmm
+  const message = args.map(a => {
+    if (typeof a === 'string') return a
+    if (a instanceof Error) return a.stack || a.message
+    try { return JSON.stringify(a) } catch { return String(a) }
+  }).join(' ')
+
+  // Strip ANSI codes for log file
+  const clean = message.replace(/\x1b\[[0-9;]*m/g, '')
+  logStream.write(`[${timestamp}] ${prefix} ${clean}\n`)
+}
 
 /* ================ [ Colors ] ================ */
 
@@ -48,6 +90,7 @@ export const colors = {
  */
 export function log_info (...args : unknown[]) : void {
   console.log(`${colors.blue}[INFO]${colors.reset}`, ...args)
+  write_to_log('[INFO]', args)
 }
 
 /**
@@ -55,6 +98,7 @@ export function log_info (...args : unknown[]) : void {
  */
 export function log_send (...args : unknown[]) : void {
   console.log(`${colors.yellow}[SEND]${colors.reset}`, ...args)
+  write_to_log('[SEND]', args)
 }
 
 /**
@@ -62,6 +106,7 @@ export function log_send (...args : unknown[]) : void {
  */
 export function log_recv (...args : unknown[]) : void {
   console.log(`${colors.cyan}[RECV]${colors.reset}`, ...args)
+  write_to_log('[RECV]', args)
 }
 
 /**
@@ -69,6 +114,7 @@ export function log_recv (...args : unknown[]) : void {
  */
 export function log_error (...args : unknown[]) : void {
   console.log(`${colors.red}[ERR]${colors.reset}`, ...args)
+  write_to_log('[ERR]', args)
 }
 
 /**
@@ -76,6 +122,7 @@ export function log_error (...args : unknown[]) : void {
  */
 export function log_success (...args : unknown[]) : void {
   console.log(`${colors.green}[OK]${colors.reset}`, ...args)
+  write_to_log('[OK]', args)
 }
 
 /**
@@ -83,6 +130,15 @@ export function log_success (...args : unknown[]) : void {
  */
 export function log_warn (...args : unknown[]) : void {
   console.log(`${colors.brightYellow}[WARN]${colors.reset}`, ...args)
+  write_to_log('[WARN]', args)
+}
+
+/**
+ * Log a debug message (dim).
+ */
+export function log_debug (...args : unknown[]) : void {
+  console.log(`${colors.dim}[DEBUG]${colors.reset}`, ...args)
+  write_to_log('[DEBUG]', args)
 }
 
 /* ================ [ Formatting ] ================ */
@@ -310,8 +366,8 @@ export function get_positional_arg () : string | undefined {
 export async function create_deterministic_secrets (
   names : string[]
 ) : Promise<string[]> {
-  const { sha256 } = await import('@noble/hashes/sha256')
-  const { Buff }   = await import('@cmdcode/buff')
+  const { sha256 } = await import('@noble/hashes/sha2.js')
+  const { Buff }   = await import('@vbyte/buff')
 
   return names.map(name => {
     const hash = sha256(new TextEncoder().encode(`frostr-demo-secret:${name}`))
@@ -344,8 +400,8 @@ export function sleep (ms : number) : Promise<void> {
  * The sign API requires a 64-character hex hash (SHA-256).
  */
 export async function hash_message (message : string) : Promise<string> {
-  const { sha256 } = await import('@noble/hashes/sha256')
-  const { Buff }   = await import('@cmdcode/buff')
+  const { sha256 } = await import('@noble/hashes/sha2.js')
+  const { Buff }   = await import('@vbyte/buff')
   const bytes = new TextEncoder().encode(message)
   const hash  = sha256(bytes)
   return Buff.bytes(hash).hex
@@ -355,7 +411,7 @@ export async function hash_message (message : string) : Promise<string> {
  * Generate a random valid secp256k1 public key for ECDH testing.
  */
 export async function generate_random_pubkey () : Promise<string> {
-  const { schnorr } = await import('@noble/curves/secp256k1')
+  const { schnorr } = await import('@noble/curves/secp256k1.js')
   const privkey = schnorr.utils.randomPrivateKey()
   return Buffer.from(schnorr.getPublicKey(privkey)).toString('hex')
 }

@@ -4,9 +4,10 @@
  * Tests for threshold signature generation with various scenarios.
  */
 
-import { Buff }                       from '@cmdcode/buff'
+import { Buff }                       from '@vbyte/buff'
 import { verify_signature }           from '@/util/crypto.js'
 import { parse_error }                from '@/util/index.js'
+import { hash_string }                from '@/test/lib/hash.js'
 import { generate_messages, measure_time, setup_nonce_pools } from '../lib/helpers.js'
 
 import type { TestNetwork } from '@/test/types.js'
@@ -23,7 +24,7 @@ export default function (ctx : TestNetwork, tape : Test) {
         // Ensure pools are set up
         await setup_nonce_pools(ctx.nodes)
 
-        const message = Buff.str('test message').digest.hex
+        const message = hash_string('test message')
         const tweak = Buff.random(32).hex
 
         const result = await Alice.req.queue([ message, tweak ])

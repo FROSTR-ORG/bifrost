@@ -511,7 +511,10 @@ export class NoncePool extends EventEmitter<NoncePoolEvent> {
 
     // Import outgoing state
     for (const [ idx_str, saved ] of Object.entries(state.outgoing)) {
-      const idx = Number(idx_str)
+      const idx = parseInt(idx_str, 10)
+      if (Number.isNaN(idx)) {
+        throw new Error(`invalid peer index in outgoing state: ${idx_str}`)
+      }
       const map = new Map<string, DerivedPublicNonce>()
       for (const nonce of saved.nonces) {
         map.set(nonce.code, nonce)
@@ -521,7 +524,10 @@ export class NoncePool extends EventEmitter<NoncePoolEvent> {
 
     // Import incoming state
     for (const [ idx_str, saved ] of Object.entries(state.incoming)) {
-      const idx = Number(idx_str)
+      const idx = parseInt(idx_str, 10)
+      if (Number.isNaN(idx)) {
+        throw new Error(`invalid peer index in incoming state: ${idx_str}`)
+      }
       const map = new Map<string, DerivedPublicNonce>()
       for (const nonce of saved.nonces) {
         map.set(nonce.code, nonce)

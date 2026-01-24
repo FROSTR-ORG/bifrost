@@ -9,11 +9,12 @@
  * on-demand during signing.
  */
 
-import { Buff }          from '@cmdcode/buff'
-import { hmac }          from '@noble/hashes/hmac'
-import { sha256 }        from '@noble/hashes/sha256'
+import { Buff }          from '@vbyte/buff'
+import { hmac }          from '@noble/hashes/hmac.js'
+import { sha256 }        from '@noble/hashes/sha2.js'
 import { get_pubkey }    from '@/util/crypto.js'
 import { Assert }        from '@/util/assert.js'
+import { sha256_digest } from '@/util/encoding.js'
 
 import type {
   SecretNoncePair,
@@ -27,6 +28,10 @@ import type {
 const DOMAIN_BINDER = 'bifrost/nonce/binder/v1'
 /** Domain separator for hidden nonce derivation */
 const DOMAIN_HIDDEN = 'bifrost/nonce/hidden/v1'
+/** Length of a compressed public key in hex (33 bytes = 66 hex chars) */
+const COMPRESSED_PUBKEY_HEX_LENGTH = 66
+/** Length of a 32-byte code in hex (32 bytes = 64 hex chars) */
+const CODE_HEX_LENGTH = 64
 
 /**
  * Derive a secret nonce component via HMAC.
@@ -44,14 +49,14 @@ export function derive_nonce_secret (
   code         : string,
   domain       : string
 ) : string {
-  const key = Buff.hex(share_secret).raw
+  const key = Buff.hex(share_secret)
   const msg = Buff.join([
     Buff.hex(code),
     Buff.str(domain)
-  ]).raw
+  ])
 
   const derived = hmac(sha256, key, msg)
-  return Buff.raw(derived).hex
+  return Buff.bytes(derived).hex
 }
 
 /**
@@ -203,11 +208,11 @@ export function compute_nonce_binding (
   const sorted = [...all_commits].sort((a, b) => a.idx - b.idx)
 
   // Serialize all commits
-  const commit_data = sorted.map(c =>
+  const commit_data = sorted.map(commit =>
     Buff.join([
-      Buff.num(c.idx, 4),
-      Buff.hex(c.binder_pn),
-      Buff.hex(c.hidden_pn)
+      Buff.num(commit.idx, 4),
+      Buff.hex(commit.binder_pn),
+      Buff.hex(commit.hidden_pn)
     ])
   )
 
@@ -219,7 +224,7 @@ export function compute_nonce_binding (
     ...commit_data
   ])
 
-  return preimage.digest.hex
+  return sha256_digest(preimage).hex
 }
 
 /**
@@ -263,8 +268,8 @@ export function validate_public_nonce (
 ) : boolean {
   try {
     // Verify lengths (compressed point format)
-    if (nonce.binder_pn.length !== 66) return false
-    if (nonce.hidden_pn.length !== 66) return false
+    if (nonce.binder_pn.length !== COMPRESSED_PUBKEY_HEX_LENGTH) return false
+    if (nonce.hidden_pn.length !== COMPRESSED_PUBKEY_HEX_LENGTH) return false
 
     // Verify prefix byte (02 or 03 for compressed points)
     const binder_prefix = nonce.binder_pn.slice(0, 2)
@@ -273,7 +278,7 @@ export function validate_public_nonce (
     if (hidden_prefix !== '02' && hidden_prefix !== '03') return false
 
     // Verify code length
-    if (nonce.code.length !== 64) return false
+    if (nonce.code.length !== CODE_HEX_LENGTH) return false
 
     // Additional validation could include point-on-curve checks
     // but the FROST library will do this during signing

@@ -1,13 +1,29 @@
 # Bifrost
 
-SDK and reference node for the FROSTR protocol.
+> Threshold signing SDK for FROSTR - Distributed key custody using Nostr relays
+
+[![npm version](https://img.shields.io/npm/v/@frostr/bifrost)](https://www.npmjs.com/package/@frostr/bifrost)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+
+## What is FROSTR?
+
+**FROSTR** (Frost Over Nostr) is a threshold cryptography protocol that enables distributed key custody using Nostr relays as the communication layer. It implements the FROST (Flexible Round-Optimized Schnorr Threshold) signature scheme.
+
+**The problem**: Traditional key management creates single points of failure. If a private key is compromised, lost, or held by a single party that becomes unavailable, access to funds or signing capability is lost.
+
+**The solution**: Threshold signatures split a key into multiple shares distributed among different parties. M-of-N shareholders must collaborate to produce a signature. No single party ever possesses the complete key, even during signing. The resulting signature is a standard BIP-340 Schnorr signature - indistinguishable from one produced by a single signer.
+
+**Why Nostr?** Nostr provides a decentralized relay network that's already battle-tested for message passing. FROSTR leverages this existing infrastructure for peer communication, with end-to-end encryption ensuring relay operators never see message contents.
 
 ## Features
 
-* Communicates over nostr using end-to-end encrypted messaging.
-* Nodes will collaborate to sign messages and exchange ECDH secrets.
-* Run standalone or integrate into existing nostr clients.
-* Includes methods for creating and managing a group of FROSTR shares.
+- **Threshold Signing**: M-of-N signing where no single party holds the complete key
+- **ECDH Key Exchange**: Collaborative derivation of shared secrets
+- **End-to-End Encryption**: All peer communication encrypted with ChaCha20-Poly1305
+- **Nostr Transport**: Uses existing relay infrastructure for decentralized communication
+- **BIP-340 Compatible**: Produces standard Schnorr signatures usable on Bitcoin and Nostr
+- **TypeScript First**: Full type safety with strict mode enabled
 
 ## Installation
 
@@ -15,163 +31,96 @@ SDK and reference node for the FROSTR protocol.
 npm install @frostr/bifrost
 ```
 
-## Usage Examples
+## Quick Example
 
-### Creating a group of shares
-
-The following example demonstrates how to create a set of commits and shares for a 2-of-3 threshold signing group.
-
-```ts
-import {
-  encode_group_package,
-  encode_share_package,
-  generate_dealer_package
-} from '@frostr/bifrost/lib'
-
-const THRESHOLD  = 2  // Number of shares required to sign.
-const MEMBERS    = 3  // Total number of shares to create.
-const SECRET_KEY = 'your hex-encoded secret key'
-
-// Generate a 2-of-3 threshold share package.
-const { group, shares } = generate_dealer_package(THRESHOLD, MEMBERS, [ SECRET_KEY ])
-
-// Encode the group and shares as bech32 strings.
-const group_cred  = encode_group_package(group)
-const share_creds = shares.map(encode_share_package)
-```
-
-### Initializing a Bifrost Node
-
-```ts
+```typescript
 import { BifrostNode } from '@frostr/bifrost'
+import { generate_dealer_package, encode_group_package, encode_share_package } from '@frostr/bifrost/lib'
+import { get_seckey } from '@frostr/bifrost/util'
 
-// List of relays to connect to.
-const relays  = [ 'wss://relay.example.com' ]
+// Generate a 2-of-3 threshold group
+const { group, shares } = generate_dealer_package(2, 3, [get_seckey()])
 
-const options = {
-  // Provide an existing cache for storing data.
-  cache : {
-    // Cache for storing ECDH secrets.
-    ecdh : new Map<string, string>
-  },
-  // Enables more verbose logging of errors.
-  debug : false,
-  // Middleware functions for handling incoming messages.
-  middleware : {
-    // This middleware will run before a ECDH request is accepted.
-    ecdh : (node, msg) => SignedMessage<ECDHPackage>,
-    // This middleware will run before a signature request is accepted.
-    sign : (node, msg) => SignedMessage<SessionPackage>
-  },
-  // Specify a set of policies for each peer.
-  policies : [
-    // The format is [ pubkey, allow_send, allow_recv ].
-    [ 'pubkey1', true,  true  ],
-    // If allow_send is false, the node will not send requests to the peer.
-    [ 'pubkey2', false, true  ],
-    // If allow_recv is false, the node will not handle requests from the peer.
-    [ 'pubkey3', false, false ]
-  ]
-}
-
-// Initialize the node with the group and share credentials.
-const node = new BifrostNode (group, share, relays, opt)
-
-// Log when the node is ready.
-node.on('ready', () => console.log('bifrost node is ready'))
-
-// Connect to the relays.
+// Create and connect a node
+const node = new BifrostNode(group, shares[0], ['wss://relay.example.com'])
 await node.connect()
-```
 
-### Signing Messages
+// Exchange nonces with a peer
+await node.req.ping(shares[1].pubkey)
 
-```ts
-// Optional parameters for the signature request.
-const options = {
-  content : null,      // optional payload for the signature request.
-  peers   : [],        // array of peer public keys (overrides policies).
-  stamp   : now(),     // specific timestamp for the request.
-  type    : 'message', // optional type parameter for the signature request.
-  tweaks  : []         // array of tweak values to apply to the signature.
-}
-
-// Request a partial signature from other group members.
-const result = await node.req.sign(
-  message, // message to sign.
-  options  // optional parameters for the signature request.
-)
-
+// Request a threshold signature
+const result = await node.req.sign('Hello FROSTR!')
 if (result.ok) {
-  // The final signature aggregated from all group members.
-  const signature = result.data
+  console.log('Signature:', result.data)
 }
 ```
 
-### ECDH Key Exchange
+See the [Guide](docs/GUIDE.md) for complete examples.
 
-```ts
-// Request a partial ECDH secret from other group members.
-const result = await node.req.ecdh(
-  ecdh_pk, // public key for the ECDH exchange.
-  peer_pks // array of peer public keys (overrides policies).
-)
+## API Overview
 
-if (result.ok) {
-  // The final ECDH shared secret.
-  const shared_secret = result.data
-}
-```
+| Method | Description |
+|--------|-------------|
+| `node.req.sign(message)` | Request threshold signature |
+| `node.req.ecdh(pubkey)` | Collaborative ECDH key exchange |
+| `node.req.ping(peer)` | Ping peer and exchange nonces |
+| `node.req.echo(message)` | Test relay connectivity |
 
-### Listening for Events
+See [API Reference](docs/API.md) for full documentation.
 
-The Bifrost node emits events during various stages of processing requests and responses.
+## Documentation
 
-```ts
-interface BifrostNodeEvent {
-  // Base events.
-  '*'                 : [ string, ...any[]        ] // emits all events.
-  'ready'             : BifrostNode                 // emits when the node is ready.
-  'closed'            : BifrostNode                 // emits when the node is closed.
-  'message'           : SignedMessage               // emits when a message is received.
-  'bounced'           : [ string, SignedMessage   ] // emits when a message is rejected.
-  // ECDH events.
-  '/ecdh/sender/req'  : SignedMessage               // emits when a ECDH request is sent.
-  '/ecdh/sender/res'  : SignedMessage[]             // emits when a ECDH request is fulfilled.
-  '/ecdh/sender/rej'  : [ string, ECDHPackage     ] // emits when a ECDH request is rejected.
-  '/ecdh/sender/sec'  : [ string, ECDHPackage[]   ] // emits when a ECDH share is aggregated.
-  '/ecdh/sender/err'  : [ string, SignedMessage[] ] // emits when a ECDH share fails to aggregate.
-  '/ecdh/handler/req' : SignedMessage               // emits when a ECDH request is received.
-  '/ecdh/handler/res' : SignedMessage               // emits when a ECDH response is sent.
-  '/ecdh/handler/rej' : [ string, SignedMessage   ] // emits when a ECDH rejection is sent.
-  // Signature events.
-  '/sign/sender/req'  : SignedMessage               // emits when a signature request is sent.
-  '/sign/sender/res'  : SignedMessage[]             // emits when a signature response is received.
-  '/sign/sender/rej'  : [ string, SessionPackage  ] // emits when a signature rejection is received.
-  '/sign/sender/sig'  : [ string, SignedMessage[] ] // emits when a signature share is aggregated.
-  '/sign/sender/err'  : [ string, SignedMessage[] ] // emits when a signature share fails to aggregate.
-  '/sign/handler/req' : SignedMessage               // emits when a signature request is received.
-  '/sign/handler/res' : SignedMessage               // emits when a signature response is sent.
-  '/sign/handler/rej' : [ string, SignedMessage   ] // emits when a signature rejection is sent.
-}
-```
-## Development & Testing
+| Document | Description |
+|----------|-------------|
+| [Guide](docs/GUIDE.md) | Getting started with code examples and interactive demo |
+| [API Reference](docs/API.md) | Full API documentation |
+| [Security Model](docs/SECURITY.md) | Threat model, guarantees, and deployment guidance |
+| [Technical Docs](docs/INDEX.md) | Architecture, protocol, and cryptography |
 
-The library includes comprehensive test suites organized into unit and end-to-end test suites.
-
-Run specific test suites:
+## Development
 
 ```bash
-# Run all tests
-npm test
-
-# Build the project
-npm run build
-
-# Build a release candidate.
-npm run release
+npm install        # Install dependencies
+npm test           # Run test suite
+npm run build      # Build for production
 ```
+
+### Interactive Demo
+
+See the protocol in action:
+
+```bash
+npm run demo:keygen       # Generate test credentials
+./scripts/tmux.sh start   # Launch 4-pane demo (requires tmux)
+```
+
+See [Guide](docs/GUIDE.md) for full instructions.
 
 ## Contributing
 
-Contributions are welcome! Please open an issue or submit a pull request.
+Contributions are welcome! Please:
+
+1. Open an issue to discuss significant changes before starting work
+2. Fork the repository and create a feature branch
+3. Write tests for new functionality
+4. Ensure all tests pass (`npm test`)
+5. Submit a pull request with a clear description
+
+## Security
+
+See [SECURITY.md](docs/SECURITY.md) for:
+
+- Threat model and security guarantees
+- What FROSTR protects against (and what it doesn't)
+- Secure deployment checklist
+- Reporting security vulnerabilities
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+- [FROST Paper](https://eprint.iacr.org/2020/852) by Chelsea Komlo and Ian Goldberg
+- [Noble Cryptography](https://paulmillr.com/noble/) by Paul Miller
+- [Nostr Protocol](https://github.com/nostr-protocol/nostr) community

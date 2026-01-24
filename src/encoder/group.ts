@@ -1,9 +1,12 @@
-import { Buff, Bytes } from '@cmdcode/buff'
+import { Buff, Bytes } from '@vbyte/buff'
 import * as CONST      from '@/const.js'
 
 import {
   Assert,
-  normalize_obj
+  normalize_obj,
+  create_stream,
+  to_bech32m,
+  from_bech32m
 } from '@/util/index.js'
 
 import type {
@@ -16,6 +19,23 @@ const MEMBER_INDEX_SIZE  = 4
 const MEMBER_PUBKEY_SIZE = 33
 const MEMBER_DATA_SIZE   = MEMBER_INDEX_SIZE + MEMBER_PUBKEY_SIZE
 
+type GroupDataFormat = 'member' | 'legacy'
+
+/**
+ * Detect the format of serialized group data based on remaining byte count.
+ *
+ * @param remaining - Number of remaining bytes after header.
+ * @returns 'member' for new format, 'legacy' for commit format.
+ * @throws If the data doesn't match either format.
+ */
+function detect_group_format (remaining : number) : GroupDataFormat {
+  const is_member_format = remaining % MEMBER_DATA_SIZE === 0 &&
+                           remaining % CONST.COMMIT_DATA_SIZE !== 0
+  if (is_member_format) return 'member'
+  if (remaining % CONST.COMMIT_DATA_SIZE === 0) return 'legacy'
+  throw new Error('malformed group data: invalid member count')
+}
+
 /**
  * Encode a group package (new format with MemberPackage).
  *
@@ -26,7 +46,7 @@ export function encode_group_package (
   pkg : GroupPackage
 ) : string {
   const data = serialize_group_data(pkg)
-  return data.to_bech32m('bfgroup')
+  return to_bech32m(data, 'bfgroup')
 }
 
 /**
@@ -40,7 +60,7 @@ export function encode_group_package (
 export function decode_group_package (
   str : string
 ) : GroupPackage {
-  const data = Buff.bech32m(str)
+  const data = from_bech32m(str)
   return deserialize_group_data(data)
 }
 
@@ -55,7 +75,7 @@ export function serialize_group_data (
 ) : Buff {
   const thd = Buff.num(pkg.threshold, CONST.GROUP_THOLD_SIZE)
   const gpk = Buff.hex(pkg.group_pk, CONST.GROUP_PUBKEY_SIZE)
-  const mem = pkg.members.map(e => serialize_member_data(e))
+  const mem = pkg.members.map(member => serialize_member_data(member))
   return Buff.join([ gpk, thd, ...mem ])
 }
 
@@ -69,38 +89,32 @@ export function serialize_group_data (
 export function deserialize_group_data (
   data : Bytes
 ) : GroupPackage {
-  const stream    = new Buff(data).stream
+  const stream    = create_stream(Buff.bytes(data))
   const group_pk  = stream.read(CONST.COMMIT_PUBKEY_SIZE).hex
   const threshold = stream.read(CONST.GROUP_THOLD_SIZE).num
 
-  // Detect format based on remaining data size
   const remaining = stream.size
+  const format    = detect_group_format(remaining)
+  const members   : MemberPackage[] = []
 
-  if (remaining % MEMBER_DATA_SIZE === 0 && remaining % CONST.COMMIT_DATA_SIZE !== 0) {
-    // New format (member data)
-    const count   = remaining / MEMBER_DATA_SIZE
-    const members : MemberPackage[] = []
+  if (format === 'member') {
+    const count = remaining / MEMBER_DATA_SIZE
     for (let i = 0; i < count; i++) {
       const mbytes = stream.read(MEMBER_DATA_SIZE)
       members.push(deserialize_member_data(mbytes))
     }
-    Assert.size(stream.data, 0)
-    return normalize_obj({ members, group_pk, threshold })
-  } else if (remaining % CONST.COMMIT_DATA_SIZE === 0) {
-    // Legacy format (commit data) - convert to new format
-    const count   = remaining / CONST.COMMIT_DATA_SIZE
-    const members : MemberPackage[] = []
+  } else {
+    // Legacy format - convert to new format (nonces discarded)
+    const count = remaining / CONST.COMMIT_DATA_SIZE
     for (let i = 0; i < count; i++) {
       const cbytes = stream.read(CONST.COMMIT_DATA_SIZE)
-      // Deserialize commit and extract only idx/pubkey (nonces discarded)
       const { idx, pubkey } = deserialize_commit_data(cbytes)
       members.push({ idx, pubkey })
     }
-    Assert.size(stream.data, 0)
-    return normalize_obj({ members, group_pk, threshold })
-  } else {
-    throw new Error('malformed group data: invalid member count')
   }
+
+  Assert.size(stream.data, 0)
+  return normalize_obj({ members, group_pk, threshold })
 }
 
 /**
@@ -120,7 +134,7 @@ function serialize_member_data (
 function deserialize_member_data (
   data : Uint8Array
 ) : MemberPackage {
-  const stream = new Buff(data).stream
+  const stream = create_stream(data)
   Assert.size(stream.data, MEMBER_DATA_SIZE)
   const idx    = stream.read(MEMBER_INDEX_SIZE).num
   const pubkey = stream.read(MEMBER_PUBKEY_SIZE).hex
@@ -135,7 +149,7 @@ function deserialize_member_data (
 function deserialize_commit_data (
   data : Uint8Array
 ) : { idx: number, pubkey: string } {
-  const stream    = new Buff(data).stream
+  const stream    = create_stream(data)
   Assert.size(stream.data, CONST.COMMIT_DATA_SIZE)
   const idx       = stream.read(CONST.COMMIT_INDEX_SIZE).num
   const pubkey    = stream.read(CONST.COMMIT_PUBKEY_SIZE).hex

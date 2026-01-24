@@ -1,6 +1,5 @@
-import { Buff } from '@cmdcode/buff'
-
 import { create_session_shares } from '@/test/lib/util.js'
+import { hash_string }           from '@/test/lib/hash.js'
 
 import {
   decode_group_package,
@@ -18,10 +17,10 @@ import generate_group from './group.vec.js'
 const DEFAULT_CONFIG = {
   secrets  : [ 'alice', 'bob', 'carol' ],
   messages : [
-    [ Buff.str('msg-alpha').digest.hex, Buff.str('twk-alpha').digest.hex ],
-    [ Buff.str('msg-beta').digest.hex,  Buff.str('twk-beta').digest.hex  ],
-    [ Buff.str('msg-gamma').digest.hex, Buff.str('twk-gamma').digest.hex ],
-    [ Buff.str('msg-delta').digest.hex, Buff.str('twk-delta').digest.hex ],
+    [ hash_string('msg-alpha'), hash_string('twk-alpha') ],
+    [ hash_string('msg-beta'),  hash_string('twk-beta')  ],
+    [ hash_string('msg-gamma'), hash_string('twk-gamma') ],
+    [ hash_string('msg-delta'), hash_string('twk-delta') ],
   ],
   members  : [ 1, 3 ]
 }

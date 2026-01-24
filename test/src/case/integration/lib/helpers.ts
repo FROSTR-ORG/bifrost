@@ -5,12 +5,18 @@
  * and test data generation.
  */
 
-import { Buff }           from '@cmdcode/buff'
-import { schnorr }        from '@noble/curves/secp256k1'
+import { Buff }           from '@vbyte/buff'
+import { schnorr }        from '@noble/curves/secp256k1.js'
 
 import type { BifrostNode }    from '@/class/client.js'
 import type { SighashVector }  from '@/types/sign.js'
 import type { TestNodeMap }    from '@/test/types.js'
+
+/** Minimum nonces needed per peer for signing operations */
+const MIN_NONCES_PER_PEER = 10
+
+/** Delay in ms to allow relay propagation between operations */
+const POOL_SYNC_DELAY_MS = 100
 
 /**
  * Drain a node's incoming nonce pool to a target count.
@@ -63,7 +69,6 @@ export async function setup_nonce_pools (
   nodes : TestNodeMap
 ) : Promise<void> {
   const nodeList = Array.from(nodes.values())
-  const min_nonces = 10  // Minimum nonces needed per peer
 
   // First try ping-based exchange (2 rounds)
   for (let round = 0; round < 2; round++) {
@@ -74,7 +79,7 @@ export async function setup_nonce_pools (
         }
       }
     }
-    await sleep(100)
+    await sleep(POOL_SYNC_DELAY_MS)
   }
 
   // Check if pools are sufficiently populated
@@ -85,7 +90,7 @@ export async function setup_nonce_pools (
       const peer_idx = get_peer_idx(node, other.pubkey)
       if (peer_idx !== undefined) {
         const count = node.pool.get_available_count(peer_idx)
-        if (count < min_nonces) {
+        if (count < MIN_NONCES_PER_PEER) {
           needs_direct_populate = true
           break
         }
@@ -100,7 +105,7 @@ export async function setup_nonce_pools (
   }
 
   // Final delay
-  await sleep(100)
+  await sleep(POOL_SYNC_DELAY_MS)
 }
 
 /**
@@ -205,7 +210,8 @@ export function generate_ecdh_pubkeys (count : number) : string[] {
   const pubkeys : string[] = []
   for (let i = 0; i < count; i++) {
     // Generate a random secret key and derive its public key
-    const seckey = Buff.random(32).hex
+    // Note: schnorr.getPublicKey in @noble/curves v2 requires Uint8Array input
+    const seckey = Buff.random(32)
     const pubkey = Buff.bytes(schnorr.getPublicKey(seckey)).hex
     pubkeys.push(pubkey)
   }

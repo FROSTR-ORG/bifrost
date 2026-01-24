@@ -12,8 +12,14 @@
  * - relays (variable, length-prefixed strings)
  */
 
-import { Buff, Bytes } from '@cmdcode/buff'
-import { Assert }      from '@/util/index.js'
+import { Buff, Bytes } from '@vbyte/buff'
+
+import {
+  Assert,
+  create_stream,
+  to_bech32m,
+  from_bech32m
+} from '@/util/index.js'
 
 import type { OnboardPackage, SharePackage } from '@/types/index.js'
 
@@ -35,7 +41,7 @@ export function encode_onboard_package (
   pkg : OnboardPackage
 ) : string {
   const data = serialize_onboard_data(pkg)
-  return data.to_bech32m('bfonboard')
+  return to_bech32m(data, 'bfonboard')
 }
 
 /**
@@ -47,7 +53,7 @@ export function encode_onboard_package (
 export function decode_onboard_package (
   str : string
 ) : OnboardPackage {
-  const data = Buff.bech32m(str)
+  const data = from_bech32m(str)
   return deserialize_onboard_data(data)
 }
 
@@ -89,7 +95,7 @@ export function serialize_onboard_data (
 export function deserialize_onboard_data (
   data : Bytes
 ) : OnboardPackage {
-  const stream = new Buff(data).stream
+  const stream = create_stream(Buff.bytes(data))
 
   Assert.ok(stream.size >= MIN_DATA_SIZE, 'onboard data too short')
 

@@ -1,4 +1,4 @@
-import { derive_shares_secret } from '@cmdcode/frost/lib'
+import { derive_shares_secret } from '@vbyte/frost/lib'
 import { Assert }               from '@/util/index.js'
 
 import {

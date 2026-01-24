@@ -22,6 +22,8 @@ import {
   log_success,
   log_error,
   log_warn,
+  log_debug,
+  init_logging,
   format_pubkey,
   format_pool_bar,
   format_peer_status,
@@ -145,6 +147,8 @@ async function handle_ping (ctx : NodeContext, args : string[]) {
 
   const name = get_member_name(peer_pk, ctx.group) ?? format_pubkey(peer_pk)
   log_send(`Pinging ${name}...`)
+  log_debug(`  Target pubkey: ${peer_pk}`)
+  log_debug(`  Our pubkey: ${ctx.node.pubkey}`)
 
   try {
     // Add timeout to ping request
@@ -549,18 +553,18 @@ function get_peer_name (ctx : NodeContext, pubkey : string) : string | undefined
 function setup_event_listeners (ctx : NodeContext) {
   const node = ctx.node
 
-  // Pool events
-  node.pool.on('critical_low', ([ peer_idx, available ]) => {
+  // Pool events (emitter spreads array payloads as separate arguments)
+  node.pool.on('critical_low', (peer_idx, available) => {
     const name = ctx.names[peer_idx - 1] ?? `idx=${peer_idx}`
     log_warn(`${colors.red}Nonce pool critical!${colors.reset} ${name}: only ${available} nonces left`)
   })
 
-  node.pool.on('needs_replenish', ([ peer_idx, count ]) => {
+  node.pool.on('needs_replenish', (peer_idx, count) => {
     const name = ctx.names[peer_idx - 1] ?? `idx=${peer_idx}`
     log_info(`Nonce pool low for ${name}, need ${count} more`)
   })
 
-  node.pool.on('nonces_received', ([ peer_idx, count ]) => {
+  node.pool.on('nonces_received', (peer_idx, count) => {
     const name = ctx.names[peer_idx - 1] ?? `idx=${peer_idx}`
     log_recv(`Received ${count} nonces from ${name}`)
   })
@@ -570,6 +574,13 @@ function setup_event_listeners (ctx : NodeContext) {
     const pk = msg.env.pubkey
     const name = get_member_name(pk, ctx.group) ?? format_pubkey(pk)
     log_recv(`Ping request from ${name}`)
+    // Debug: Log pubkey details for troubleshooting
+    log_debug(`  msg.env.pubkey: ${pk}`)
+    log_debug(`  msg.id: ${msg.id}`)
+    log_debug(`  Our peers:`)
+    for (const peer of ctx.node.peers) {
+      log_debug(`    - ${peer.pubkey} (matches: ${peer.pubkey === pk})`)
+    }
   })
 
   node.on('/sign/handler/req', (msg) => {
@@ -603,9 +614,32 @@ function setup_event_listeners (ctx : NodeContext) {
   })
 
   // Bounced messages
-  node.on('bounced', ([ reason, msg ]) => {
-    const pk = msg.env.pubkey
+  node.on('bounced', (reason, msg) => {
+    const pk = msg?.env?.pubkey ?? 'unknown'
     log_warn(`Message bounced from ${format_pubkey(pk)}: ${reason}`)
+  })
+
+  // Handler rejections (errors in processing requests)
+  // Note: emitter spreads array payloads as separate arguments
+  node.on('/ping/handler/rej', (reason, msg) => {
+    const pk = msg?.env?.pubkey ?? 'unknown'
+    log_error(`Ping handler error: ${reason}`)
+    log_debug(`  Full error details - pubkey: ${pk}, msg.id: ${msg?.id}, tag: ${msg?.tag}`)
+  })
+
+  // Raw message logging for debugging
+  node.on('message', (msg) => {
+    log_debug(`RAW MESSAGE: tag=${msg.tag}, id=${msg.id}, from=${format_pubkey(msg.env.pubkey)}`)
+  })
+
+  node.on('/sign/handler/rej', (reason, msg) => {
+    const pk = msg?.env?.pubkey ?? 'unknown'
+    log_error(`Sign handler error: ${reason}`)
+  })
+
+  node.on('/ecdh/handler/rej', (reason, msg) => {
+    const pk = msg?.env?.pubkey ?? 'unknown'
+    log_error(`ECDH handler error: ${reason}`)
   })
 }
 
@@ -666,8 +700,8 @@ export async function start_node (
 ) : Promise<NodeContext> {
   const names = list_share_names()
 
-  // Create the node
-  const node = new BifrostNode(group, share, relays)
+  // Create the node with debug enabled
+  const node = new BifrostNode(group, share, relays, { debug: true })
 
   // Create context
   const ctx : NodeContext = {
@@ -744,6 +778,9 @@ async function main () {
     log_error('Usage: npm run demo:node -- --name <alice|bob|carol|...>')
     process.exit(1)
   }
+
+  // Initialize logging
+  init_logging(name)
 
   print_banner(`FROSTR Demo Node - ${name}`)
   console.log()

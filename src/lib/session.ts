@@ -1,6 +1,6 @@
-import { Buff }                  from '@cmdcode/buff'
-import { get_group_signing_ctx } from '@cmdcode/frost/lib'
-import { now }                   from '@/util/index.js'
+import { Buff }                  from '@vbyte/buff'
+import { get_group_signing_ctx } from '@vbyte/frost/lib'
+import { now, sha256_digest }    from '@/util/index.js'
 
 import {
   get_member_by_idx,
@@ -125,16 +125,15 @@ export function get_session_id (
   group_id : string,
   template : SignSessionTemplate
 ) : string {
-  // Get the members, message, and timestamp.
-  const mbrs = template.members.map(e => Buff.bytes(e))
-  const msgs = template.hashes.map(e => Buff.join(e))
-  const cont = Buff.bytes(template.content ?? '00')
-  const type = Buff.str(template.type)
-  const ts   = Buff.num(template.stamp, 4)
-  // Create the preimage.
-  const pimg = Buff.join([ group_id, ...mbrs, ...msgs, cont, type, ts ])
-  // Return the session ID.
-  return pimg.digest.hex
+  // Serialize session components
+  const members_buf = template.members.map(idx => Buff.num(idx, 4))
+  const hashes_buf  = template.hashes.map(hash => Buff.join(hash))
+  const content_buf = Buff.bytes(template.content ?? '00')
+  const type_buf    = Buff.str(template.type)
+  const stamp_buf   = Buff.num(template.stamp, 4)
+  // Preimage: group_id || members[4B each] || hashes || content || type || timestamp[4B]
+  const preimage = Buff.join([ group_id, ...members_buf, ...hashes_buf, content_buf, type_buf, stamp_buf ])
+  return sha256_digest(preimage).hex
 }
 
 /**
@@ -171,11 +170,12 @@ function create_sighash_commit_from_data (
 ) : SighashCommit {
   const [ sighash ] = sigvec
   // Create bind hash from session, index, and sighash
-  const bind_hash = Buff.join([
+  const preimage = Buff.join([
     Buff.hex(session_id),
     Buff.num(commit.idx, 4),
     Buff.hex(sighash)
-  ]).digest.hex
+  ])
+  const bind_hash = sha256_digest(preimage).hex
 
   return {
     ...commit,
@@ -225,9 +225,9 @@ export function create_session_commits (
   group   : GroupPackage,
   session : SignSessionPackage
 ) : SighashCommit[] {
-  return session.members
-    .map(idx => create_member_commits(group, session, idx))
-    .flat()
+  return session.members.flatMap(idx =>
+    create_member_commits(group, session, idx)
+  )
 }
 
 /**
@@ -250,7 +250,7 @@ export function get_session_ctx (
   }
 
   // Get the public keys for the group.
-  const pubkeys = group.members.map(e => e.pubkey)
+  const pubkeys = group.members.map(member => member.pubkey)
 
   // Create the sighash commitments.
   const session_commits = create_session_commits(group, session)
@@ -263,7 +263,7 @@ export function get_session_ctx (
     // Unpack the sighash vector.
     const [ sighash, ...tweaks ] = vec
     // Get the commits for the current sighash.
-    const sighash_commits = session_commits.filter(e => e.sighash === sighash)
+    const sighash_commits = session_commits.filter(commit => commit.sighash === sighash)
     // Get the group signing context.
     const context = get_group_signing_ctx(group.group_pk, sighash_commits, sighash, tweaks)
     // Add the context to the map.

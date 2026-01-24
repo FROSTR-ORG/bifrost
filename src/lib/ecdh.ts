@@ -1,9 +1,9 @@
 import {
   create_ecdh_share,
   derive_ecdh_secret
-} from '@cmdcode/frost/lib'
+} from '@vbyte/frost/lib'
 
-import type { SecretShare }               from '@cmdcode/frost'
+import type { SecretShare }               from '@vbyte/frost'
 import type { ECDHEntry, ECDHPackage }    from '@/types/index.js'
 
 /**

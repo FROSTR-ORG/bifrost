@@ -1,4 +1,4 @@
-import type { GroupSigningCtx } from '@cmdcode/frost'
+import type { GroupSigningCtx } from '@vbyte/frost'
 
 import type { MemberPublicNonce, NoncePackage, SigningNonce } from './nonce.js'
 

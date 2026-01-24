@@ -1,5 +1,5 @@
-import { Buff }            from '@cmdcode/buff'
-import { schnorr }         from '@noble/curves/secp256k1'
+import { Buff }            from '@vbyte/buff'
+import { schnorr }         from '@noble/curves/secp256k1.js'
 import { get_pubkey }      from '@/util/crypto.js'
 import { create_ecdh_pkg, create_batched_ecdh_pkg } from '@/lib/ecdh.js'
 import { get_session_ctx } from '@/lib/session.js'
@@ -32,6 +32,16 @@ import type {
  */
 const SIGNER_CONFIG : () => SignerConfig = () => {
   return {}
+}
+
+/**
+ * Normalize auxrand input to Uint8Array or undefined.
+ */
+function normalize_auxrand (
+  auxrand? : string | Uint8Array
+) : Uint8Array | undefined {
+  if (!auxrand) return undefined
+  return typeof auxrand === 'string' ? Buff.hex(auxrand) : auxrand
 }
 
 /**
@@ -165,8 +175,11 @@ export class BifrostSigner {
     message  : string,
     auxrand? : string | Uint8Array
   ) : string {
-    const sig = schnorr.sign(message, this._share.seckey, auxrand)
-    return new Buff(sig).hex
+    const msg = Buff.hex(message)
+    const sk  = Buff.hex(this._share.seckey)
+    const aux = normalize_auxrand(auxrand)
+    const sig = schnorr.sign(msg, sk, aux)
+    return Buff.bytes(sig).hex
   }
 
   /**

@@ -1,6 +1,7 @@
-import { Buff } from '@cmdcode/buff'
+import { Buff }   from '@vbyte/buff'
 
 import { generate_dealer_package } from '@frostr/bifrost/lib'
+import { hash_string }             from '@/test/lib/hash.js'
 
 import {
   encode_group_package,
@@ -11,7 +12,7 @@ const DEFAULT_SECRETS = [ 'alice', 'bob', 'carol' ]
 
 export default function (secrets = DEFAULT_SECRETS) {
 
-  const share_seeds = secrets.map(e => Buff.str(e).digest.hex)
+  const share_seeds = secrets.map(e => hash_string(e))
   const nonce_seeds = share_seeds.map(e => Buff.join([ e, e ]).hex)
 
   const pkg    = generate_dealer_package(2, 3, share_seeds, nonce_seeds)

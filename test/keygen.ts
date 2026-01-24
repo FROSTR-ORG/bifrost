@@ -1,5 +1,5 @@
-import { Buff }                from '@cmdcode/buff'
 import { generate_dealer_package } from '@frostr/bifrost/lib'
+import { hash_string }             from '@/test/lib/hash.js'
 
 import {
   encode_group_package,
@@ -7,7 +7,7 @@ import {
 } from '@frostr/bifrost/encoder'
 
 const labels    = [ 'alice', 'bob', 'carol' ]
-const secrets   = labels.map(e => Buff.str(e).digest.hex)
+const secrets   = labels.map(e => hash_string(e))
 const threshold = 2
 
 const dealer_package = generate_dealer_package(threshold, labels.length, secrets)

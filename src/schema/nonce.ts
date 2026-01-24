@@ -41,20 +41,32 @@ const secret_nonce = z.object({
 const nonce_package = z.array(derived_public_nonce)
 
 /**
- * Schema for nonce pool configuration.
+ * Base schema for nonce pool configuration (without refinements).
+ * Used for partial config validation where not all fields are present.
  */
-const pool_config = z.object({
+const pool_config_base = z.object({
   pool_size          : base.num.min(10).max(1000),
   min_threshold      : base.num.min(1),
   critical_threshold : base.num.min(1),
   replenish_count    : base.num.min(1)
-}).refine(
+})
+
+/**
+ * Schema for nonce pool configuration (with cross-field refinements).
+ */
+const pool_config = pool_config_base.refine(
   data => data.critical_threshold < data.min_threshold,
   { message: 'critical_threshold must be less than min_threshold' }
 ).refine(
   data => data.min_threshold < data.pool_size,
   { message: 'min_threshold must be less than pool_size' }
 )
+
+/**
+ * Partial schema for nonce pool configuration.
+ * Used when only some config fields need to be overridden.
+ */
+const pool_config_partial = pool_config_base.partial()
 
 /**
  * Schema for nonce pool status.
@@ -108,6 +120,7 @@ export default {
   secret_nonce,
   nonce_package,
   pool_config,
+  pool_config_partial,
   pool_status,
   signing_nonce,
   nonce_commit,

@@ -1,9 +1,12 @@
-import { Buff, Bytes } from '@cmdcode/buff'
+import { Buff, Bytes } from '@vbyte/buff'
 import * as CONST      from '@/const.js'
 
 import {
   Assert,
-  normalize_obj
+  normalize_obj,
+  create_stream,
+  to_bech32m,
+  from_bech32m
 } from '@/util/index.js'
 
 import type { SharePackage } from '@/types/index.js'
@@ -22,7 +25,7 @@ export function encode_share_package (
 ) : string {
   const data = serialize_share_data(pkg)
   Assert.size(data, NEW_SHARE_DATA_SIZE)
-  return data.to_bech32m('bfshare')
+  return to_bech32m(data, 'bfshare')
 }
 
 /**
@@ -35,7 +38,7 @@ export function encode_share_package (
 export function decode_share_package (
   sharestr : string
 ) : SharePackage {
-  const data = Buff.bech32m(sharestr)
+  const data = from_bech32m(sharestr)
 
   // Check size to determine format
   if (data.length === CONST.SHARE_DATA_SIZE) {
@@ -72,7 +75,7 @@ export function serialize_share_data (
 export function deserialize_share_data (
   data : Bytes
 ) : SharePackage {
-  const stream = new Buff(data).stream
+  const stream = create_stream(Buff.bytes(data))
   Assert.size(stream.data, NEW_SHARE_DATA_SIZE)
   const idx    = stream.read(CONST.SHARE_INDEX_SIZE).num
   const seckey = stream.read(CONST.SHARE_SECKEY_SIZE).hex
@@ -88,7 +91,7 @@ export function deserialize_share_data (
 function deserialize_legacy_share_data (
   data : Bytes
 ) : SharePackage {
-  const stream = new Buff(data).stream
+  const stream = create_stream(Buff.bytes(data))
   Assert.size(stream.data, CONST.SHARE_DATA_SIZE)
   const idx    = stream.read(CONST.SHARE_INDEX_SIZE).num
   const seckey = stream.read(CONST.SHARE_SECKEY_SIZE).hex

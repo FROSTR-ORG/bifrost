@@ -1,4 +1,5 @@
-import { Buff } from '@cmdcode/buff'
+import { Buff }          from '@vbyte/buff'
+import { sha256_digest } from '@/util/encoding.js'
 
 import type {
   SighashVector
@@ -39,5 +40,5 @@ export function get_sighash_binder (
   // Create the preimage.
   const pre = Buff.join([ sid, idx, msg ])
   // Return the binder.
-  return pre.digest.hex
+  return sha256_digest(pre).hex
 }

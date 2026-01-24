@@ -19,7 +19,7 @@ const literal = z.union([
 ])
 
 const json : z.ZodType<Json> = z.lazy(() =>
-  z.union([ literal, z.array(json), z.record(json) ])
+  z.union([ literal, z.array(json), z.record(z.string(), json) ])
 )
 
 const hex       = z.string().regex(/^[0-9a-fA-F]*$/).refine(e => e.length % 2 === 0)

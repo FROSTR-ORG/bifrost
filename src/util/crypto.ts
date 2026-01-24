@@ -1,14 +1,17 @@
-import { Buff }   from '@cmdcode/buff'
+import { Buff }   from '@vbyte/buff'
 import { Assert } from './assert.js'
 
-import { secp256k1, schnorr } from '@noble/curves/secp256k1'
-import { Field }              from '@noble/curves/abstract/modular'
+import { secp256k1, schnorr } from '@noble/curves/secp256k1.js'
+import { Field }              from '@noble/curves/abstract/modular.js'
 
-type ECCPoint = ReturnType<typeof secp256k1.ProjectivePoint.fromHex>
+type ECCPoint = ReturnType<typeof secp256k1.Point.fromHex>
 
-const _N = secp256k1.CURVE.n
-const FD = Field(_N, 32, true)
-const GP = secp256k1.ProjectivePoint.BASE
+const _N = secp256k1.Point.CURVE().n
+const FD = Field(_N, { isLE: true })
+const GP = secp256k1.Point.BASE
+
+// Type helper for hasEvenY (method exists at runtime but not in types)
+const hasEvenY = (pt: ECCPoint): boolean => (pt as any).hasEvenY()
 
 /**
  * Get the secret key from the given secret.
@@ -28,7 +31,7 @@ export function get_seckey (
     // Multiply the generator point by the secret.
     const pt = GP.multiply(sk)
     // Return the secret.
-    return (pt.hasEvenY())
+    return (hasEvenY(pt))
       // If the y-coordinate is even, return the secret.
       ? Buff.big(sk).hex
       // If the y-coordinate is odd, return the complement.
@@ -108,7 +111,7 @@ export function tweak_pubkey (
   const tweak_pt = GP.multiply(twk_big)
   let tweaked_pt = pub_pt.add(tweak_pt)
   // If the format is bip340 and the y-coordinate is odd,
-  if (even_y && !tweaked_pt.hasEvenY()) {
+  if (even_y && !hasEvenY(tweaked_pt)) {
     // Negate the point.
     tweaked_pt = tweaked_pt.negate()
   }
@@ -206,7 +209,7 @@ export function verify_even_y (
   pubkey : string | Uint8Array
 ) : asserts pubkey is string {
   const pt = lift_pubkey(pubkey)
-  Assert.ok(pt.hasEvenY(), 'pubkey must have an even y-coordinate')
+  Assert.ok(hasEvenY(pt), 'pubkey must have an even y-coordinate')
 }
 
 /**
@@ -220,7 +223,7 @@ export function lift_pubkey (
 ) : ECCPoint {
   try {
     const pk = convert_pubkey(pubkey, 'ecdsa')
-    return secp256k1.ProjectivePoint.fromHex(pk)
+    return secp256k1.Point.fromHex(pk)
   } catch (err) {
     throw new Error('invalid pubkey: ' + pubkey)
   }

@@ -5,7 +5,7 @@
  * stateless secret recovery from derivation codes.
  */
 
-import { Buff }          from '@cmdcode/buff'
+import { Buff }          from '@vbyte/buff'
 import { parse_error }   from '@/util/index.js'
 import { get_pubkey }    from '@/util/crypto.js'
 

@@ -1,11 +1,11 @@
 import { get_pubkey } from '../util/crypto.js'
 
-import { create_dealer_set } from '@cmdcode/frost/lib'
+import { create_dealer_set } from '@vbyte/frost/lib'
 
 import type {
   DealerShareSet,
   SecretShare,
-} from '@cmdcode/frost'
+} from '@vbyte/frost'
 
 import type {
   DealerPackage,

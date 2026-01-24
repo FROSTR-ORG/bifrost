@@ -1,4 +1,4 @@
-import { Buff, Bytes }     from '@cmdcode/buff'
+import { Buff, Bytes }     from '@vbyte/buff'
 import { ZodSchema }       from 'zod'
 import { validate_schema } from './helpers.js'
 

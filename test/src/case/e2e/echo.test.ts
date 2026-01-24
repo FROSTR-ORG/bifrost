@@ -1,4 +1,4 @@
-import { Buff }        from '@cmdcode/buff'
+import { Buff }        from '@vbyte/buff'
 import { parse_error } from '@cmdcode/nostr-p2p/util'
 
 import type { Test }        from 'tape'

@@ -26,14 +26,10 @@ export default function (tape : Test) {
   const ctx : TestNetwork = { ...pkg, relays: hosts }
 
   tape.test('starting relay and nodes', async t => {
-    // ctx.nodes.values().forEach(e => {
-    //   e.on('*', (...params) => {
-    //     console.log(params)
-    //   })
-    // })
-
     await relay.start()
     await Promise.all(ctx.nodes.values().map(e => e.connect()))
+    // Allow connections to stabilize before running tests
+    await sleep(500)
     t.pass('relay and nodes started')
   })
 

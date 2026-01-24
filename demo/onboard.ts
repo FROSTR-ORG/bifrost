@@ -24,6 +24,7 @@ import {
   log_success,
   log_error,
   log_warn,
+  init_logging,
   format_pubkey,
   format_pool_bar,
   load_group,
@@ -67,7 +68,7 @@ function get_peer_name (ctx : NodeContext, pubkey : string) : string | undefined
 function setup_event_listeners (ctx : NodeContext) {
   const node = ctx.node
 
-  node.pool.on('nonces_received', ([ peer_idx, count ]) => {
+  node.pool.on('nonces_received', (peer_idx, count) => {
     const name = ctx.names[peer_idx - 1] ?? `idx=${peer_idx}`
     log_recv(`Received ${count} nonces from ${name}`)
   })
@@ -98,8 +99,8 @@ function setup_event_listeners (ctx : NodeContext) {
     log_send('Sent onboard response (group + nonces)')
   })
 
-  node.on('bounced', ([ reason, msg ]) => {
-    const pk = msg.env.pubkey
+  node.on('bounced', (reason, msg) => {
+    const pk = msg?.env?.pubkey ?? 'unknown'
     log_warn(`Message bounced from ${format_pubkey(pk)}: ${reason}`)
   })
 }
@@ -264,12 +265,10 @@ async function main () {
   })
 
   const args = parse_args()
-  const name = args.get('name') as string | undefined
+  const name = (args.get('name') as string | undefined) ?? 'carol'
 
-  if (!name) {
-    log_error('Usage: npm run loader demo/onboard.ts -- --name <name>')
-    process.exit(1)
-  }
+  // Initialize logging
+  init_logging(`onboard-${name}`)
 
   print_banner(`FROSTR Onboarding - ${name}`)
   console.log()

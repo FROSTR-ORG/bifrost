@@ -1,8 +1,9 @@
-import { BifrostSigner }       from '@/class/signer.js'
-import { parse_group_vector }  from '@/test/lib/parse.js'
-import { parse_error }         from '@frostr/bifrost/util'
-import { schnorr }             from '@noble/curves/secp256k1'
-import { Buff }                from '@cmdcode/buff'
+import { BifrostSigner }                      from '@/class/signer.js'
+import { parse_group_vector }                 from '@/test/lib/parse.js'
+import { hash_string, hash_string_bytes }     from '@/test/lib/hash.js'
+import { parse_error }                        from '@frostr/bifrost/util'
+import { schnorr }                            from '@noble/curves/secp256k1.js'
+import { Buff }                               from '@vbyte/buff'
 
 import type { Test } from 'tape'
 
@@ -30,23 +31,23 @@ export default function (tape : Test) {
 
       // Test sign_message
       t.test('sign_message() creates valid signature', st => {
-        const message = Buff.str('test message').digest.hex
+        const message = hash_string('test message')
         const sig = signer.sign_message(message)
 
         st.equal(typeof sig, 'string', 'signature is a string')
         st.equal(sig.length, 128, 'signature is 64 bytes hex')
 
         // Verify signature with the signer's pubkey
-        const isValid = schnorr.verify(sig, message, signer.pubkey)
+        const isValid = schnorr.verify(Buff.hex(sig), Buff.hex(message), Buff.hex(signer.pubkey))
         st.ok(isValid, 'signature is valid for signer pubkey')
         st.end()
       })
 
       // Test sign_message with auxrand
       t.test('sign_message() with auxrand produces different signatures', st => {
-        const message = Buff.str('deterministic test').digest.hex
-        const auxrand1 = Buff.str('random1').digest
-        const auxrand2 = Buff.str('random2').digest
+        const message = hash_string('deterministic test')
+        const auxrand1 = hash_string_bytes('random1')
+        const auxrand2 = hash_string_bytes('random2')
 
         const sig1 = signer.sign_message(message, auxrand1)
         const sig2 = signer.sign_message(message, auxrand2)
@@ -54,8 +55,8 @@ export default function (tape : Test) {
         st.notEqual(sig1, sig2, 'different auxrand produces different signatures')
 
         // Both signatures should still be valid
-        st.ok(schnorr.verify(sig1, message, signer.pubkey), 'sig1 is valid')
-        st.ok(schnorr.verify(sig2, message, signer.pubkey), 'sig2 is valid')
+        st.ok(schnorr.verify(Buff.hex(sig1), Buff.hex(message), Buff.hex(signer.pubkey)), 'sig1 is valid')
+        st.ok(schnorr.verify(Buff.hex(sig2), Buff.hex(message), Buff.hex(signer.pubkey)), 'sig2 is valid')
         st.end()
       })
 

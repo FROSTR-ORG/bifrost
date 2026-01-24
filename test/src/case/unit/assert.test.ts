@@ -1,6 +1,6 @@
 import { Assert }      from '@/util/assert.js'
 import { parse_error } from '@frostr/bifrost/util'
-import { Buff }        from '@cmdcode/buff'
+import { Buff }        from '@vbyte/buff'
 import { z }           from 'zod'
 
 import type { Test } from 'tape'

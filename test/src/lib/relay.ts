@@ -1,6 +1,6 @@
 import { z }                          from 'zod'
-import { schnorr }                    from '@noble/curves/secp256k1'
-import { sha256 }                     from '@noble/hashes/sha256'
+import { schnorr }                    from '@noble/curves/secp256k1.js'
+import { sha256 }                     from '@noble/hashes/sha2.js'
 import { EventEmitter }               from 'node:events'
 import { WebSocket, WebSocketServer } from 'ws'
 
@@ -206,8 +206,19 @@ class ClientSession {
 
       switch (verb) {
         case 'REQ':
-          const [ id, ...filters ] = sub_schema.parse(payload)
-          return this._onreq(id, filters)
+          // Handle both formats:
+          // NIP-01: ["REQ", sub_id, filter1, filter2, ...]
+          // nostr-tools: ["REQ", sub_id, [filter1, filter2, ...]]
+          const sub_id = str.parse(payload[0])
+          let filters : EventFilter[]
+          if (Array.isArray(payload[1]) && payload.length === 2) {
+            // Filters wrapped in array (nostr-tools format)
+            filters = payload[1].map((f: unknown) => filter_schema.parse(f))
+          } else {
+            // Filters as individual elements (NIP-01 format)
+            filters = payload.slice(1).map((f: unknown) => filter_schema.parse(f))
+          }
+          return this._onreq(sub_id, filters)
         case 'EVENT':
           const event = event_schema.parse(payload.at(0))
           return this._onevent(event)
@@ -216,11 +227,12 @@ class ClientSession {
           return this._onclose(subid)
         default:
           this.log.info('unable to handle message type:', verb)
-          this.send(['NOTICE', '', 'Unable to handle message'])
+          this.send(['NOTICE', 'Unable to handle message'])
       }
     } catch (e) {
-      this.log.debug('failed to parse message:\n\n', message)
-      return this.send(['NOTICE', '', 'Unable to parse message'])
+      this.log.debug('failed to parse message:', JSON.stringify(message).slice(0, 200))
+      this.log.debug('parse error:', e instanceof Error ? e.message : String(e))
+      return this.send(['NOTICE', 'Unable to parse message'])
     }
   }
 
@@ -370,7 +382,20 @@ function match_tags (
 function verify_event (event : SignedEvent) {
   const { content, created_at, id, kind, pubkey, sig, tags } = event
   const pimg = JSON.stringify([ 0, pubkey, created_at, kind, tags, content ])
-  const dig  = Buffer.from(sha256(pimg)).toString('hex')
+  const encoder = new TextEncoder()
+  const dig  = Buffer.from(sha256(encoder.encode(pimg))).toString('hex')
   if (dig !== id) return false
-  return schnorr.verify(sig, id, pubkey)
+  // Convert hex strings to Uint8Arrays for schnorr.verify
+  const sigBytes = hexToBytes(sig)
+  const idBytes = hexToBytes(id)
+  const pubkeyBytes = hexToBytes(pubkey)
+  return schnorr.verify(sigBytes, idBytes, pubkeyBytes)
+}
+
+function hexToBytes (hex : string) : Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16)
+  }
+  return bytes
 }

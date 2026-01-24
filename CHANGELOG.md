@@ -1,5 +1,60 @@
 # CHANGELOG
 
+## [2.0.0]
+
+### Breaking Changes
+
+- **Nonce protocol redesign**: Complete overhaul of nonce management with HMAC-based derivation
+  - Nonces now use a 32-byte derivation code instead of storing full 64-byte secrets
+  - Secrets are re-derived on-demand during signing using HMAC-SHA256
+  - Single `nonces` array in signing requests (replaces separate `nonce_commits`/`nonce_codes` arrays)
+  - `MemberPublicNonce` now includes `idx` for member identification
+
+- **Simplified nonce types**: Reduced from 8+ types to 5 clean types
+  - `PublicNonce`: Base type (binder_pn, hidden_pn)
+  - `DerivedPublicNonce`: With derivation code
+  - `MemberPublicNonce`: With member index (wire format)
+  - `SecretNoncePair`: For signing operations
+  - `NoncePackage`: Simple array of `DerivedPublicNonce`
+
+- **Pool storage changes**: Single Map per peer (was 2 Maps + 1 Set)
+  - Deletion equals consumption (no separate spent tracking)
+  - Code-based lookup replaces ID computation
+
+### Security
+
+- **HMAC-based nonce derivation**: Prevents key leakage from nonce reuse
+  - `binder_sn = HMAC-SHA256(share_secret, code || "bifrost/nonce/binder/v1")`
+  - `hidden_sn = HMAC-SHA256(share_secret, code || "bifrost/nonce/hidden/v1")`
+- **One-time nonce consumption**: Nonces deleted immediately after use
+- **Session binding**: Prevents replay attacks across sessions
+- **Fresh random codes**: Cryptographically random 32-byte codes per nonce
+
+### Improvements
+
+- **Reduced memory usage**: 32 bytes per nonce (was 64 bytes)
+- **Simplified wire protocol**: Unified `nonces` array in sign requests
+- **Better TypeScript types**: Cleaner type hierarchy with proper inheritance
+- **HD keypair derivation**: Per-peer unique nonce packages
+
+### Dependencies
+
+- `@vbyte/frost` 1.1.5
+- `@cmdcode/nostr-p2p` 2.0.11
+- `@noble/curves` 2.0.1
+- `@noble/ciphers` 2.1.1
+- `@noble/hashes` 2.0.1
+
+### Migration Guide
+
+If upgrading from 1.x:
+
+1. **Nonce pools are incompatible**: Clear any persisted nonce data and re-exchange via `ping`
+2. **Type imports may change**: Update imports if using internal nonce types
+3. **Wire format changed**: Peers must all upgrade together (no mixed-version groups)
+
+---
+
 ## [1.0.8]
 
 ### Breaking Changes

@@ -1,6 +1,6 @@
-import { Buff }                    from '@cmdcode/buff'
 import { BifrostNode }             from '@frostr/bifrost'
 import { generate_dealer_package } from '@frostr/bifrost/lib'
+import { hash_string }             from '@/test/lib/hash.js'
 
 import type { BifrostNodeConfig } from '@frostr/bifrost'
 
@@ -15,7 +15,7 @@ export function generate_test_nodes (
   threshold : number,
   options   : Partial<BifrostNodeConfig> = {}
 ) : TestNodes {
-  const secrets = labels.map(e => Buff.str(e).digest.hex)
+  const secrets = labels.map(e => hash_string(e))
   const pkg     = generate_dealer_package(threshold, labels.length, secrets)
   const nodes   = pkg.shares.map((share, idx) => {
     return [ labels[idx], new BifrostNode(pkg.group, share, relays, options) ] as const

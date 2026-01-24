@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { parse_error } from './helpers.js'
 
 type ParsedArrayResponse<T> = ParsedArraySuccess<T> | ParsedArrayError
 
@@ -14,16 +15,16 @@ interface ParsedArrayError {
 
 export namespace Parse {
 
-  export function error (err : unknown) : string {
-    if (err instanceof Error)    return err.message
-    if (typeof err === 'string') return err
-    return String(err)
-  }
+  /**
+   * Parse an error into a string message.
+   * Re-exports parse_error from helpers for namespace consistency.
+   */
+  export const error = parse_error
 
   export function data <S extends z.ZodTypeAny> (
     data     : unknown,
     schema   : S,
-  ) : z.SafeParseReturnType<unknown, z.infer<S>> {
+  ) : { success: true; data: z.infer<S> } | { success: false; error: z.ZodError } {
     return schema.safeParse(data)
   }
 
@@ -31,12 +32,18 @@ export namespace Parse {
     data     : unknown[],
     schema   : S,
   ) : ParsedArrayResponse<z.infer<S>> {
-    const parsed = data.map(e => schema.safeParse(e))
-    const errors = parsed
-        .filter(e => !e.success)
-        .map(e => e.error.errors.map(x => `${x.message}: ${x.path}`))
+    const parsed = data.map(item => schema.safeParse(item))
+    const errors : string[][] = []
+    const results : z.infer<S>[] = []
+    for (const result of parsed) {
+      if (result.success) {
+        results.push(result.data)
+      } else {
+        errors.push(result.error.issues.map(issue => `${issue.message}: ${issue.path}`))
+      }
+    }
     return (errors.length !== 0)
       ? { ok: false, errors }
-      : { ok: true, data: parsed.map(e => e.data) }
+      : { ok: true, data: results }
   }
 }

@@ -15,6 +15,7 @@ import {
   log_info,
   log_success,
   log_error,
+  init_logging,
   DEMO_RELAY_PORT
 } from './shared.js'
 
@@ -23,6 +24,9 @@ import { NostrRelay } from '../test/src/lib/relay.js'
 /* ================ [ Main ] ================ */
 
 async function main () {
+  // Initialize logging
+  init_logging('relay')
+
   // Parse arguments
   const args = parse_args()
 
