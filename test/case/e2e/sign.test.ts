@@ -22,8 +22,15 @@ export default function (
     const Alice = ctx.nodes.get('alice') as BifrostNode
 
     try {
-      const sigs   = await Promise.all(MESSAGES.map(msg => Alice.req.queue(msg)))
-      const checks = sigs.map(([ msg, pubkey, sig ]) => {
+      const results = await Promise.all(MESSAGES.map(msg => Alice.req.sign(msg)))
+
+      // Check all requests succeeded
+      const all_ok = results.every(r => r.ok)
+      t.ok(all_ok, 'all sign requests succeeded')
+
+      // Verify all signatures
+      const checks = results.map(r => {
+        const [ msg, pubkey, sig ] = r.data
         return verify_signature(sig, msg, pubkey, 'bip340')
       })
       t.ok(checks.every(e => e === true), 'all signatures are valid')

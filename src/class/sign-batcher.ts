@@ -1,4 +1,5 @@
 import { BifrostNode }  from '@/class/client.js'
+import { sign_batch_request_api } from '@/api/sign.js'
 import { parse_error }  from '@/util/helpers.js'
 
 import type {
@@ -117,8 +118,8 @@ export class SignBatcher {
     try {
       // Collect all IDs to be signed
       const vec = batch.map(req => req.sigvec)
-      // Send all IDs to be signed in one request
-      const res = await this.node.req.sign(vec)
+      // Send all IDs to be signed in one request using batch API directly
+      const res = await sign_batch_request_api(this.node)(vec)
       // If the batch failed, reject all requests.
       if (!res.ok) {
         batch.forEach(req => req.reject(res.err))

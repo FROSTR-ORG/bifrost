@@ -8,8 +8,9 @@ import { verify_signature }   from '@/util/crypto.js'
 import { parse_error }        from '@/util/index.js'
 import { generate_messages, measure_time, sleep } from '../lib/helpers.js'
 
-import type { TestNetwork } from '@/test/types.js'
-import type { Test }        from 'tape'
+import type { TestNetwork }   from '@/test/types.js'
+import type { SignatureEntry } from '@/types/index.js'
+import type { Test }          from 'tape'
 
 export default function (ctx : TestNetwork, tape : Test) {
 
@@ -21,15 +22,17 @@ export default function (ctx : TestNetwork, tape : Test) {
 
         const messages = generate_messages(10)
 
-        // Queue all at once to trigger batching
-        const promises = messages.map(msg => Alice.req.queue(msg))
+        // Queue all at once to trigger batching (uses single API which goes through batcher)
+        const promises = messages.map(msg => Alice.req.sign(msg))
         const results = await Promise.all(promises)
 
+        st.ok(results.every(r => r.ok), 'all sign requests succeeded')
         st.equal(results.length, 10, 'received 10 signature results')
 
         // Verify all signatures
         let valid_count = 0
-        for (const [ sighash, pubkey, sig ] of results) {
+        for (const result of results) {
+          const [ sighash, pubkey, sig ] = result.data
           if (verify_signature(sig, sighash, pubkey, 'bip340')) {
             valid_count++
           }
@@ -51,14 +54,16 @@ export default function (ctx : TestNetwork, tape : Test) {
         const messages = generate_messages(25)
 
         const { result, duration } = await measure_time(async () => {
-          const promises = messages.map(msg => Bob.req.queue(msg))
+          const promises = messages.map(msg => Bob.req.sign(msg))
           return Promise.all(promises)
         })
 
+        st.ok(result.every(r => r.ok), 'all sign requests succeeded')
         st.equal(result.length, 25, 'received 25 signature results')
 
         // Verify all signatures
-        const all_valid = result.every(([ sighash, pubkey, sig ]) => {
+        const all_valid = result.every(r => {
+          const [ sighash, pubkey, sig ] = r.data
           return verify_signature(sig, sighash, pubkey, 'bip340')
         })
 
@@ -80,10 +85,11 @@ export default function (ctx : TestNetwork, tape : Test) {
 
         // Queue all messages quickly (within the 100ms batch interval)
         const start = Date.now()
-        const promises = messages.map(msg => Carol.req.queue(msg))
+        const promises = messages.map(msg => Carol.req.sign(msg))
         const results = await Promise.all(promises)
         const duration = Date.now() - start
 
+        st.ok(results.every(r => r.ok), 'all sign requests succeeded')
         st.equal(results.length, 5, 'received 5 results')
 
         // If batched properly, total time should be close to single batch time
@@ -91,7 +97,8 @@ export default function (ctx : TestNetwork, tape : Test) {
         st.ok(duration < 10000, `5 batched requests completed in ${duration}ms`)
 
         // All should be valid
-        const all_valid = results.every(([ sighash, pubkey, sig ]) => {
+        const all_valid = results.every(r => {
+          const [ sighash, pubkey, sig ] = r.data
           return verify_signature(sig, sighash, pubkey, 'bip340')
         })
         st.ok(all_valid, 'all signatures are valid')
@@ -110,14 +117,18 @@ export default function (ctx : TestNetwork, tape : Test) {
       try {
         const Alice = ctx.nodes.get('alice')!
 
-        const all_results : Array<[string, string, string]> = []
+        const all_results : SignatureEntry[] = []
 
         // Send 5 waves of 10 signatures each
         for (let wave = 0; wave < 5; wave++) {
           const messages = generate_messages(10)
-          const promises = messages.map(msg => Alice.req.queue(msg))
+          const promises = messages.map(msg => Alice.req.sign(msg))
           const results = await Promise.all(promises)
-          all_results.push(...results)
+          for (const r of results) {
+            if (r.ok) {
+              all_results.push(r.data)
+            }
+          }
 
           // Small delay between waves to allow nonce replenishment
           await sleep(200)
@@ -150,10 +161,14 @@ export default function (ctx : TestNetwork, tape : Test) {
         const carol_msgs = generate_messages(5)
 
         const [ alice_results, bob_results, carol_results ] = await Promise.all([
-          Promise.all(alice_msgs.map(msg => Alice.req.queue(msg))),
-          Promise.all(bob_msgs.map(msg => Bob.req.queue(msg))),
-          Promise.all(carol_msgs.map(msg => Carol.req.queue(msg)))
+          Promise.all(alice_msgs.map(msg => Alice.req.sign(msg))),
+          Promise.all(bob_msgs.map(msg => Bob.req.sign(msg))),
+          Promise.all(carol_msgs.map(msg => Carol.req.sign(msg)))
         ])
+
+        st.ok(alice_results.every(r => r.ok), 'Alice requests succeeded')
+        st.ok(bob_results.every(r => r.ok), 'Bob requests succeeded')
+        st.ok(carol_results.every(r => r.ok), 'Carol requests succeeded')
 
         st.equal(alice_results.length, 5, 'Alice got 5 results')
         st.equal(bob_results.length, 5, 'Bob got 5 results')
@@ -161,7 +176,8 @@ export default function (ctx : TestNetwork, tape : Test) {
 
         // Verify all
         const all_results = [ ...alice_results, ...bob_results, ...carol_results ]
-        const all_valid = all_results.every(([ sighash, pubkey, sig ]) => {
+        const all_valid = all_results.every(r => {
+          const [ sighash, pubkey, sig ] = r.data
           return verify_signature(sig, sighash, pubkey, 'bip340')
         })
         st.ok(all_valid, 'all 15 signatures are valid')
@@ -181,11 +197,12 @@ export default function (ctx : TestNetwork, tape : Test) {
         const Alice = ctx.nodes.get('alice')!
 
         const messages = generate_messages(1)
-        const result = await Alice.req.queue(messages[0])
+        const result = await Alice.req.sign(messages[0])
 
-        st.ok(result, 'single request returned result')
+        st.ok(result.ok, 'single sign request succeeded')
+        st.ok(result.data, 'single request returned result')
 
-        const [ sighash, pubkey, sig ] = result
+        const [ sighash, pubkey, sig ] = result.data
         const valid = verify_signature(sig, sighash, pubkey, 'bip340')
         st.ok(valid, 'single signature is valid')
 
@@ -202,21 +219,26 @@ export default function (ctx : TestNetwork, tape : Test) {
 
         // First request
         const msg1 = generate_messages(1)[0]
-        const result1 = await Bob.req.queue(msg1)
+        const result1 = await Bob.req.sign(msg1)
 
         // Wait longer than batch interval
         await sleep(200)
 
         // Second request should form new batch
         const msg2 = generate_messages(1)[0]
-        const result2 = await Bob.req.queue(msg2)
+        const result2 = await Bob.req.sign(msg2)
 
-        st.ok(result1, 'first batch result received')
-        st.ok(result2, 'second batch result received')
+        st.ok(result1.ok, 'first batch result received')
+        st.ok(result2.ok, 'second batch result received')
 
         // Both should be valid
-        const valid1 = verify_signature(result1[2], result1[0], result1[1], 'bip340')
-        const valid2 = verify_signature(result2[2], result2[0], result2[1], 'bip340')
+        const [ , pubkey1, sig1 ] = result1.data
+        const [ sighash1 ] = result1.data
+        const [ , pubkey2, sig2 ] = result2.data
+        const [ sighash2 ] = result2.data
+
+        const valid1 = verify_signature(sig1, sighash1, pubkey1, 'bip340')
+        const valid2 = verify_signature(sig2, sighash2, pubkey2, 'bip340')
         st.ok(valid1 && valid2, 'both signatures are valid')
 
       } catch (err) {

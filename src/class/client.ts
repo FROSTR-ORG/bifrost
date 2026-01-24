@@ -329,23 +329,25 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
    * Gets the request API object for initiating operations.
    *
    * Available methods:
-   * - `ecdh(pubkey)` - Perform threshold ECDH with a remote public key (batched)
+   * - `ecdh(pubkey)` - Perform threshold ECDH with a remote public key (uses batcher)
+   * - `ecdh_batch(pubkeys)` - Perform threshold ECDH with multiple public keys
    * - `echo(challenge)` - Test self-messaging through relays
    * - `onboard(pubkey)` - Request onboarding from a peer
    * - `ping(pubkey)` - Check if a peer is online
-   * - `queue(message)` - Queue a message for batch signing
-   * - `sign(message)` - Request threshold signature from peers
+   * - `sign(message)` - Request threshold signature for a single message (uses batcher)
+   * - `sign_batch(messages)` - Request threshold signatures for multiple messages
    *
    * @returns Object containing request API methods.
    */
   get req () {
     return {
-      ecdh    : API.ecdh_batched_request_api(this),
-      echo    : API.echo_request_api(this),
-      onboard : API.onboard_request_api(this),
-      ping    : API.ping_request_api(this),
-      queue   : API.sign_queue_api(this),
-      sign    : API.sign_request_api(this)
+      ecdh       : API.ecdh_single_request_api(this),
+      ecdh_batch : API.ecdh_batch_request_api(this),
+      echo       : API.echo_request_api(this),
+      onboard    : API.onboard_request_api(this),
+      ping       : API.ping_request_api(this),
+      sign       : API.sign_single_request_api(this),
+      sign_batch : API.sign_batch_request_api(this)
     }
   }
 

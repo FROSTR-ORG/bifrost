@@ -1,6 +1,6 @@
 import { BifrostNode } from '@/class/client.js'
 
-import { combine_ecdh_pkgs }  from '@/lib/ecdh.js'
+import { combine_batched_ecdh_pkgs }  from '@/lib/ecdh.js'
 import { parse_ecdh_message } from '@/lib/parse.js'
 import { get_send_pubkeys }   from '@/lib/peer.js'
 
@@ -17,7 +17,7 @@ import type {
   RequestRpcMessage
 } from '@vbyte/nostr-sdk'
 
-import type { ApiResponse, ECDHPackage } from '@/types/index.js'
+import type { ApiResponse, ECDHPackage, ECDHResultEntry } from '@/types/index.js'
 
 /**
  * Handles incoming ECDH requests from peers.
@@ -74,61 +74,73 @@ export async function ecdh_handler_api (
 }
 
 /**
- * Creates a request API function for threshold ECDH key exchange.
+ * Creates a batch ECDH request API function.
  *
- * Returns a function that initiates a threshold ECDH operation with peers.
- * This allows the group to derive a shared secret with a remote public key
- * without any single member knowing the group's secret key.
+ * Returns a function that initiates a threshold ECDH operation for multiple
+ * public keys in a single request. This is the wire-level API that always
+ * operates on arrays.
  *
  * The process:
- * 1. Check cache for existing shared secret
- * 2. If not cached, select random peers to meet threshold
- * 3. Generate local ECDH share
+ * 1. Check cache for existing shared secrets (return cached immediately)
+ * 2. Select random peers to meet threshold
+ * 3. Generate local ECDH shares for all keys
  * 4. Request ECDH shares from selected peers
- * 5. Combine all shares to derive the shared secret
- * 6. Cache the encrypted shared secret for future use
+ * 5. Combine all shares to derive the shared secrets
+ * 6. Cache the encrypted shared secrets for future use
  *
  * Events emitted:
  * - `/ecdh/sender/res` - When responses are received from peers
  * - `/ecdh/sender/rej` - When the request phase fails
- * - `/ecdh/sender/ret` - When the shared secret is derived
+ * - `/ecdh/sender/ret` - When each shared secret is derived
  * - `/ecdh/sender/err` - When share combination fails
  *
  * @param node - The BifrostNode to create the request API for.
- * @returns An async function that performs threshold ECDH.
+ * @returns An async function that performs batch threshold ECDH.
  *
  * @example
  * ```typescript
- * const ecdh = ecdh_request_api(node)
- * const result = await ecdh(remotePublicKey)
+ * const ecdh_batch = ecdh_batch_request_api(node)
+ * const result = await ecdh_batch(['pubkey1', 'pubkey2'])
  * if (result.ok) {
- *   const sharedSecret = result.data
+ *   result.data.forEach(([pk, secret]) => console.log(pk, secret))
  * }
  * ```
  */
-export function ecdh_request_api (node : BifrostNode) {
+export function ecdh_batch_request_api (node : BifrostNode) {
 
   return async (
-    ecdh_pk : string,
-    peers?  : string[]
-  ) : Promise<ApiResponse<string>> => {
+    ecdh_pks : string[],
+    peers?   : string[]
+  ) : Promise<ApiResponse<ECDHResultEntry[]>> => {
+    // Separate cached and uncached keys.
+    const cached_results : ECDHResultEntry[] = []
+    const uncached_pks   : string[] = []
+
+    for (const ecdh_pk of ecdh_pks) {
+      const encrypted = node.cache.ecdh.get(ecdh_pk)
+      if (encrypted !== undefined) {
+        const secret = node.signer.unwrap(encrypted, ecdh_pk)
+        cached_results.push([ ecdh_pk, secret ])
+      } else {
+        uncached_pks.push(ecdh_pk)
+      }
+    }
+
+    // If all keys are cached, return immediately.
+    if (uncached_pks.length === 0) {
+      return { ok: true, data: cached_results }
+    }
+
     // Get the threshold for the group.
     const thold = node.group.threshold
     // Get peers with send policy active.
     const send_pks = get_send_pubkeys(node.peers)
     // Randomly select peers.
     const selected  = select_random_peers(peers ??= send_pks, thold)
-    // Check if we have the shared secret in cache.
-    const encrypted = node.cache.ecdh.get(ecdh_pk)
-    // If the cache has a secret:
-    if (encrypted !== undefined) {
-      // Return the decrypted secret.
-      return { ok: true, data: node.signer.unwrap(encrypted, ecdh_pk) }
-    }
     // Get the indexes of the members.
     const members  = get_member_indexes(node.group, [ node.pubkey, ...selected ])
-    // Generate an ECDH request package.
-    const self_pkg = node.signer.gen_ecdh_share(members, ecdh_pk)
+    // Generate ECDH shares for all uncached keys.
+    const self_pkg = node.signer.gen_batched_ecdh_shares(members, uncached_pks)
 
     let msgs : (RpcMessageData & { data: ECDHPackage })[] | null = null
 
@@ -152,16 +164,29 @@ export function ecdh_request_api (node : BifrostNode) {
       Assert.ok(msgs !== null, 'no responses from peers')
       // Collect the response packages.
       const pkgs    = [ self_pkg, ...msgs.map(e => e.data) ]
-      // Derive the secret from the packages for this specific ecdh_pk.
-      const secret  = finalize_ecdh_response(pkgs, ecdh_pk)
-      // Wrap the secret with encryption.
-      const content = node.signer.wrap(secret, ecdh_pk)
-      // Store the encrypted secret in cache.
-      node.cache.ecdh.set(ecdh_pk, content)
-      // Emit the shared secret.
-      node.emit('/ecdh/sender/ret', [ ecdh_pk, secret ])
-      // Return the shared secret.
-      return { ok : true, data : secret }
+      // Combine all shares for all keys.
+      const secrets = combine_batched_ecdh_pkgs(pkgs)
+      // Build result array and cache secrets.
+      const results : ECDHResultEntry[] = [ ...cached_results ]
+
+      for (const ecdh_pk of uncached_pks) {
+        const secret = secrets.get(ecdh_pk)
+        if (secret) {
+          // Wrap the secret with encryption.
+          const content = node.signer.wrap(secret, ecdh_pk)
+          // Store the encrypted secret in cache.
+          node.cache.ecdh.set(ecdh_pk, content)
+          // Emit the shared secret.
+          node.emit('/ecdh/sender/ret', [ ecdh_pk, secret ])
+          // Add to results.
+          results.push([ ecdh_pk, secret ])
+        } else {
+          throw new Error('secret missing for ecdh_pk: ' + ecdh_pk)
+        }
+      }
+
+      // Return the results.
+      return { ok : true, data : results }
     } catch (err) {
       // Log the error.
       if (node.debug) console.log(err)
@@ -171,6 +196,36 @@ export function ecdh_request_api (node : BifrostNode) {
       node.emit('/ecdh/sender/err', [ reason, copy_obj(msgs ?? []) ])
       // Return the error.
       return { ok : false, err : reason }
+    }
+  }
+}
+
+/**
+ * Creates a single ECDH request API function.
+ *
+ * Returns a function that performs threshold ECDH with a single public key.
+ * This is a thin wrapper around the batcher for clean single-item DX.
+ * Multiple concurrent calls will be automatically batched together.
+ *
+ * @param node - The BifrostNode to create the request API for.
+ * @returns An async function that performs threshold ECDH for a single key.
+ *
+ * @example
+ * ```typescript
+ * const ecdh = ecdh_single_request_api(node)
+ * const result = await ecdh(remotePublicKey)
+ * if (result.ok) {
+ *   const sharedSecret = result.data
+ * }
+ * ```
+ */
+export function ecdh_single_request_api (node : BifrostNode) {
+  return async (ecdh_pk : string) : Promise<ApiResponse<string>> => {
+    try {
+      const secret = await node.ecdh_batcher.push(ecdh_pk)
+      return { ok : true, data : secret }
+    } catch (err) {
+      return { ok : false, err : parse_error(err) }
     }
   }
 }
@@ -201,51 +256,4 @@ async function create_ecdh_request (
     Assert.ok(parsed !== null, 'invalid ecdh response from pubkey: ' + e.event.pubkey)
     return parsed
   })
-}
-
-/**
- * Finalizes an ECDH operation by combining partial shares.
- *
- * @param pkgs - Array of ECDH packages (shares) to combine.
- * @param ecdh_pk - The public key to derive the secret for.
- * @returns The derived shared secret as a hex string.
- * @internal
- */
-function finalize_ecdh_response (
-  pkgs    : ECDHPackage[],
-  ecdh_pk : string
-) : string {
-  // Return the combined ECDH share for the specified key.
-  return combine_ecdh_pkgs(pkgs, ecdh_pk)
-}
-
-/**
- * Creates a batched ECDH request API function.
- *
- * Returns a function that queues ECDH requests for batch processing.
- * Multiple ECDH operations requested in quick succession are combined
- * into a single network request, reducing overhead.
- *
- * @param node - The BifrostNode to create the batched API for.
- * @returns An async function that performs batched threshold ECDH.
- *
- * @example
- * ```typescript
- * const ecdh = ecdh_batched_request_api(node)
- * // These will be batched together
- * const [secret1, secret2] = await Promise.all([
- *   ecdh('pubkey1'),
- *   ecdh('pubkey2')
- * ])
- * ```
- */
-export function ecdh_batched_request_api (node : BifrostNode) {
-  return async (ecdh_pk : string) : Promise<ApiResponse<string>> => {
-    try {
-      const secret = await node.ecdh_batcher.push(ecdh_pk)
-      return { ok : true, data : secret }
-    } catch (err) {
-      return { ok : false, err : parse_error(err) }
-    }
-  }
 }

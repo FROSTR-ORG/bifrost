@@ -7,6 +7,11 @@ export interface ECDHEntry {
 }
 
 /**
+ * Result entry from ECDH operation: [ecdh_pk, secret]
+ */
+export type ECDHResultEntry = [ecdh_pk: string, secret: string]
+
+/**
  * Package for batched ECDH operations.
  * Contains member info and an array of ECDH entries.
  */
