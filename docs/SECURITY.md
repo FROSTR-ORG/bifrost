@@ -52,19 +52,13 @@ Nonce management is critical in Schnorr threshold signing. Reusing a nonce with 
 
 **FROSTR's protections:**
 
-1. **HMAC-based derivation**: Nonces are derived using HMAC-SHA256 with domain separation:
-   ```
-   binder_sn = HMAC-SHA256(share_secret, code || "bifrost/nonce/binder/v1")
-   hidden_sn = HMAC-SHA256(share_secret, code || "bifrost/nonce/hidden/v1")
-   ```
+1. **HMAC-based derivation**: Secret nonces derived on-demand from random codes
+2. **One-time consumption**: Nonces deleted immediately after use
+3. **Fresh random codes**: Each nonce uses a cryptographically random 32-byte code
+4. **Session binding**: Nonces bound to specific signing sessions
+5. **Pool management**: Signing refused when pools are critically low
 
-2. **One-time consumption**: Each nonce is deleted immediately after use. Deletion equals consumption.
-
-3. **Fresh random codes**: Each nonce uses a cryptographically random 32-byte derivation code.
-
-4. **Session binding**: Nonces are bound to specific signing sessions, preventing replay attacks.
-
-5. **Pool management**: The protocol tracks nonce availability and refuses to sign when pools are critically low.
+**See:** [Cryptographic Foundations - Nonce Security](CRYPTOGRAPHY.md#nonce-security) for detailed implementation.
 
 ### Transport Security
 
@@ -163,20 +157,21 @@ All peer-to-peer messages are encrypted end-to-end:
 
 ### Middleware for Access Control
 
-Production deployments should implement middleware to control signing:
+Production deployments should implement middleware to control signing requests. Middleware can validate authorization, enforce rate limits, and log audit trails.
 
 ```typescript
 const node = new BifrostNode(group, share, relays, {
   middleware: {
     sign: (node, msg) => {
-      // Validate the signing request
-      // Check authorization, rate limits, etc.
-      // Return the message to approve, or throw to reject
+      // Validate, rate-limit, or reject
+      // Throw to reject, return msg to approve
       return msg
     }
   }
 })
 ```
+
+**See:** [Architecture - Extension Points](ARCHITECTURE.md) for detailed middleware examples.
 
 ### Nonce Pool Monitoring
 
@@ -196,15 +191,16 @@ node.on('/sign/sender/rej', ([reason, session]) => {
 Log all signing operations for security audits:
 
 ```typescript
-node.on('/sign/sender/sig', ([signature, messages]) => {
+node.on('/sign/sender/ret', ([signature, entries]) => {
   audit.log({
     event: 'signature_produced',
     signature,
-    timestamp: Date.now(),
-    peers: messages.map(m => m.pubkey)
+    timestamp: Date.now()
   })
 })
 ```
+
+**See:** [API Reference - Events](API.md#events) for the full list of events available for logging.
 
 ## Reporting Security Issues
 

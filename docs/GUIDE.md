@@ -21,7 +21,7 @@ The fastest way to understand FROSTR is to see it in action. The interactive dem
 
 ```bash
 # Clone the repository
-git clone https://github.com/frostr-org/bifrost.git
+git clone https://github.com/FROSTR-ORG/bifrost.git
 cd bifrost
 
 # Install dependencies
@@ -36,7 +36,7 @@ npm run demo:keygen
 The tmux script creates a 4-pane layout automatically:
 
 ```bash
-./scripts/tmux.sh start
+./demo/tmux.sh start
 ```
 
 This launches:
@@ -56,7 +56,7 @@ This launches:
 
 To stop the demo:
 ```bash
-./scripts/tmux.sh stop
+./demo/tmux.sh stop
 ```
 
 ### Manual Setup (4 terminals)
@@ -219,7 +219,7 @@ Before signing, nodes must exchange nonces. This happens automatically during pi
 
 ```typescript
 // Get the pubkey of another member
-const peer_pubkey = group.commits[1].pubkey  // Member 2's pubkey
+const peer_pubkey = group.members[1].pubkey  // Member 2's pubkey
 
 // Ping them to exchange nonces
 const ping_result = await node.req.ping(peer_pubkey)

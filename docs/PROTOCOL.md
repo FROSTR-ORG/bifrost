@@ -335,9 +335,9 @@ Returns group package for the new member.
 
 This section describes the nonce pool protocol used for threshold signing operations.
 
-### Overview
+> **Security Note:** Nonce reuse is catastrophic for Schnorr signatures - it leaks the secret key. See [Cryptographic Foundations - Nonce Security](CRYPTOGRAPHY.md#nonce-security) for security properties.
 
-In FROST threshold signing, each signing session requires fresh nonces to ensure security. Nonces must never be reused - reusing a nonce with different messages can leak the secret key.
+### Overview
 
 The nonce pool system manages the generation, distribution, and consumption of nonces between peers in a threshold signing group.
 

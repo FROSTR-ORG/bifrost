@@ -42,6 +42,7 @@ dist
 .vscode
 
 #Core Data
+.dump
 local/
 test/data
 demo/data/

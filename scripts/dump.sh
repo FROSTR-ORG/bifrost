@@ -6,7 +6,7 @@
 set -e
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUTPUT_FILE="$PROJECT_ROOT/source-code-dump.txt"
+OUTPUT_FILE="$PROJECT_ROOT/codebase.dump"
 
 # Function to dump a file with a header
 dump_file() {

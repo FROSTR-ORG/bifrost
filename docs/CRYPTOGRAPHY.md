@@ -278,30 +278,15 @@ All peer-to-peer messages in FROSTR are encrypted end-to-end:
 
 ## Session Computation
 
-### Group ID
+Sessions bind all parameters of a signing operation to prevent replay attacks.
 
-The group ID uniquely identifies a threshold group:
-
-```
-gid = SHA256(group_pk || threshold[4 bytes] || member_pubkeys[sorted])
-```
-
-### Session ID
-
-The session ID binds all parameters of a signing session:
-
-```
-sid = SHA256(
-  gid ||
-  members[4 bytes each, sorted] ||
-  hashes[concatenated] ||
-  content ||
-  type ||
-  stamp[4 bytes]
-)
-```
+- **Group ID (`gid`)**: Hash of group pubkey + threshold + member pubkeys
+- **Session ID (`sid`)**: Hash of gid + members + hashes + content + type + timestamp
+- **Bind Hash**: Hash of sid + member idx + sighash (for nonce binding)
 
 **Key file:** `src/lib/session.ts:124` - `get_session_id()`
+
+**See:** [Protocol - Session Computation](PROTOCOL.md#session-computation) for byte-level format details.
 
 ## Security Considerations
 

@@ -31,7 +31,18 @@ interface NodeOptions {
     sign?: (node, msg) => msg   // Sign request middleware
     ecdh?: (node, msg) => msg   // ECDH request middleware
   }
-  policies?: PolicyTuple[]      // Per-peer send/recv policies
+  policies?: PeerConfig[]       // Per-peer send/recv policies
+  sign_interval?: number        // Signature batch interval (ms), default: 100
+  ecdh_interval?: number        // ECDH batch interval (ms), default: 100
+  nonce_pool?: {
+    pool_target?: number        // Target nonces per peer, default: 50
+    replenish_threshold?: number // Trigger replenish below this, default: 25
+  }
+  sdk_config?: {
+    msg_timeout?: number        // Connection timeout (ms), default: 15000
+    sub_timeout?: number        // Request timeout (ms), default: 30000
+    max_retries?: number        // Retry count, default: 3
+  }
 }
 ```
 
@@ -41,10 +52,25 @@ interface NodeOptions {
 |--------|-------------|
 | `connect()` | Connect to relays and initialize |
 | `close()` | Disconnect and cleanup |
+| `update_peer(data)` | Update peer status/policy |
 | `req.sign(message, options?)` | Request threshold signature |
-| `req.ecdh(pubkey, peers?)` | Request collaborative ECDH |
+| `req.queue(message)` | Queue message for batch signing |
+| `req.ecdh(pubkey, peers?)` | Request collaborative ECDH (batched) |
 | `req.ping(peer)` | Ping peer and exchange nonces |
 | `req.echo(message)` | Echo message through relay |
+| `req.onboard(pubkey)` | Request onboarding info from peer |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `pubkey` | `string` | Node's BIP-340 public key |
+| `group` | `GroupPackage` | Group package with members and group pubkey |
+| `signer` | `BifrostSigner` | Low-level signer instance |
+| `pool` | `NoncePool` | Nonce pool manager |
+| `peers` | `PeerData[]` | Peer list with status and policies |
+| `is_ready` | `boolean` | Whether node is connected and ready |
+| `config` | `NodeConfig` | Current node configuration |
 
 ### Events
 
@@ -69,13 +95,22 @@ node.on('/sign/handler/rej', ([reason, msg]) => { })  // Request rejected
 // ECDH events
 node.on('/ecdh/sender/req', (msg) => { })   // ECDH request sent
 node.on('/ecdh/sender/res', (msgs) => { })  // ECDH shares received
-node.on('/ecdh/sender/sec', ([secret, pkgs]) => { })  // Shared secret derived
-node.on('/ecdh/sender/rej', ([reason, pkg]) => { })   // Request rejected
-node.on('/ecdh/sender/err', ([reason, msgs]) => { })  // Derivation failed
+node.on('/ecdh/sender/ret', ([secret, pubkey]) => { })  // Shared secret derived
+node.on('/ecdh/sender/rej', ([reason, pkg]) => { })     // Request rejected
+node.on('/ecdh/sender/err', ([reason, msgs]) => { })    // Derivation failed
 
 node.on('/ecdh/handler/req', (msg) => { })  // ECDH request received
 node.on('/ecdh/handler/res', (msg) => { })  // ECDH share sent
 node.on('/ecdh/handler/rej', ([reason, msg]) => { })  // Request rejected
+
+// Onboard events
+node.on('/onboard/sender/res', (msg) => { })  // Onboard response received
+node.on('/onboard/sender/ret', ([response, count]) => { })  // Onboarding complete
+node.on('/onboard/sender/rej', ([reason, msg]) => { })  // Request rejected
+
+node.on('/onboard/handler/req', (msg) => { })  // Onboard request received
+node.on('/onboard/handler/res', (msg) => { })  // Onboard response sent
+node.on('/onboard/handler/rej', ([reason, msg]) => { })  // Request rejected
 ```
 
 ## BifrostSigner
