@@ -170,7 +170,7 @@ export interface BifrostNodeEvent {
   '/ping/sender/err'     : [ string, RpcMessageData ]
   '/sign/sender/req'     : RpcMessageData
   '/sign/sender/res'     : RpcMessageData[]
-  '/sign/sender/rej'     : [ string, SignSessionPackage  ]
+  '/sign/sender/rej'     : [ string, SignSessionPackage | null ]
   '/sign/sender/ret'     : [ string, SignatureEntry[]    ]
   '/sign/sender/err'     : [ string, RpcMessageData[]     ]
   '/sign/handler/req'    : RpcMessageData

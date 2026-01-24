@@ -1,8 +1,8 @@
 import { BifrostNode } from '@/class/client.js'
 
-import { parse_psig_message }                  from '@/lib/parse.js'
-import { get_send_pubkeys, get_signable_pubkeys } from '@/lib/peer.js'
-import { format_sigvector }                    from '@/lib/sighash.js'
+import { parse_psig_message }     from '@/lib/parse.js'
+import { get_signable_pubkeys }   from '@/lib/peer.js'
+import { format_sigvector }       from '@/lib/sighash.js'
 
 import {
   get_member_indexes,
@@ -149,42 +149,19 @@ function filter_peers_with_nonces (
 }
 
 /**
- * Creates a queue API function for batched signature requests.
+ * Creates a batch signature request API function.
  *
- * Returns a function that queues messages for batch signing. Multiple
- * messages queued in quick succession are combined into a single signing
- * session, reducing network overhead.
+ * Returns a function that initiates a threshold signing session with peers
+ * for multiple messages. This is the wire-level API that always operates
+ * on arrays.
  *
- * @param node - The BifrostNode to create the queue API for.
- * @returns An async function that queues a message and returns its signature.
- *
- * @example
- * ```typescript
- * const queue = sign_queue_api(node)
- * const signature = await queue('message-to-sign')
- * ```
- */
-export function sign_queue_api (node : BifrostNode) {
-  return async (
-    message : string | string[]
-  ) : Promise<SignatureEntry> => {
-    const sigvec = format_sigvector(message)
-    return node.sign_batcher.push(sigvec)
-  }
-}
-
-/**
- * Creates a request API function for threshold signing.
- *
- * Returns a function that initiates a threshold signing session with peers.
  * The process:
- * 1. Formats the message(s) into sighash vectors
- * 2. Selects random peers to meet the threshold
- * 3. Collects nonces from peer pools
- * 4. Creates a signing session with unified nonces array
- * 5. Sends requests to selected peers
- * 6. Collects partial signatures and combines them
- * 7. Returns the final aggregated signatures
+ * 1. Select random peers to meet the threshold
+ * 2. Collect nonces from peer pools
+ * 3. Create a signing session with unified nonces array
+ * 4. Send requests to selected peers
+ * 5. Collect partial signatures and combine them
+ * 6. Return the final aggregated signatures
  *
  * Events emitted:
  * - `/sign/sender/res` - When responses are received from peers
@@ -193,26 +170,24 @@ export function sign_queue_api (node : BifrostNode) {
  * - `/sign/sender/err` - When signature combination fails
  *
  * @param node - The BifrostNode to create the request API for.
- * @returns An async function that requests threshold signatures.
+ * @returns An async function that requests batch threshold signatures.
  *
  * @example
  * ```typescript
- * const sign = sign_request_api(node)
- *
- * // Sign a single message
- * const result = await sign('deadbeef...')
+ * const sign_batch = sign_batch_request_api(node)
  *
  * // Sign multiple messages
- * const result = await sign([['hash1'], ['hash2', 'metadata']])
+ * const result = await sign_batch([['hash1'], ['hash2', 'metadata']])
+ * if (result.ok) {
+ *   result.data.forEach(([hash, pubkey, sig]) => console.log(hash, sig))
+ * }
  * ```
  */
-export function sign_request_api (node : BifrostNode) {
+export function sign_batch_request_api (node : BifrostNode) {
   return async (
-    message : string | SighashVector[],
+    sigvecs : SighashVector[],
     options : Partial<SignRequestConfig> = {}
   ) : Promise<ApiResponse<SignatureEntry[]>> => {
-    // Format the message as a sigvector.
-    const sigvecs  = typeof message === 'string' ? [ [ message ] ] : message
     // Get the threshold for the group.
     const thold    = node.group.threshold
     // Calculate required peers (we are one of the signers).
@@ -282,6 +257,41 @@ export function sign_request_api (node : BifrostNode) {
       const reason = parse_error(err)
       node.emit('/sign/sender/err', [ reason, msgs ?? [] ])
       return { ok : false, err : reason }
+    }
+  }
+}
+
+/**
+ * Creates a single signature request API function.
+ *
+ * Returns a function that signs a single message. This is a thin wrapper
+ * around the batcher for clean single-item DX. Multiple concurrent calls
+ * will be automatically batched together.
+ *
+ * @param node - The BifrostNode to create the request API for.
+ * @returns An async function that requests a threshold signature for a single message.
+ *
+ * @example
+ * ```typescript
+ * const sign = sign_single_request_api(node)
+ *
+ * // Sign a single message (string or SighashVector)
+ * const result = await sign('deadbeef...')
+ * if (result.ok) {
+ *   const [hash, pubkey, sig] = result.data
+ * }
+ * ```
+ */
+export function sign_single_request_api (node : BifrostNode) {
+  return async (
+    message : string | SighashVector
+  ) : Promise<ApiResponse<SignatureEntry>> => {
+    try {
+      const sigvec = format_sigvector(message)
+      const entry = await node.sign_batcher.push(sigvec)
+      return { ok : true, data : entry }
+    } catch (err) {
+      return { ok : false, err : parse_error(err) }
     }
   }
 }

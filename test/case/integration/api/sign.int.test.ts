@@ -24,12 +24,13 @@ export default function (ctx : TestNetwork, tape : Test) {
         const message = hash_string('test message')
         const tweak = Buff.random(32).hex
 
-        const result = await Alice.req.queue([ message, tweak ])
+        const result = await Alice.req.sign([ message, tweak ])
 
-        st.ok(result, 'received signature result')
-        st.equal(result.length, 3, 'result is [sighash, pubkey, signature]')
+        st.ok(result.ok, 'sign request succeeded')
+        st.ok(result.data, 'received signature result')
+        st.equal(result.data.length, 3, 'result is [sighash, pubkey, signature]')
 
-        const [ sighash, pubkey, sig ] = result
+        const [ sighash, pubkey, sig ] = result.data
         st.equal(sighash, message, 'sighash matches input')
 
         const valid = verify_signature(sig, sighash, pubkey, 'bip340')
@@ -48,7 +49,7 @@ export default function (ctx : TestNetwork, tape : Test) {
 
         const messages = generate_messages(3)
 
-        const result = await Bob.req.sign(messages)
+        const result = await Bob.req.sign_batch(messages)
 
         st.ok(result.ok, 'batch sign succeeded')
         st.equal(result.data.length, 3, 'received 3 signatures')
@@ -75,9 +76,15 @@ export default function (ctx : TestNetwork, tape : Test) {
         const message = Buff.random(32).hex
         const tweak = Buff.random(32).hex
 
-        const [ , pubkey1 ] = await Alice.req.queue([ message, tweak ])
-        const [ , pubkey2 ] = await Bob.req.queue([ message, tweak ])
-        const [ , pubkey3 ] = await Carol.req.queue([ message, tweak ])
+        const res1 = await Alice.req.sign([ message, tweak ])
+        const res2 = await Bob.req.sign([ message, tweak ])
+        const res3 = await Carol.req.sign([ message, tweak ])
+
+        st.ok(res1.ok && res2.ok && res3.ok, 'all sign requests succeeded')
+
+        const [ , pubkey1 ] = res1.data
+        const [ , pubkey2 ] = res2.data
+        const [ , pubkey3 ] = res3.data
 
         // All should use the same group public key (with same tweak)
         st.equal(pubkey1, pubkey2, 'Alice and Bob produce same tweaked pubkey')
@@ -96,7 +103,7 @@ export default function (ctx : TestNetwork, tape : Test) {
 
         const messages = generate_messages(5)
 
-        const { result, duration } = await measure_time(() => Alice.req.sign(messages))
+        const { result, duration } = await measure_time(() => Alice.req.sign_batch(messages))
 
         st.ok(result.ok, 'sign succeeded')
         st.ok(duration < 10000, `5 signatures completed in ${duration.toFixed(0)}ms (< 10s)`)
@@ -119,11 +126,11 @@ export default function (ctx : TestNetwork, tape : Test) {
         // The API selects peers automatically, should work with threshold
         const message = Buff.random(32).hex
 
-        const result = await Alice.req.queue([ message ])
+        const result = await Alice.req.sign([ message ])
 
-        st.ok(result, 'signing with threshold succeeded')
+        st.ok(result.ok, 'signing with threshold succeeded')
 
-        const [ sighash, pubkey, sig ] = result
+        const [ sighash, pubkey, sig ] = result.data
         const valid = verify_signature(sig, sighash, pubkey, 'bip340')
         st.ok(valid, 'threshold signature is valid')
 
@@ -140,12 +147,15 @@ export default function (ctx : TestNetwork, tape : Test) {
 
         const messages = generate_messages(3)
 
-        // Queue all messages concurrently
-        const promises = messages.map(msg => Alice.req.queue(msg))
+        // Queue all messages concurrently via single API (uses batcher)
+        const promises = messages.map(msg => Alice.req.sign(msg))
         const results = await Promise.all(promises)
 
         // All should succeed
-        const all_valid = results.every(([ sighash, pubkey, sig ]) => {
+        st.ok(results.every(r => r.ok), 'all sign requests succeeded')
+
+        const all_valid = results.every(r => {
+          const [ sighash, pubkey, sig ] = r.data
           return verify_signature(sig, sighash, pubkey, 'bip340')
         })
 
@@ -165,13 +175,15 @@ export default function (ctx : TestNetwork, tape : Test) {
         const message = Buff.random(32).hex
         const tweak = Buff.random(32).hex
 
-        const result1 = await Alice.req.queue([ message, tweak ])
-        const result2 = await Alice.req.queue([ message, tweak ])
+        const result1 = await Alice.req.sign([ message, tweak ])
+        const result2 = await Alice.req.sign([ message, tweak ])
+
+        st.ok(result1.ok && result2.ok, 'both sign requests succeeded')
 
         // Same message and tweak, but different nonces means potentially different sigs
         // However, both should be valid
-        const [ , pubkey1, sig1 ] = result1
-        const [ , pubkey2, sig2 ] = result2
+        const [ , pubkey1, sig1 ] = result1.data
+        const [ , pubkey2, sig2 ] = result2.data
 
         st.equal(pubkey1, pubkey2, 'same tweaked pubkey for same tweak')
 
@@ -195,11 +207,11 @@ export default function (ctx : TestNetwork, tape : Test) {
         // Sign with just the sighash, no tweak
         const message = Buff.random(32).hex
 
-        const result = await Bob.req.queue([ message ])
+        const result = await Bob.req.sign([ message ])
 
-        st.ok(result, 'signing without tweak succeeded')
+        st.ok(result.ok, 'signing without tweak succeeded')
 
-        const [ sighash, pubkey, sig ] = result
+        const [ sighash, pubkey, sig ] = result.data
         const valid = verify_signature(sig, sighash, pubkey, 'bip340')
         st.ok(valid, 'signature without tweak is valid')
 
@@ -246,7 +258,7 @@ export default function (ctx : TestNetwork, tape : Test) {
         // Invalid sighash (not 32 bytes hex)
         const invalid_sighash = 'not-a-valid-sighash'
 
-        const result = await Alice.req.sign([[ invalid_sighash ]])
+        const result = await Alice.req.sign_batch([[ invalid_sighash ]])
 
         st.notOk(result.ok, 'signing with invalid sighash should fail')
 
@@ -261,7 +273,7 @@ export default function (ctx : TestNetwork, tape : Test) {
       try {
         const Alice = ctx.nodes.get('alice')!
 
-        const result = await Alice.req.sign([])
+        const result = await Alice.req.sign_batch([])
 
         // Should either fail or return empty results
         if (result.ok) {
