@@ -7,6 +7,9 @@ import type {
   SignatureEntry
 } from '@/types/index.js'
 
+/** Maximum signatures per batch to prevent memory/relay issues */
+const MAX_SIGN_BATCH_SIZE = 100
+
 /**
  * SignBatcher batches signature requests for efficient processing.
  *
@@ -32,7 +35,7 @@ import type {
 export class SignBatcher {
 
   /** Batch processing interval in milliseconds. */
-  private readonly _ival : number
+  private readonly _interval : number
   /** Reference to the parent BifrostNode. */
   private readonly _node : BifrostNode
 
@@ -48,7 +51,7 @@ export class SignBatcher {
    */
   constructor (node : BifrostNode) {
     this._node  = node
-    this._ival  = node.config.sign_interval
+    this._interval = node.config.sign_interval
     this._queue = []
     this._timer = null
   }
@@ -59,14 +62,6 @@ export class SignBatcher {
    */
   get node () {
     return this._node
-  }
-
-  /**
-   * Gets the current timer handle.
-   * @returns The setTimeout handle, or null if no batch is scheduled.
-   */
-  get timer () {
-    return this._timer
   }
 
   /**
@@ -110,6 +105,12 @@ export class SignBatcher {
     this._timer = null
     // If there are no requests, return.
     if (batch.length === 0) return
+    // Reject if batch exceeds maximum size
+    if (batch.length > MAX_SIGN_BATCH_SIZE) {
+      const reason = `batch size ${batch.length} exceeds maximum ${MAX_SIGN_BATCH_SIZE}`
+      batch.forEach(req => req.reject(reason))
+      return
+    }
     // Emit the info event.
     this.node.emit('info', 'batch signing event ids: ' + String(batch.map(req => req.sigvec[0])))
     // Try to sign the batch.
@@ -123,10 +124,12 @@ export class SignBatcher {
         batch.forEach(req => req.reject(res.err))
         return
       }
+      // Build a Map for O(1) signature lookup instead of O(n*m)
+      const sig_map = new Map(res.data.map(e => [e[0], e]))
       // Resolve each request with the signature.
       batch.forEach(req => {
         // Get the signature for the request.
-        const sig_entry = res.data.find(e => e[0] === req.sigvec[0])
+        const sig_entry = sig_map.get(req.sigvec[0])
         // If there's a signature,
         if (sig_entry !== undefined) {
           // Resolve the request with the signature.
@@ -149,8 +152,8 @@ export class SignBatcher {
    * (sign_interval). If a timer is already active, this method does nothing.
    */
   schedule () {
-    if (this.timer === null) {
-      this._timer = setTimeout(() => this.process(), this._ival)
+    if (this._timer === null) {
+      this._timer = setTimeout(() => this.process(), this._interval)
     }
   }
 
