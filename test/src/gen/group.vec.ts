@@ -1,12 +1,12 @@
 import { Buff }   from '@vbyte/buff'
 
-import { generate_dealer_package } from '@frostr/bifrost/lib'
+import { generate_dealer_package } from '@/lib/index.js'
 import { hash_string }             from '@/test/lib/hash.js'
 
 import {
   encode_group_package,
   encode_share_package
-} from '@frostr/bifrost/encoder'
+} from '@/encoder/index.js'
 
 const DEFAULT_SECRETS = [ 'alice', 'bob', 'carol' ]
 

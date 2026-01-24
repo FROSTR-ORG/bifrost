@@ -34,12 +34,15 @@ npm install @frostr/bifrost
 ## Quick Example
 
 ```typescript
-import { BifrostNode } from '@frostr/bifrost'
-import { generate_dealer_package, encode_group_package, encode_share_package } from '@frostr/bifrost/lib'
-import { get_seckey } from '@frostr/bifrost/util'
+import { BifrostNode }             from '@frostr/bifrost'
+import { generate_dealer_package } from '@frostr/bifrost/lib'
+import { get_seckey }              from '@frostr/bifrost/util'
+
+// Generate a secret key (or provide your own).
+const secret_key = get_seckey()
 
 // Generate a 2-of-3 threshold group
-const { group, shares } = generate_dealer_package(2, 3, [get_seckey()])
+const { group, shares } = generate_dealer_package(2, 3, [ secret_key ])
 
 // Create and connect a node
 const node = new BifrostNode(group, shares[0], ['wss://relay.example.com'])
@@ -50,9 +53,10 @@ await node.req.ping(shares[1].pubkey)
 
 // Request a threshold signature
 const result = await node.req.sign('Hello FROSTR!')
-if (result.ok) {
-  console.log('Signature:', result.data)
-}
+
+if (!result.ok) throw new Error('signing failed!')
+
+console.log('Signature:', result.data)
 ```
 
 See the [Guide](docs/GUIDE.md) for complete examples.

@@ -1,8 +1,8 @@
-import { BifrostNode }             from '@frostr/bifrost'
-import { generate_dealer_package } from '@frostr/bifrost/lib'
+import { BifrostNode }             from '@/index.js'
+import { generate_dealer_package } from '@/lib/index.js'
 import { hash_string }             from '@/test/lib/hash.js'
 
-import type { BifrostNodeConfig } from '@frostr/bifrost'
+import type { BifrostNodeConfig } from '@/index.js'
 
 import type {
   TestNodes,

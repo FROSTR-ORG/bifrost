@@ -1,10 +1,10 @@
 import { z }      from 'zod'
-import { Schema } from '@frostr/bifrost'
+import { Schema } from '@/index.js'
 
 import {
   decode_group_package,
   decode_share_package
-} from '@frostr/bifrost/encoder'
+} from '@/encoder/index.js'
 
 import type { GroupTestVector } from '@/test/types.js'
 

@@ -4,13 +4,13 @@ import { hash_string }           from '@/test/lib/hash.js'
 import {
   decode_group_package,
   decode_share_package
-} from '@frostr/bifrost/encoder'
+} from '@/encoder/index.js'
 
 import {
   create_session_pkg,
   create_session_template,
   create_session_commits
-} from '@frostr/bifrost/lib'
+} from '@/lib/index.js'
 
 import generate_group from './group.vec.js'
 

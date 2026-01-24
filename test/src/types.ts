@@ -5,7 +5,7 @@ import type {
   SighashCommit,
   SighashShare,
   SignSessionPackage
-} from '@frostr/bifrost'
+} from '@/index.js'
 
 export type TestNodeMap = Map<string, BifrostNode>
 

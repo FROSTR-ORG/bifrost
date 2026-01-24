@@ -16,6 +16,7 @@ import type {
   RpcMessageEnvelope,
   RequestRpcMessage
 } from '@vbyte/nostr-sdk'
+
 import type { ApiResponse, ECDHPackage } from '@/types/index.js'
 
 /**
