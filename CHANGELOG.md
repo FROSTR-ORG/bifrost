@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## [2.0.1]
+
+### Bug Fixes
+
+- **Timer cleanup in EventEmitter**: Fixed `within()` method to properly clean up timers when events fire, and added `timer.unref()` to prevent blocking Node.js process exit
+- **Batcher resource leaks**: Added `close()` methods to `ECDHBatcher` and `SignBatcher` that clear pending timers and reject queued requests
+- **BifrostNode cleanup**: Updated `close()` to properly close batchers before closing the underlying Nostr client
+
+### Improvements
+
+- **EventEmitter**: Added `clear_listeners()` method for full cleanup of event handlers (single event or all events)
+- **Clean process exit**: Node.js process now exits cleanly after operations complete without hanging
+
+### Demo Fixes
+
+- Fixed outdated SDK property references (`msg.env.pubkey` → `msg.event.pubkey`)
+- Fixed nonces access pattern (array length check instead of direct comparison)
+- Fixed noble curves API usage (`randomPrivateKey` → `randomSecretKey`)
+
+---
+
 ## [2.0.0]
 
 ### Breaking Changes

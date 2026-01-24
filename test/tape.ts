@@ -16,6 +16,7 @@ import assert_unit_case       from './src/case/unit/assert.test.js'
 import helpers_unit_case      from './src/case/unit/helpers.test.js'
 import libutil_unit_case      from './src/case/unit/lib-util.test.js'
 import nonce_unit_case        from './src/case/unit/nonce.test.js'
+import pool_unit_case         from './src/case/unit/pool.test.js'
 
 // Helper to let the event loop drain between test suites
 const drain = () => new Promise(resolve => setImmediate(resolve))
@@ -36,6 +37,7 @@ tape('Bifrost Test Suite', async t => {
   helpers_unit_case(t)
   libutil_unit_case(t)
   nonce_unit_case(t)
+  pool_unit_case(t)
 
   // Let event loop drain before network tests
   await drain()

@@ -169,8 +169,8 @@ async function handle_ping (ctx : NodeContext, args : string[]) {
     const data = result.data
     log_success(`Pong! Policy: send=${data.policy.send}, recv=${data.policy.recv}`)
 
-    if (data.nonces > 0) {
-      log_recv(`Received ${data.nonces} nonces`)
+    if (data.nonces && data.nonces.length > 0) {
+      log_recv(`Received ${data.nonces.length} nonces`)
     }
   } catch (err) {
     log_error(`Ping error: ${err}`)
@@ -571,11 +571,11 @@ function setup_event_listeners (ctx : NodeContext) {
 
   // API handler events (incoming requests)
   node.on('/ping/handler/req', (msg) => {
-    const pk = msg.env.pubkey
+    const pk = msg.event.pubkey
     const name = get_member_name(pk, ctx.group) ?? format_pubkey(pk)
     log_recv(`Ping request from ${name}`)
     // Debug: Log pubkey details for troubleshooting
-    log_debug(`  msg.env.pubkey: ${pk}`)
+    log_debug(`  msg.event.pubkey: ${pk}`)
     log_debug(`  msg.id: ${msg.id}`)
     log_debug(`  Our peers:`)
     for (const peer of ctx.node.peers) {
@@ -584,7 +584,7 @@ function setup_event_listeners (ctx : NodeContext) {
   })
 
   node.on('/sign/handler/req', (msg) => {
-    const pk = msg.env.pubkey
+    const pk = msg.event.pubkey
     const name = get_member_name(pk, ctx.group) ?? format_pubkey(pk)
     log_recv(`Sign request from ${name}`)
   })
@@ -594,7 +594,7 @@ function setup_event_listeners (ctx : NodeContext) {
   })
 
   node.on('/ecdh/handler/req', (msg) => {
-    const pk = msg.env.pubkey
+    const pk = msg.event.pubkey
     const name = get_member_name(pk, ctx.group) ?? format_pubkey(pk)
     log_recv(`ECDH request from ${name}`)
   })
@@ -604,7 +604,7 @@ function setup_event_listeners (ctx : NodeContext) {
   })
 
   node.on('/onboard/handler/req', (msg) => {
-    const pk = msg.env.pubkey
+    const pk = msg.event.pubkey
     const name = get_member_name(pk, ctx.group) ?? format_pubkey(pk)
     log_recv(`Onboard request from ${name}`)
   })
@@ -615,30 +615,31 @@ function setup_event_listeners (ctx : NodeContext) {
 
   // Bounced messages
   node.on('bounced', (reason, msg) => {
-    const pk = msg?.env?.pubkey ?? 'unknown'
+    const pk = msg?.event?.pubkey ?? 'unknown'
     log_warn(`Message bounced from ${format_pubkey(pk)}: ${reason}`)
   })
 
   // Handler rejections (errors in processing requests)
   // Note: emitter spreads array payloads as separate arguments
   node.on('/ping/handler/rej', (reason, msg) => {
-    const pk = msg?.env?.pubkey ?? 'unknown'
+    const pk = msg?.event?.pubkey ?? 'unknown'
     log_error(`Ping handler error: ${reason}`)
-    log_debug(`  Full error details - pubkey: ${pk}, msg.id: ${msg?.id}, tag: ${msg?.tag}`)
+    log_debug(`  Full error details - pubkey: ${pk}, msg.id: ${msg?.id}, method: ${msg?.method}`)
   })
 
   // Raw message logging for debugging
   node.on('message', (msg) => {
-    log_debug(`RAW MESSAGE: tag=${msg.tag}, id=${msg.id}, from=${format_pubkey(msg.env.pubkey)}`)
+    const method = msg.type === 'request' ? (msg as { method: string }).method : msg.type
+    log_debug(`RAW MESSAGE: type=${msg.type}, method=${method}, id=${msg.id}, from=${format_pubkey(msg.event.pubkey)}`)
   })
 
   node.on('/sign/handler/rej', (reason, msg) => {
-    const pk = msg?.env?.pubkey ?? 'unknown'
+    const pk = msg?.event?.pubkey ?? 'unknown'
     log_error(`Sign handler error: ${reason}`)
   })
 
   node.on('/ecdh/handler/rej', (reason, msg) => {
-    const pk = msg?.env?.pubkey ?? 'unknown'
+    const pk = msg?.event?.pubkey ?? 'unknown'
     log_error(`ECDH handler error: ${reason}`)
   })
 }

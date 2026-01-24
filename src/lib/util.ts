@@ -8,6 +8,9 @@ import {
 
 import type { GroupPackage, SharePackage } from '@/types/index.js'
 
+/** Regex for validating hex-encoded public keys (64 or 66 hex chars) */
+const HEX_PUBKEY_REGEX = /^[0-9a-fA-F]{64}$|^[0-9a-fA-F]{66}$/
+
 /**
  * Normalize a public key to x-only (32-byte) format.
  *
@@ -16,8 +19,12 @@ import type { GroupPackage, SharePackage } from '@/types/index.js'
  *
  * @param pk - The public key (33 or 32 bytes hex).
  * @returns The 32-byte x-only pubkey.
+ * @throws Error if the input is not valid hex of the correct length.
  */
 export function normalize_pubkey (pk : string) : string {
+  if (!HEX_PUBKEY_REGEX.test(pk)) {
+    throw new Error(`Invalid pubkey format: expected 64 or 66 hex chars, got ${pk.length} chars`)
+  }
   return pk.length === 66 ? pk.slice(2) : pk
 }
 

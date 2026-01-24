@@ -38,7 +38,7 @@ export function encode_share_package (
 export function decode_share_package (
   sharestr : string
 ) : SharePackage {
-  const data = from_bech32m(sharestr)
+  const data = from_bech32m(sharestr, 'bfshare')
 
   // Check size to determine format
   if (data.length === CONST.SHARE_DATA_SIZE) {

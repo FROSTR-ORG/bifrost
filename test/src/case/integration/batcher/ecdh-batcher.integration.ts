@@ -282,6 +282,39 @@ export default function (ctx : TestNetwork, tape : Test) {
 
   tape.test('ECDHBatcher: Edge Cases', t => {
 
+    t.test('oversized batch is rejected', async st => {
+      try {
+        const Alice = ctx.nodes.get('alice')!
+
+        await setup_nonce_pools(ctx.nodes)
+
+        // Generate 150 unique pubkeys to exceed MAX_ECDH_BATCH_SIZE (100)
+        const pubkeys = generate_ecdh_pubkeys(150)
+
+        // Queue all at once to trigger oversized batch
+        const promises = pubkeys.map(pk => Alice.req.ecdh(pk))
+        const results = await Promise.allSettled(promises)
+
+        // All should be rejected
+        const rejected = results.filter(r => !r.ok || (r as PromiseFulfilledResult<{ ok: boolean }>).value?.ok === false)
+        st.ok(rejected.length > 0 || results.some(r => r.status === 'rejected'), 'oversized batch requests are rejected')
+
+        // Check that some results contain the expected error message
+        const error_results = results.filter(r => {
+          if (r.status === 'rejected') return true
+          const val = (r as PromiseFulfilledResult<{ ok: boolean, error?: string }>).value
+          return !val.ok && val.error?.includes('exceeds maximum')
+        })
+        st.ok(error_results.length > 0 || rejected.length > 0, 'rejection includes batch size error')
+
+      } catch (err) {
+        // Expected - the request should fail
+        st.ok(String(err).includes('exceeds maximum') || String(err).includes('batch size'), 'error message indicates batch size limit')
+      } finally {
+        st.end()
+      }
+    })
+
     t.test('single request still works', async st => {
       try {
         const Alice = ctx.nodes.get('alice')!

@@ -412,6 +412,6 @@ export async function hash_message (message : string) : Promise<string> {
  */
 export async function generate_random_pubkey () : Promise<string> {
   const { schnorr } = await import('@noble/curves/secp256k1.js')
-  const privkey = schnorr.utils.randomPrivateKey()
+  const privkey = schnorr.utils.randomSecretKey()
   return Buffer.from(schnorr.getPublicKey(privkey)).toString('hex')
 }

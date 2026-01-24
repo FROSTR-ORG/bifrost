@@ -40,4 +40,88 @@ export default function (tape : Test) {
       t.end()
     }
   })
+
+  tape.test('bech32 error handling', t => {
+
+    t.test('decode_group_package rejects wrong prefix', st => {
+      try {
+        // Generate a valid share and try to decode as group
+        const pkg = generate_dealer_package(2, 3)
+        const enc_share = encode_share_package(pkg.shares[0])
+
+        st.throws(
+          () => decode_group_package(enc_share),
+          /Invalid bech32m prefix.*expected 'bfgroup'.*got 'bfshare'/,
+          'rejects share string with wrong prefix error'
+        )
+      } catch (err) {
+        st.fail(parse_error(err))
+      }
+      st.end()
+    })
+
+    t.test('decode_share_package rejects wrong prefix', st => {
+      try {
+        // Generate a valid group and try to decode as share
+        const pkg = generate_dealer_package(2, 3)
+        const enc_group = encode_group_package(pkg.group)
+
+        st.throws(
+          () => decode_share_package(enc_group),
+          /Invalid bech32m prefix.*expected 'bfshare'.*got 'bfgroup'/,
+          'rejects group string with wrong prefix error'
+        )
+      } catch (err) {
+        st.fail(parse_error(err))
+      }
+      st.end()
+    })
+
+    t.test('decode_group_package rejects malformed string', st => {
+      st.throws(
+        () => decode_group_package('not-a-valid-bech32m-string'),
+        /Invalid bech32m string/,
+        'rejects malformed bech32m string'
+      )
+      st.end()
+    })
+
+    t.test('decode_share_package rejects malformed string', st => {
+      st.throws(
+        () => decode_share_package('also-not-valid'),
+        /Invalid bech32m string/,
+        'rejects malformed bech32m string'
+      )
+      st.end()
+    })
+
+    t.test('decode_group_package rejects invalid checksum', st => {
+      try {
+        // Generate valid then corrupt the checksum (last chars)
+        const pkg = generate_dealer_package(2, 3)
+        const enc_group = encode_group_package(pkg.group)
+        const corrupted = enc_group.slice(0, -4) + 'xxxx'
+
+        st.throws(
+          () => decode_group_package(corrupted),
+          /Invalid bech32m string/,
+          'rejects corrupted checksum'
+        )
+      } catch (err) {
+        st.fail(parse_error(err))
+      }
+      st.end()
+    })
+
+    t.test('decode_share_package rejects empty string', st => {
+      st.throws(
+        () => decode_share_package(''),
+        /Invalid bech32m string/,
+        'rejects empty string'
+      )
+      st.end()
+    })
+
+    t.end()
+  })
 }

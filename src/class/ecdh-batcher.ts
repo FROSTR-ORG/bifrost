@@ -6,6 +6,9 @@ import { get_send_pubkeys }   from '@/lib/peer.js'
 
 import { Assert, copy_obj } from '@/util/index.js'
 
+/** Maximum number of ECDH public keys per batch to avoid relay message size limits */
+const MAX_ECDH_BATCH_SIZE = 100
+
 import {
   combine_batched_ecdh_pkgs
 } from '@/lib/ecdh.js'
@@ -163,6 +166,15 @@ export class ECDHBatcher {
 
     // If all were cached, we're done.
     if (uncached.length === 0) return
+
+    // Reject if batch size exceeds limit to avoid relay message size limits.
+    if (uncached.length > MAX_ECDH_BATCH_SIZE) {
+      const reason = `ECDH batch size ${uncached.length} exceeds maximum ${MAX_ECDH_BATCH_SIZE}`
+      for (const req of uncached) {
+        req.reject(reason)
+      }
+      return
+    }
 
     // Emit info event.
     this.node.emit('info', 'batch ECDH pubkeys: ' + String(uncached.map(req => req.ecdh_pk.slice(0, 8) + '...')))

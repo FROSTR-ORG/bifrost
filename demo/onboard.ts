@@ -74,13 +74,13 @@ function setup_event_listeners (ctx : NodeContext) {
   })
 
   node.on('/ping/handler/req', (msg) => {
-    const pk = msg.env.pubkey
+    const pk = msg.event.pubkey
     const name = get_member_name(pk, ctx.group) ?? format_pubkey(pk)
     log_recv(`Ping request from ${name}`)
   })
 
   node.on('/sign/handler/req', (msg) => {
-    const pk = msg.env.pubkey
+    const pk = msg.event.pubkey
     const name = get_member_name(pk, ctx.group) ?? format_pubkey(pk)
     log_recv(`Sign request from ${name}`)
   })
@@ -90,7 +90,7 @@ function setup_event_listeners (ctx : NodeContext) {
   })
 
   node.on('/onboard/handler/req', (msg) => {
-    const pk = msg.env.pubkey
+    const pk = msg.event.pubkey
     const name = get_member_name(pk, ctx.group) ?? format_pubkey(pk)
     log_recv(`Onboard request from ${name}`)
   })
@@ -100,7 +100,7 @@ function setup_event_listeners (ctx : NodeContext) {
   })
 
   node.on('bounced', (reason, msg) => {
-    const pk = msg?.env?.pubkey ?? 'unknown'
+    const pk = msg?.event?.pubkey ?? 'unknown'
     log_warn(`Message bounced from ${format_pubkey(pk)}: ${reason}`)
   })
 }
@@ -146,8 +146,8 @@ const COMMANDS : Record<string, {
       }
 
       log_success(`Pong! Policy: send=${result.data.policy.send}, recv=${result.data.policy.recv}`)
-      if (result.data.nonces > 0) {
-        log_recv(`Received ${result.data.nonces} nonces`)
+      if (result.data.nonces && result.data.nonces.length > 0) {
+        log_recv(`Received ${result.data.nonces.length} nonces`)
       }
     }
   },

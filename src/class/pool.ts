@@ -19,6 +19,8 @@
 
 import { EventEmitter } from './emitter.js'
 
+import Schema from '@/schema/index.js'
+
 import {
   generate_nonce_pairs,
   validate_public_nonce,
@@ -90,6 +92,13 @@ export class NoncePool extends EventEmitter<NoncePoolEvent> {
     this._our_idx  = our_idx
     this._seckey   = seckey
     this._config   = { ...get_default_config(), ...config }
+
+    // Validate merged config against full schema with cross-field refinements
+    const result = Schema.nonce.pool_config.safeParse(this._config)
+    if (!result.success) {
+      throw new Error(`Invalid pool config: ${result.error.message}`)
+    }
+
     this._outgoing = new Map()
     this._incoming = new Map()
   }

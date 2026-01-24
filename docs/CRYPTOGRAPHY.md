@@ -78,7 +78,7 @@ Traditional threshold schemes require reconstructing the secret key for signing.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        FROST Signing Flow                        │
+│                        FROST Signing Flow                       │
 └─────────────────────────────────────────────────────────────────┘
 
 1. NONCE GENERATION (pre-signing)
@@ -202,8 +202,6 @@ bind_hash = SHA256(session_id || member_idx || sighash)
 
 This prevents nonces from being replayed across different sessions.
 
-**See also:** [Nonce Protocol](nonce-protocol.md) for implementation details.
-
 ## ECDH Key Exchange
 
 ### Threshold ECDH
@@ -246,7 +244,7 @@ All peer-to-peer messages in FROSTR are encrypted end-to-end:
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                  Message Encryption                   │
+│                  Message Encryption                 │
 └─────────────────────────────────────────────────────┘
 
 1. Key Agreement (ECDH)

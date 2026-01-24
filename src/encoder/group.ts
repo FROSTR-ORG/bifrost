@@ -60,7 +60,7 @@ export function encode_group_package (
 export function decode_group_package (
   str : string
 ) : GroupPackage {
-  const data = from_bech32m(str)
+  const data = from_bech32m(str, 'bfgroup')
   return deserialize_group_data(data)
 }
 

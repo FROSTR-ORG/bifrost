@@ -6,7 +6,8 @@ import {
   get_group_indexes,
   select_random_peers,
   get_member_indexes,
-  recover_secret_key
+  recover_secret_key,
+  normalize_pubkey
 } from '@/lib/util.js'
 
 import type { Test } from 'tape'
@@ -157,6 +158,61 @@ export default function (tape : Test) {
           /share not found in group/,
           'throws for invalid share'
         )
+        st.end()
+      })
+
+      // Test normalize_pubkey
+      t.test('normalize_pubkey()', st => {
+        // Valid 64-char x-only pubkey
+        const xonly = 'a'.repeat(64)
+        st.equal(normalize_pubkey(xonly), xonly, 'accepts 64-char x-only pubkey')
+
+        // Valid 66-char compressed pubkey (strips prefix)
+        const compressed = '02' + 'b'.repeat(64)
+        st.equal(normalize_pubkey(compressed), 'b'.repeat(64), 'strips prefix from 66-char compressed pubkey')
+
+        // Invalid: wrong length (odd)
+        st.throws(
+          () => normalize_pubkey('abc'),
+          /Invalid pubkey format/,
+          'throws for odd length string'
+        )
+
+        // Invalid: wrong length (63 chars)
+        st.throws(
+          () => normalize_pubkey('a'.repeat(63)),
+          /Invalid pubkey format/,
+          'throws for 63-char string'
+        )
+
+        // Invalid: wrong length (65 chars)
+        st.throws(
+          () => normalize_pubkey('a'.repeat(65)),
+          /Invalid pubkey format/,
+          'throws for 65-char string'
+        )
+
+        // Invalid: non-hex characters
+        st.throws(
+          () => normalize_pubkey('g'.repeat(64)),
+          /Invalid pubkey format/,
+          'throws for non-hex characters'
+        )
+
+        // Invalid: mixed valid/invalid chars
+        st.throws(
+          () => normalize_pubkey('abcdef' + 'xyz'.repeat(20) + 'ab'),
+          /Invalid pubkey format/,
+          'throws for mixed valid/invalid chars'
+        )
+
+        // Invalid: empty string
+        st.throws(
+          () => normalize_pubkey(''),
+          /Invalid pubkey format/,
+          'throws for empty string'
+        )
+
         st.end()
       })
 
