@@ -1,5 +1,5 @@
 {
-  "name": "@frostr/bifrost-ts",
+  "name": "@frostr/bifrost",
   "version": "2.0.0",
   "description": "Core library for the FROSTR protocol.",
   "author": "Christopher Scott",
