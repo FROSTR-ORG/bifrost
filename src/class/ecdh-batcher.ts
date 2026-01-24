@@ -55,7 +55,7 @@ interface ECDHRequest {
 export class ECDHBatcher {
 
   /** Batch processing interval in milliseconds. */
-  private readonly _ival : number
+  private readonly _interval : number
   /** Reference to the parent BifrostNode. */
   private readonly _node : BifrostNode
 
@@ -71,7 +71,7 @@ export class ECDHBatcher {
    */
   constructor (node : BifrostNode) {
     this._node  = node
-    this._ival  = node.config.ecdh_interval
+    this._interval = node.config.ecdh_interval
     this._queue = []
     this._timer = null
   }
@@ -82,14 +82,6 @@ export class ECDHBatcher {
    */
   get node () {
     return this._node
-  }
-
-  /**
-   * Gets the current timer handle.
-   * @returns The setTimeout handle, or null if no batch is scheduled.
-   */
-  get timer () {
-    return this._timer
   }
 
   /**
@@ -278,8 +270,8 @@ export class ECDHBatcher {
    * (ecdh_interval). If a timer is already active, this method does nothing.
    */
   schedule () {
-    if (this.timer === null) {
-      this._timer = setTimeout(() => this.process(), this._ival)
+    if (this._timer === null) {
+      this._timer = setTimeout(() => this.process(), this._interval)
     }
   }
 
