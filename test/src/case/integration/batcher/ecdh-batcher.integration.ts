@@ -4,7 +4,8 @@
  * Tests for batch ECDH processing under load.
  */
 
-import { parse_error }      from '@cmdcode/nostr-p2p/util'
+import { LIB }              from '@vbyte/nostr-sdk'
+const { parse_error } = LIB
 import { generate_ecdh_pubkeys, measure_time, setup_nonce_pools, sleep } from '../lib/helpers.js'
 
 import type { TestNetwork } from '@/test/types.js'

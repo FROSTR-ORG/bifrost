@@ -1,5 +1,5 @@
 import type { BifrostNode }   from '@/class/client.js'
-import type { SignedMessage } from '@cmdcode/nostr-p2p'
+import type { RpcMessageData } from '@vbyte/nostr-sdk'
 
 import type {
   ECDHPackage,
@@ -35,8 +35,21 @@ export interface BifrostNodeCache {
  * @property sign - Optional middleware for signing requests.
  */
 export interface BifrostNodeMiddleware {
-  ecdh? : (client : BifrostNode, msg : SignedMessage) => SignedMessage
-  sign? : (client : BifrostNode, msg : SignedMessage) => SignedMessage
+  ecdh? : (client : BifrostNode, msg : RpcMessageData) => RpcMessageData
+  sign? : (client : BifrostNode, msg : RpcMessageData) => RpcMessageData
+}
+
+/**
+ * Configuration options for the underlying @vbyte/nostr-sdk.
+ *
+ * @property msg_timeout - Connection/message timeout in milliseconds (default: 10000).
+ * @property sub_timeout - Subscription timeout in milliseconds (default: 60000).
+ * @property max_retries - Maximum retry count for failed operations (default: 3).
+ */
+export interface SdkConfig {
+  msg_timeout? : number
+  sub_timeout? : number
+  max_retries? : number
 }
 
 /**
@@ -48,6 +61,7 @@ export interface BifrostNodeMiddleware {
  * @property sign_interval - Signature batch interval in milliseconds.
  * @property ecdh_interval - ECDH batch interval in milliseconds.
  * @property nonce_pool - Optional nonce pool configuration.
+ * @property sdk_config - Optional @vbyte/nostr-sdk configuration overrides.
  */
 export interface BifrostNodeConfig {
   debug      : boolean
@@ -56,6 +70,7 @@ export interface BifrostNodeConfig {
   sign_interval  : number
   ecdh_interval  : number
   nonce_pool : Partial<NoncePoolConfig>
+  sdk_config : Partial<SdkConfig>
 }
 
 /**
@@ -119,46 +134,46 @@ export interface BifrostNodeEvent {
   'error'                : unknown
   'ready'                : BifrostNode
   'closed'               : BifrostNode
-  'bounced'              : [ string, SignedMessage   ]
-  'message'              : SignedMessage
-  '/ecdh/sender/req'     : SignedMessage
-  '/ecdh/sender/res'     : SignedMessage[]
+  'bounced'              : [ string, RpcMessageData   ]
+  'message'              : RpcMessageData
+  '/ecdh/sender/req'     : RpcMessageData
+  '/ecdh/sender/res'     : RpcMessageData[]
   '/ecdh/sender/rej'     : [ string, ECDHPackage     ]
   '/ecdh/sender/ret'     : [ string, string          ]
-  '/ecdh/sender/err'     : [ string, SignedMessage[] ]
-  '/ecdh/handler/req'    : SignedMessage
-  '/ecdh/handler/res'    : SignedMessage
-  '/ecdh/handler/rej'    : [ string, SignedMessage   ]
-  '/echo/handler/req'    : SignedMessage
-  '/echo/handler/res'    : SignedMessage
-  '/echo/handler/rej'    : [ string, SignedMessage   ]
-  '/echo/sender/req'     : SignedMessage
-  '/echo/sender/res'     : SignedMessage
-  '/echo/sender/rej'     : [ string, SignedMessage | null ]
+  '/ecdh/sender/err'     : [ string, RpcMessageData[] ]
+  '/ecdh/handler/req'    : RpcMessageData
+  '/ecdh/handler/res'    : RpcMessageData
+  '/ecdh/handler/rej'    : [ string, RpcMessageData   ]
+  '/echo/handler/req'    : RpcMessageData
+  '/echo/handler/res'    : RpcMessageData
+  '/echo/handler/rej'    : [ string, RpcMessageData   ]
+  '/echo/sender/req'     : RpcMessageData
+  '/echo/sender/res'     : RpcMessageData
+  '/echo/sender/rej'     : [ string, RpcMessageData | null ]
   '/echo/sender/ret'     : [ string ]
-  '/echo/sender/err'     : [ string, SignedMessage ]
-  '/onboard/handler/req' : SignedMessage
-  '/onboard/handler/res' : SignedMessage
-  '/onboard/handler/rej' : [ string, SignedMessage   ]
-  '/onboard/sender/res'  : SignedMessage
-  '/onboard/sender/rej'  : [ string, SignedMessage | null ]
+  '/echo/sender/err'     : [ string, RpcMessageData ]
+  '/onboard/handler/req' : RpcMessageData
+  '/onboard/handler/res' : RpcMessageData
+  '/onboard/handler/rej' : [ string, RpcMessageData   ]
+  '/onboard/sender/res'  : RpcMessageData
+  '/onboard/sender/rej'  : [ string, RpcMessageData | null ]
   '/onboard/sender/ret'  : [ OnboardResponse, number ]
-  '/onboard/sender/err'  : [ string, SignedMessage | null ]
-  '/ping/handler/req'    : SignedMessage
-  '/ping/handler/res'    : SignedMessage
-  '/ping/handler/rej'    : [ string, SignedMessage   ]
+  '/onboard/sender/err'  : [ string, RpcMessageData | null ]
+  '/ping/handler/req'    : RpcMessageData
+  '/ping/handler/res'    : RpcMessageData
+  '/ping/handler/rej'    : [ string, RpcMessageData   ]
   '/ping/handler/ret'    : [ string, string          ]
-  '/ping/sender/req'     : SignedMessage
-  '/ping/sender/res'     : SignedMessage
-  '/ping/sender/rej'     : [ string, SignedMessage | null ]
+  '/ping/sender/req'     : RpcMessageData
+  '/ping/sender/res'     : RpcMessageData
+  '/ping/sender/rej'     : [ string, RpcMessageData | null ]
   '/ping/sender/ret'     : PeerData
-  '/ping/sender/err'     : [ string, SignedMessage ]
-  '/sign/sender/req'     : SignedMessage
-  '/sign/sender/res'     : SignedMessage[]
+  '/ping/sender/err'     : [ string, RpcMessageData ]
+  '/sign/sender/req'     : RpcMessageData
+  '/sign/sender/res'     : RpcMessageData[]
   '/sign/sender/rej'     : [ string, SignSessionPackage  ]
   '/sign/sender/ret'     : [ string, SignatureEntry[]    ]
-  '/sign/sender/err'     : [ string, SignedMessage[]     ]
-  '/sign/handler/req'    : SignedMessage
-  '/sign/handler/res'    : SignedMessage
-  '/sign/handler/rej'    : [ string, SignedMessage   ]
+  '/sign/sender/err'     : [ string, RpcMessageData[]     ]
+  '/sign/handler/req'    : RpcMessageData
+  '/sign/handler/res'    : RpcMessageData
+  '/sign/handler/rej'    : [ string, RpcMessageData   ]
 }

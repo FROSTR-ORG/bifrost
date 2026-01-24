@@ -3,10 +3,8 @@ import { schnorr }              from '@noble/curves/secp256k1.js'
 import { parse_group_vector }   from '@/test/lib/parse.js'
 import { convert_pubkey }       from '@/util/crypto.js'
 
-import {
-  get_event_id,
-  verify_event
-} from '@cmdcode/nostr-p2p/lib'
+import { LIB }                  from '@vbyte/nostr-sdk'
+const { get_event_id, verify_event } = LIB
 
 import {
   create_session_pkg,

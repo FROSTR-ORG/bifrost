@@ -1,4 +1,4 @@
-import type { SignedMessage } from '@cmdcode/nostr-p2p'
+import type { RpcMessageData, RpcMessageEnvelope, RequestRpcMessage } from '@vbyte/nostr-sdk'
 
 import type {
   ECDHPackage,
@@ -14,18 +14,26 @@ import { parse_error } from '@/util/helpers.js'
 
 /**
  * Parse an ECDH exchange message.
- * 
- * @param msg - The message to parse.
- * @returns The parsed message.
+ *
+ * @param msg - The RPC message to parse.
+ * @returns The parsed message with ECDH data.
  */
 export function parse_ecdh_message (
-  msg : SignedMessage
-) : SignedMessage<ECDHPackage> {
+  msg : RpcMessageData
+) : RpcMessageEnvelope<RequestRpcMessage> & { data: ECDHPackage } {
   try {
     const schema = Schema.pkg.ecdh
-    const json   = JSON.parse(msg.data)
+    // For request messages, data is in params[0]; for accept messages, data is in data field
+    let json : unknown
+    if (msg.type === 'request') {
+      json = JSON.parse((msg as { params: string[] }).params[0] ?? '{}')
+    } else if (msg.type === 'accept') {
+      json = (msg as { data: unknown }).data
+    } else {
+      throw new Error('unexpected message type')
+    }
     const parsed = schema.parse(json)
-    return { ...msg, data : parsed }
+    return { ...msg, data : parsed } as RpcMessageEnvelope<RequestRpcMessage> & { data: ECDHPackage }
   } catch {
     throw new Error('ecdh message failed validation')
   }
@@ -33,18 +41,24 @@ export function parse_ecdh_message (
 
 /**
  * Parse a signature session message.
- * 
- * @param msg - The message to parse.
- * @returns The parsed message.
+ *
+ * @param msg - The RPC message to parse.
+ * @returns The parsed message with session data.
  */
 export function parse_session_message (
-  msg : SignedMessage
-) : SignedMessage<SignSessionPackage> {
+  msg : RpcMessageData
+) : RpcMessageEnvelope<RequestRpcMessage> & { data: SignSessionPackage } {
   try {
     const schema = Schema.sign.session
-    const json   = JSON.parse(msg.data)
+    // For request messages, data is in params[0]
+    let json : unknown
+    if (msg.type === 'request') {
+      json = JSON.parse((msg as { params: string[] }).params[0] ?? '{}')
+    } else {
+      throw new Error('unexpected message type for session')
+    }
     const parsed = schema.parse(json)
-    return { ...msg, data : parsed }
+    return { ...msg, data : parsed } as RpcMessageEnvelope<RequestRpcMessage> & { data: SignSessionPackage }
   } catch {
     throw new Error('session message failed validation')
   }
@@ -52,18 +66,24 @@ export function parse_session_message (
 
 /**
  * Parse a partial signature message.
- * 
- * @param msg - The message to parse.
- * @returns The parsed message.
+ *
+ * @param msg - The RPC message to parse.
+ * @returns The parsed message with partial signature data.
  */
 export function parse_psig_message (
-  msg : SignedMessage
-) : SignedMessage<PartialSigPackage> {
+  msg : RpcMessageData
+) : RpcMessageData & { data: PartialSigPackage } {
   try {
     const schema = Schema.sign.psig_pkg
-    const json   = JSON.parse(msg.data)
+    // For accept messages, data is in data field
+    let json : unknown
+    if (msg.type === 'accept') {
+      json = (msg as { data: unknown }).data
+    } else {
+      throw new Error('unexpected message type for psig')
+    }
     const parsed = schema.parse(json)
-    return { ...msg, data : parsed }
+    return { ...msg, data : parsed } as RpcMessageData & { data: PartialSigPackage }
   } catch (err) {
     throw new Error('signature message failed validation')
   }
@@ -106,17 +126,23 @@ export function parse_share_pkg (
 /**
  * Parse an onboard request message.
  *
- * @param msg - The message to parse.
- * @returns The parsed message.
+ * @param msg - The RPC message to parse.
+ * @returns The parsed message with onboard request data.
  */
 export function parse_onboard_message (
-  msg : SignedMessage
-) : SignedMessage<OnboardRequest> {
+  msg : RpcMessageData
+) : RpcMessageEnvelope<RequestRpcMessage> & { data: OnboardRequest } {
   try {
     const schema = Schema.onboard.onboard_req
-    const json   = JSON.parse(msg.data)
+    // For request messages, data is in params[0]
+    let json : unknown
+    if (msg.type === 'request') {
+      json = JSON.parse((msg as { params: string[] }).params[0] ?? '{}')
+    } else {
+      throw new Error('unexpected message type for onboard')
+    }
     const parsed = schema.parse(json)
-    return { ...msg, data : parsed }
+    return { ...msg, data : parsed } as RpcMessageEnvelope<RequestRpcMessage> & { data: OnboardRequest }
   } catch {
     throw new Error('onboard request failed validation')
   }

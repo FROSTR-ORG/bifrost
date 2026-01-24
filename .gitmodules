@@ -1,0 +1,3 @@
+[submodule "repos/nostr-sdk"]
+	path = repos/nostr-sdk
+	url = git@github.com:cmdruid/nostr-sdk.git

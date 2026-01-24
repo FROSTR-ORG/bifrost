@@ -1,6 +1,5 @@
 import { BifrostNode } from '@/class/client.js'
 
-import { finalize_message }   from '@cmdcode/nostr-p2p/lib'
 import { combine_ecdh_pkgs }  from '@/lib/ecdh.js'
 import { parse_ecdh_message } from '@/lib/parse.js'
 import { get_send_pubkeys }   from '@/lib/peer.js'
@@ -12,7 +11,11 @@ import {
   select_random_peers
 } from '@/lib/util.js'
 
-import type { SignedMessage } from '@cmdcode/nostr-p2p'
+import type {
+  RpcMessageData,
+  RpcMessageEnvelope,
+  RequestRpcMessage
+} from '@vbyte/nostr-sdk'
 import type { ApiResponse, ECDHPackage } from '@/types/index.js'
 
 /**
@@ -37,17 +40,17 @@ import type { ApiResponse, ECDHPackage } from '@/types/index.js'
  */
 export async function ecdh_handler_api (
   node : BifrostNode,
-  msg  : SignedMessage<ECDHPackage>
+  msg  : RpcMessageEnvelope<RequestRpcMessage> & { data: ECDHPackage }
 ) {
   // Get the middleware.
   const middleware = node.config.middleware.ecdh
   // Try to parse the message.
   try {
     // Emit the request message.
-    node.emit('/ecdh/handler/req', copy_obj(msg))
+    node.emit('/ecdh/handler/req', msg)
     // If the middleware is a function, apply it.
     if (typeof middleware === 'function') {
-      msg = middleware(node, msg)
+      msg = middleware(node, msg) as RpcMessageEnvelope<RequestRpcMessage> & { data: ECDHPackage }
     }
     // Get the members and entries from request.
     const { members, entries } = msg.data
@@ -55,23 +58,17 @@ export async function ecdh_handler_api (
     const ecdh_pks = entries.map(e => e.ecdh_pk)
     // Generate ECDH shares for all requested keys.
     const pkg = node.signer.gen_batched_ecdh_shares(members, ecdh_pks)
-    // Finalize the response package.
-    const envelope = finalize_message({
-      data : JSON.stringify(pkg),
-      id   : msg.id,
-      tag  : '/ecdh/res'
-    })
-    // Publish the response package.
-    const res = await node.client.publish(envelope, msg.env.pubkey)
+    // Send the response using the new respond API.
+    const res = await node.client.respond(msg).accept(pkg)
     // If the response is not ok, throw an error.
     if (!res.ok) throw new Error('failed to publish response')
     // Emit the response package.
-    node.emit('/ecdh/handler/res', copy_obj(res.data))
+    node.emit('/ecdh/handler/res', msg)
   } catch (err) {
     // Log the error.
     if (node.debug) console.log(err)
     // Emit the error.
-    node.emit('/ecdh/handler/rej', [ parse_error(err), copy_obj(msg) ])
+    node.emit('/ecdh/handler/rej', [ parse_error(err), msg ])
   }
 }
 
@@ -132,7 +129,7 @@ export function ecdh_request_api (node : BifrostNode) {
     // Generate an ECDH request package.
     const self_pkg = node.signer.gen_ecdh_share(members, ecdh_pk)
 
-    let msgs : SignedMessage<ECDHPackage>[] | null = null
+    let msgs : (RpcMessageData & { data: ECDHPackage })[] | null = null
 
     try {
       // Send the request to the peers.
@@ -183,7 +180,7 @@ export function ecdh_request_api (node : BifrostNode) {
  * @param node - The BifrostNode sending the request.
  * @param peers - Array of peer public keys to send to.
  * @param pkg - The ECDH package to send.
- * @returns A Promise resolving to the array of signed ECDH responses.
+ * @returns A Promise resolving to the array of ECDH responses.
  * @throws Error if the multicast request fails or any response is invalid.
  * @internal
  */
@@ -191,17 +188,16 @@ async function create_ecdh_request (
   node  : BifrostNode,
   peers : string[],
   pkg   : ECDHPackage
-) : Promise<SignedMessage<ECDHPackage>[]> {
-  // Serialize the package as a string.
-  const msg = { data : JSON.stringify(pkg), tag : '/ecdh/req' }
-  // Send a request to the peer nodes.
-  const res = await node.client.multicast(msg, peers)
-  // Return early if the response fails.
-  if (!res.sub.ok) throw new Error(res.sub.reason)
+) : Promise<(RpcMessageData & { data: ECDHPackage })[]> {
+  // Send a request to the peer nodes using the new cast API.
+  const responses = await node.client.cast({
+    method : 'ecdh',
+    params : [ JSON.stringify(pkg) ]
+  }, peers, { threshold: node.group.threshold })
   // Parse the response packages.
-  return res.sub.inbox.map(e => {
+  return responses.map(e => {
     const parsed = parse_ecdh_message(e)
-    Assert.ok(parsed !== null, 'invalid ecdh response from pubkey: ' + e.env.pubkey)
+    Assert.ok(parsed !== null, 'invalid ecdh response from pubkey: ' + e.event.pubkey)
     return parsed
   })
 }

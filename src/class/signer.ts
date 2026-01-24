@@ -5,11 +5,7 @@ import { create_ecdh_pkg, create_batched_ecdh_pkg } from '@/lib/ecdh.js'
 import { get_session_ctx } from '@/lib/session.js'
 import { create_psig_pkg } from '@/lib/sign.js'
 
-import {
-  decrypt_content,
-  encrypt_content,
-  get_shared_secret
-} from '@cmdcode/nostr-p2p/lib'
+import { LIB, CRYPTO }     from '@vbyte/nostr-sdk'
 
 import {
   parse_share_pkg,
@@ -205,7 +201,7 @@ export class BifrostSigner {
    * Decrypts content that was encrypted for this signer.
    *
    * Uses ECDH with the sender's public key to derive a shared secret,
-   * then decrypts the content using ChaCha20-Poly1305.
+   * then decrypts the content using NIP-44 (ChaCha20-Poly1305).
    *
    * @param content - The encrypted content to decrypt.
    * @param pubkey - The sender's public key used for ECDH.
@@ -216,15 +212,15 @@ export class BifrostSigner {
     pubkey  : string
   ) {
     const seckey = this._share.seckey
-    const secret = get_shared_secret(seckey, pubkey)
-    return decrypt_content(secret, content)
+    const secret = CRYPTO.get_shared_secret(seckey, pubkey)
+    return LIB.nip44_decrypt(secret, content)
   }
 
   /**
    * Encrypts content for a specific recipient.
    *
    * Uses ECDH with the recipient's public key to derive a shared secret,
-   * then encrypts the content using ChaCha20-Poly1305.
+   * then encrypts the content using NIP-44 (ChaCha20-Poly1305).
    *
    * @param content - The content to encrypt.
    * @param pubkey - The recipient's public key used for ECDH.
@@ -235,8 +231,8 @@ export class BifrostSigner {
     pubkey  : string
   ) {
     const seckey = this._share.seckey
-    const secret = get_shared_secret(seckey, pubkey)
-    return encrypt_content(secret, content)
+    const secret = CRYPTO.get_shared_secret(seckey, pubkey)
+    return LIB.nip44_encrypt(secret, content)
   }
 
 }

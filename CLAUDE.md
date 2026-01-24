@@ -63,7 +63,7 @@ import { get_pubkey } from '@frostr/bifrost/util'
 ### Dependencies
 
 - `@vbyte/frost` - FROST threshold signing implementation
-- `@cmdcode/nostr-p2p` - Nostr relay P2P communication
+- `@vbyte/nostr-sdk` - Nostr relay P2P communication
 - `@noble/curves` - secp256k1 Schnorr signatures
 - `@noble/ciphers` - ChaCha20-Poly1305 encryption
 - `zod` - Runtime validation

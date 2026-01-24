@@ -4,7 +4,8 @@
  * Tests for peer discovery, status updates, and nonce exchange via ping.
  */
 
-import { parse_error }    from '@cmdcode/nostr-p2p/util'
+import { LIB }            from '@vbyte/nostr-sdk'
+const { parse_error } = LIB
 import { EventTracker, get_peer_idx } from '../lib/helpers.js'
 
 import type { TestNetwork } from '@/test/types.js'

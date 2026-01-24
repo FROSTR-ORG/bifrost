@@ -15,8 +15,8 @@ import {
   select_random_peers
 } from '@/lib/util.js'
 
-import type { SignedMessage } from '@cmdcode/nostr-p2p'
-import type { ECDHPackage }   from '@/types/index.js'
+import type { RpcMessageData } from '@vbyte/nostr-sdk'
+import type { ECDHPackage }    from '@/types/index.js'
 
 /**
  * A queued ECDH request.
@@ -181,7 +181,7 @@ export class ECDHBatcher {
     // Generate ECDH shares for all requested keys.
     const self_pkg = this.node.signer.gen_batched_ecdh_shares(members, ecdh_pks)
 
-    let msgs : SignedMessage<ECDHPackage>[] | null = null
+    let msgs : (RpcMessageData & { data: ECDHPackage })[] | null = null
 
     try {
       // Send the batched request to the peers.
@@ -240,19 +240,21 @@ export class ECDHBatcher {
    *
    * @param peers - Array of peer public keys to send to.
    * @param pkg - The ECDH package to send.
-   * @returns A Promise resolving to the array of signed ECDH responses.
+   * @returns A Promise resolving to the array of ECDH responses.
    * @internal
    */
   private async create_request (
     peers : string[],
     pkg   : ECDHPackage
-  ) : Promise<SignedMessage<ECDHPackage>[]> {
-    const msg = { data : JSON.stringify(pkg), tag : '/ecdh/req' }
-    const res = await this.node.client.multicast(msg, peers)
-    if (!res.sub.ok) throw new Error(res.sub.reason)
-    return res.sub.inbox.map(e => {
+  ) : Promise<(RpcMessageData & { data: ECDHPackage })[]> {
+    // Send request using the new cast API.
+    const responses = await this.node.client.cast({
+      method : 'ecdh',
+      params : [ JSON.stringify(pkg) ]
+    }, peers, { threshold: this.node.group.threshold })
+    return responses.map(e => {
       const parsed = parse_ecdh_message(e)
-      Assert.ok(parsed !== null, 'invalid ecdh response from pubkey: ' + e.env.pubkey)
+      Assert.ok(parsed !== null, 'invalid ecdh response from pubkey: ' + e.event.pubkey)
       return parsed
     })
   }
@@ -266,6 +268,22 @@ export class ECDHBatcher {
   schedule () {
     if (this.timer === null) {
       this._timer = setTimeout(() => this.process(), this._ival)
+    }
+  }
+
+  /**
+   * Closes the batcher, clearing any pending timer and rejecting queued requests.
+   * Should be called when the BifrostNode is closing to ensure clean shutdown.
+   */
+  close () {
+    if (this._timer !== null) {
+      clearTimeout(this._timer)
+      this._timer = null
+    }
+    const pending = [...this._queue]
+    this._queue = []
+    for (const req of pending) {
+      req.reject('batcher closed')
     }
   }
 }

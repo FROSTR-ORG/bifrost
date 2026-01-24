@@ -1,5 +1,6 @@
 import { Buff }        from '@vbyte/buff'
-import { parse_error } from '@cmdcode/nostr-p2p/util'
+import { LIB }         from '@vbyte/nostr-sdk'
+const { parse_error } = LIB
 
 import type { Test }        from 'tape'
 import type { TestNetwork } from '@/test/types.js'

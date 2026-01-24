@@ -1,8 +1,11 @@
 import { BifrostNode }         from '@/class/client.js'
-import { finalize_message }    from '@cmdcode/nostr-p2p/lib'
 import { Assert, parse_error } from '@/util/index.js'
 
-import type { SignedMessage } from '@cmdcode/nostr-p2p'
+import type {
+  RpcMessageData,
+  RpcMessageEnvelope,
+  RequestRpcMessage
+} from '@vbyte/nostr-sdk'
 import type { ApiResponse }   from '@/types/index.js'
 
 /**
@@ -29,28 +32,20 @@ import type { ApiResponse }   from '@/types/index.js'
  */
 export async function echo_handler_api (
   node : BifrostNode,
-  msg  : SignedMessage<string>
+  msg  : RpcMessageEnvelope<RequestRpcMessage>
 ) {
   // Try to parse the message.
   try {
     // Emit the request message.
     node.emit('/echo/handler/req', msg)
-    // Get the peer data.
-    const peer_data = node.peers.find(e => e.pubkey === msg.env.pubkey)
-    // If the peer data is not found, throw an error.
-    if (peer_data === undefined) throw new Error('peer data not found')
-    // Finalize the response package.
-    const envelope = finalize_message({
-      data : JSON.stringify(peer_data.policy),
-      id   : msg.id,
-      tag  : '/echo/res'
-    })
-    // Publish the response package.
-    const res = await node.client.publish(envelope, msg.env.pubkey)
+    // Echo back the challenge that was sent
+    const challenge = msg.params[0] ?? ''
+    // Send the response using the new respond API.
+    const res = await node.client.respond(msg).accept(challenge)
     // If the response is not ok, throw an error.
     if (!res.ok) throw new Error('failed to publish response')
     // Emit the response package.
-    node.emit('/echo/handler/res', res.data)
+    node.emit('/echo/handler/res', msg)
   } catch (err) {
     // Log the error.
     if (node.debug) console.log(err)
@@ -88,7 +83,7 @@ export function echo_request_api (node : BifrostNode) {
 
   return async (challenge : string) : Promise<ApiResponse<string>> => {
 
-    let msg : SignedMessage<string> | null = null
+    let msg : RpcMessageData | null = null
 
     try {
       // Send the request to the peers.
@@ -108,10 +103,12 @@ export function echo_request_api (node : BifrostNode) {
 
     try {
       Assert.ok(msg !== null, 'no response from self')
+      // Extract data from response (the echoed challenge string)
+      const data = msg.type === 'accept' ? String((msg as { data: unknown }).data) : ''
       // Emit the echo event.
-      node.emit('/echo/sender/ret', [ msg.data ])
+      node.emit('/echo/sender/ret', [ data ])
       // Return the echo event.
-      return { ok : true, data : msg.data }
+      return { ok : true, data }
     } catch (err) {
       // Log the error.
       if (node.debug) console.log(err)
@@ -130,21 +127,17 @@ export function echo_request_api (node : BifrostNode) {
  *
  * @param node - The BifrostNode sending the request.
  * @param challenge - The challenge string to echo.
- * @returns A Promise resolving to the signed echo response.
+ * @returns A Promise resolving to the RPC message response.
  * @throws Error if the request fails or times out.
  * @internal
  */
 async function create_echo_request (
   node      : BifrostNode,
   challenge : string
-) : Promise<SignedMessage<string>> {
-  // Send a request to the peer nodes.
-  const res = await node.client.request({
-    data : challenge,
-    tag  : '/echo/req'
-  }, node.pubkey, {})
-  // If the response is not ok, throw an error.
-  if (!res.ok) throw new Error(res.reason)
-  // Return the response.
-  return res.inbox[0]
+) : Promise<RpcMessageData> {
+  // Send a request to self.
+  return node.client.request({
+    method : 'echo',
+    params : [ challenge ]
+  }, node.pubkey)
 }

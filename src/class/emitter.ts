@@ -66,19 +66,26 @@ export class EventEmitter<T extends Record<string, any> = {}> {
 
   /**
    * Subscribes a handler that automatically unsubscribes after a specified timeout.
+   * Uses timer.unref() to prevent blocking process exit.
    */
   public within<K extends keyof T>(
     eventName : K,
     handler   : EventHandler<T[K]>,
     timeoutMs : number
   ): void {
+    const cleanup = () => {
+      clearTimeout(timer)
+      this.off(eventName, timeout_handler)
+    }
+
     const timeout_handler: EventHandler<T[K]> = ((payload: T[K]) => {
+      cleanup()
       void invoke_handler(handler as Function, payload)
     }) as EventHandler<T[K]>
 
-    setTimeout(() => {
-      this.off(eventName, timeout_handler)
-    }, timeoutMs)
+    const timer = setTimeout(cleanup, timeoutMs)
+    // Prevent timer from blocking process exit
+    if (typeof timer.unref === 'function') timer.unref()
 
     this.on(eventName, timeout_handler)
   }
@@ -124,6 +131,18 @@ export class EventEmitter<T extends Record<string, any> = {}> {
    */
   public clear(eventName: EventName<T>): void {
     this.eventMap.delete(eventName)
+  }
+
+  /**
+   * Removes all handlers for a specific event, or all handlers if no event specified.
+   * @param eventName - Optional event name to clear handlers for
+   */
+  public clear_listeners<K extends keyof T>(eventName?: K): void {
+    if (eventName !== undefined) {
+      this.eventMap.delete(eventName)
+    } else {
+      this.eventMap.clear()
+    }
   }
 }
 

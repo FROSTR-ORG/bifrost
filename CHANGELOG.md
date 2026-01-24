@@ -40,7 +40,7 @@
 ### Dependencies
 
 - `@vbyte/frost` 1.1.5
-- `@cmdcode/nostr-p2p` 2.0.11
+- `@vbyte/nostr-sdk` 1.0.0 (replaces `@cmdcode/nostr-p2p`)
 - `@noble/curves` 2.0.1
 - `@noble/ciphers` 2.1.1
 - `@noble/hashes` 2.0.1

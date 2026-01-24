@@ -153,4 +153,20 @@ export class SignBatcher {
       this._timer = setTimeout(() => this.process(), this._ival)
     }
   }
+
+  /**
+   * Closes the batcher, clearing any pending timer and rejecting queued requests.
+   * Should be called when the BifrostNode is closing to ensure clean shutdown.
+   */
+  close () {
+    if (this._timer !== null) {
+      clearTimeout(this._timer)
+      this._timer = null
+    }
+    const pending = [...this._queue]
+    this._queue = []
+    for (const req of pending) {
+      req.reject('batcher closed')
+    }
+  }
 }

@@ -316,26 +316,34 @@ Example flow:
 
 ## Nostr Integration
 
-### NostrNode (from @cmdcode/nostr-p2p)
+### NostrNode (from @vbyte/nostr-sdk)
 
 Handles all relay communication:
 
 ```typescript
 // Wrapped by BifrostNode
-const client = new NostrNode(relays, seckey, options)
+const client = new NostrNode(peers, relays, seckey, options)
 
-client.on('message', (msg) => {
+client.on('message', ([msg]) => {
   // Decrypted, verified message from peer
 })
 
-client.send(tag, data, recipients)
+// Request/response pattern
+const response = await client.request({ method: 'ping', params: [...] }, peer)
+
+// Multicast pattern
+const responses = await client.cast({ method: 'sign', params: [...] }, peers)
+
+// Handler response pattern
+const result = await client.respond(msg).accept(data)
 ```
 
 **Features:**
 - WebSocket management with reconnection
-- End-to-end encryption (ChaCha20-Poly1305)
+- End-to-end encryption (NIP-44: ChaCha20-Poly1305)
 - Message signing and verification
-- Subscription filtering
+- RPC-style request/response API
+- Multicast with threshold collection
 
 ### Message Routing
 

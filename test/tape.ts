@@ -17,7 +17,11 @@ import helpers_unit_case      from './src/case/unit/helpers.test.js'
 import libutil_unit_case      from './src/case/unit/lib-util.test.js'
 import nonce_unit_case        from './src/case/unit/nonce.test.js'
 
+// Helper to let the event loop drain between test suites
+const drain = () => new Promise(resolve => setImmediate(resolve))
+
 tape('Bifrost Test Suite', async t => {
+  // Unit tests (synchronous, no network)
   encode_unit_case(t)
   group_unit_case(t)
   tweak_unit_case(t)
@@ -32,6 +36,11 @@ tape('Bifrost Test Suite', async t => {
   helpers_unit_case(t)
   libutil_unit_case(t)
   nonce_unit_case(t)
+
+  // Let event loop drain before network tests
+  await drain()
+
+  // Network tests
   e2e_test_cases(t)
   integration_test_cases(t)
 })

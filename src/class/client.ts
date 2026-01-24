@@ -4,8 +4,8 @@ import { SignBatcher }   from './sign-batcher.js'
 import { ECDHBatcher }   from './ecdh-batcher.js'
 import { NoncePool }     from './pool.js'
 
-import { NostrNode }      from '@cmdcode/nostr-p2p'
-import { parse_error }    from '@cmdcode/nostr-p2p/util'
+import { NostrNode }      from '@vbyte/nostr-sdk'
+import { parse_error }    from '@vbyte/nostr-sdk/lib'
 import { convert_pubkey } from '@/util/crypto.js'
 import { now }            from '@/util/helpers.js'
 
@@ -20,7 +20,7 @@ import {
   get_recv_pubkeys
 } from '@/lib/peer.js'
 
-import type { SignedMessage } from '@cmdcode/nostr-p2p'
+import type { RpcMessageData } from '@vbyte/nostr-sdk'
 
 import type {
   BifrostNodeCache,
@@ -56,7 +56,11 @@ const DEFAULT_CONFIG : () => BifrostNodeConfig = () => {
     policies   : [],
     sign_interval  : 100,
     ecdh_interval  : 100,
-    nonce_pool : {}
+    nonce_pool : {},
+    sdk_config : {
+      msg_timeout : 15000,  // 15s (SDK default is 5s)
+      sub_timeout : 30000   // 30s (SDK default is 30s)
+    }
   }
 }
 
@@ -132,9 +136,12 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     // Initialize nonce pools for all peers
     this._pool.init_peers(group.members)
 
-    const authors = [ ...get_peer_pubkeys(this.peers), this.pubkey ]
+    const peer_pks = get_peer_pubkeys(this.peers)
+    // Include self for echo support (self-messaging)
+    const self_pk  = convert_pubkey(this._signer.pubkey, 'bip340')
+    const all_pks  = [ ...peer_pks, self_pk ]
 
-    this._client = new NostrNode(relays, share.seckey, { filter : { authors } })
+    this._client = new NostrNode(all_pks, relays, share.seckey, this._config.sdk_config)
 
     this._client.on('closed', () => {
       this._is_ready = false
@@ -151,29 +158,36 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
       this.emit('message', msg)
       // Return early if the message is not allowed.
       if (!this._filter(msg)) return
-      // Handle the message.
+      // Only handle request messages
+      if (msg.type !== 'request') return
+      // Handle the message based on method.
       try {
-        switch (msg.tag) {
-          case '/ping/req': {
+        switch (msg.method) {
+          case 'ping': {
             // Handle the request.
             API.ping_handler_api(this, msg)
             break
           }
-          case '/ecdh/req': {
+          case 'echo': {
+            // Handle the request.
+            API.echo_handler_api(this, msg)
+            break
+          }
+          case 'ecdh': {
             // Parse the request message.
             const parsed = parse_ecdh_message(msg)
             // Handle the request.
             API.ecdh_handler_api(this, parsed)
             break
           }
-          case '/onboard/req': {
+          case 'onboard': {
             // Parse the request message.
             const parsed = parse_onboard_message(msg)
             // Handle the request.
             API.onboard_handler_api(this, parsed)
             break
           }
-          case '/sign/req': {
+          case 'sign': {
             // Parse the request message.
             const parsed = parse_session_message(msg)
             // Handle the request.
@@ -196,22 +210,24 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
    * - Ping requests are always allowed (for peer discovery)
    * - Other messages must come from authorized peers with recv policy enabled
    *
-   * @param msg - The signed message to filter.
+   * @param msg - The RPC message to filter.
    * @returns True if the message should be processed, false otherwise.
    * @internal
    */
-  _filter (msg : SignedMessage) {
-    const { pubkey } = msg.env
+  _filter (msg : RpcMessageData) {
+    const { pubkey } = msg.event
+    // Only filter request messages (they have a method field)
+    if (msg.type !== 'request') return true
     // Allow echo requests.
-    if (msg.tag === '/echo/req') return true
+    if (msg.method === 'echo') return true
     // Disallow echo responses from self.
     if (pubkey === this.pubkey) return false
     // Allow ping requests.
-    if (msg.tag === '/ping/req') return true
+    if (msg.method === 'ping') return true
     // Get a list of authorized peers.
     const recv_pks = get_recv_pubkeys(this.peers)
     // Check if the message is authorized.
-    if (!recv_pks.includes(msg.env.pubkey)) {
+    if (!recv_pks.includes(pubkey)) {
       this.emit('bounced', [ 'unauthorized', msg ])
       return false
     } else {
@@ -350,17 +366,25 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
    * @returns A promise that resolves when connection is initiated.
    */
   async connect () : Promise<void> {
-    void this.client.connect()
+    return this.client.connect()
   }
 
   /**
-   * Closes connections to all Nostr relays.
+   * Closes connections to all Nostr relays and cleans up resources.
+   *
+   * This method:
+   * 1. Closes the batchers (clearing timers and rejecting pending requests)
+   * 2. Closes the underlying Nostr client
    *
    * Emits 'closed' event when disconnected.
    *
    * @returns A promise that resolves when close is initiated.
    */
   async close () : Promise<void> {
+    // Close the batchers first to clear timers and reject pending requests
+    this._sign_batcher.close()
+    this._ecdh_batcher.close()
+    // Close the underlying client
     void this.client.close()
   }
 

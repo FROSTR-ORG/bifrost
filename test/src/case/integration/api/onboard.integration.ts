@@ -9,7 +9,8 @@
  * the full onboarding workflow.
  */
 
-import { parse_error }    from '@cmdcode/nostr-p2p/util'
+import { LIB }            from '@vbyte/nostr-sdk'
+const { parse_error } = LIB
 
 import type { TestNetwork } from '@/test/types.js'
 import type { Test }        from 'tape'

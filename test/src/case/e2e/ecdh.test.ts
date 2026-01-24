@@ -1,6 +1,7 @@
 import { TestNetwork } from '@/test/types.js'
-import { parse_error } from '@cmdcode/nostr-p2p/util'
+import { LIB }         from '@vbyte/nostr-sdk'
 import { get_pubkey }  from '@/util/crypto.js'
+const { parse_error } = LIB
 
 import type { Test } from 'tape'
 

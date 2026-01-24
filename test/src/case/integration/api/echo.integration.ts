@@ -5,7 +5,8 @@
  */
 
 import { Buff }           from '@vbyte/buff'
-import { parse_error }    from '@cmdcode/nostr-p2p/util'
+import { LIB }            from '@vbyte/nostr-sdk'
+const { parse_error } = LIB
 import { measure_time }   from '../lib/helpers.js'
 
 import type { TestNetwork } from '@/test/types.js'

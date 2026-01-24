@@ -81,6 +81,7 @@ export class NostrRelay {
 
   private _wss   : WebSocketServer | null
   private _cache : SignedEvent[]
+  private _purge_timer : ReturnType<typeof setInterval> | null
 
   public conn : number
 
@@ -89,6 +90,7 @@ export class NostrRelay {
     this._emitter = new EventEmitter
     this._port    = port
     this._purge   = purge_ival ?? null
+    this._purge_timer = null
     this._subs    = new Map()
     this._wss     = null
     this.conn     = 0
@@ -132,12 +134,15 @@ export class NostrRelay {
       this.wss.on('listening', () => {
         if (this._purge !== null) {
           DEBUG && console.log(`[ relay ] purging events every ${this._purge} seconds`)
-          setInterval(() => {
+          this._purge_timer = setInterval(() => {
             this._cache = []
           }, this._purge * 1000)
         }
-        this._emitter.emit('connected')
-        res(this)
+        // Delay for socket to fully initialize
+        setTimeout(() => {
+          this._emitter.emit('connected')
+          res(this)
+        }, 100)
       })
     })
   }
@@ -147,6 +152,10 @@ export class NostrRelay {
   }
 
   close () {
+    if (this._purge_timer !== null) {
+      clearInterval(this._purge_timer)
+      this._purge_timer = null
+    }
     this.wss.close()
   }
 

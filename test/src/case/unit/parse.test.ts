@@ -8,29 +8,50 @@ import {
   parse_share_pkg
 } from '@/lib/parse.js'
 
-import type { Test }          from 'tape'
-import type { SignedMessage } from '@cmdcode/nostr-p2p'
+import type { Test }           from 'tape'
+import type { RpcMessageData } from '@vbyte/nostr-sdk'
 
 // Valid test data - hex strings of correct lengths
 const HEX32 = 'a'.repeat(64)  // 32 bytes = 64 hex chars
 const HEX33 = '02' + 'b'.repeat(64)  // 33 bytes = 66 hex chars (compressed pubkey)
 
-// Helper to create a mock SignedMessage
-function create_mock_message (data : string) : SignedMessage {
+// Helper to create a mock RpcMessageData for request messages
+function create_mock_request (data : string) : RpcMessageData {
   return {
-    id   : HEX32,
-    data : data,
-    tag  : '/test',
-    env  : {
-      pubkey : HEX32,
-      kind   : 20004,
-      tags   : [],
-      id     : HEX32,
-      sig    : HEX32 + HEX32,
-      pubkey_ecdsa : HEX33,
-      created_at   : 1234567890
+    id     : HEX32,
+    type   : 'request',
+    method : 'test',
+    params : [ data ],
+    peers  : [],
+    event  : {
+      id         : HEX32,
+      pubkey     : HEX32,
+      kind       : 20004,
+      content    : '',
+      tags       : [],
+      created_at : 1234567890,
+      sig        : HEX32 + HEX32
     }
-  } as SignedMessage
+  } as RpcMessageData
+}
+
+// Helper to create a mock RpcMessageData for accept messages
+function create_mock_accept (data : unknown) : RpcMessageData {
+  return {
+    id     : HEX32,
+    type   : 'accept',
+    status : true,
+    data   : data,
+    event  : {
+      id         : HEX32,
+      pubkey     : HEX32,
+      kind       : 20004,
+      content    : '',
+      tags       : [],
+      created_at : 1234567890,
+      sig        : HEX32 + HEX32
+    }
+  } as RpcMessageData
 }
 
 // Valid ECDH package (new format with entries array)
@@ -81,9 +102,9 @@ const VALID_SHARE = {
 export default function (tape : Test) {
   tape.test('parse function tests', t => {
     try {
-      // Test parse_ecdh_message - success case
-      t.test('parse_ecdh_message() with valid data', st => {
-        const msg = create_mock_message(JSON.stringify(VALID_ECDH))
+      // Test parse_ecdh_message - success case (request format)
+      t.test('parse_ecdh_message() with valid request data', st => {
+        const msg = create_mock_request(JSON.stringify(VALID_ECDH))
         const parsed = parse_ecdh_message(msg)
 
         st.equal(parsed.data.idx, VALID_ECDH.idx, 'idx is parsed correctly')
@@ -95,18 +116,28 @@ export default function (tape : Test) {
         st.end()
       })
 
+      // Test parse_ecdh_message - success case (accept format)
+      t.test('parse_ecdh_message() with valid accept data', st => {
+        const msg = create_mock_accept(VALID_ECDH)
+        const parsed = parse_ecdh_message(msg)
+
+        st.equal(parsed.data.idx, VALID_ECDH.idx, 'idx is parsed correctly')
+        st.deepEqual(parsed.data.members, VALID_ECDH.members, 'members are parsed correctly')
+        st.end()
+      })
+
       // Test parse_ecdh_message - error cases
       t.test('parse_ecdh_message() with invalid data', st => {
         // Invalid JSON
-        const invalidJson = create_mock_message('not valid json')
+        const invalidJson = create_mock_request('not valid json')
         st.throws(() => parse_ecdh_message(invalidJson), /ecdh message failed validation/, 'throws on invalid JSON')
 
         // Missing required field
-        const missingField = create_mock_message(JSON.stringify({ idx: 1 }))
+        const missingField = create_mock_request(JSON.stringify({ idx: 1 }))
         st.throws(() => parse_ecdh_message(missingField), /ecdh message failed validation/, 'throws on missing field')
 
         // Invalid hex in entries
-        const invalidHex = create_mock_message(JSON.stringify({
+        const invalidHex = create_mock_request(JSON.stringify({
           ...VALID_ECDH,
           entries : [{ ecdh_pk: VALID_ECDH.entries[0].ecdh_pk, keyshare : 'not-hex' }]
         }))
@@ -117,7 +148,7 @@ export default function (tape : Test) {
 
       // Test parse_session_message - success case
       t.test('parse_session_message() with valid data', st => {
-        const msg = create_mock_message(JSON.stringify(VALID_SESSION))
+        const msg = create_mock_request(JSON.stringify(VALID_SESSION))
         const parsed = parse_session_message(msg)
 
         st.equal(parsed.data.sid, VALID_SESSION.sid, 'sid is parsed correctly')
@@ -129,11 +160,11 @@ export default function (tape : Test) {
       // Test parse_session_message - error cases
       t.test('parse_session_message() with invalid data', st => {
         // Invalid JSON
-        const invalidJson = create_mock_message('{ broken }')
+        const invalidJson = create_mock_request('{ broken }')
         st.throws(() => parse_session_message(invalidJson), /session message failed validation/, 'throws on invalid JSON')
 
         // Wrong type for members
-        const wrongType = create_mock_message(JSON.stringify({
+        const wrongType = create_mock_request(JSON.stringify({
           ...VALID_SESSION,
           members : 'not-an-array'
         }))
@@ -142,9 +173,9 @@ export default function (tape : Test) {
         st.end()
       })
 
-      // Test parse_psig_message - success case
+      // Test parse_psig_message - success case (accept format)
       t.test('parse_psig_message() with valid data', st => {
-        const msg = create_mock_message(JSON.stringify(VALID_PSIG))
+        const msg = create_mock_accept(VALID_PSIG)
         const parsed = parse_psig_message(msg)
 
         st.equal(parsed.data.idx, VALID_PSIG.idx, 'idx is parsed correctly')
@@ -156,17 +187,17 @@ export default function (tape : Test) {
       // Test parse_psig_message - error cases
       t.test('parse_psig_message() with invalid data', st => {
         // Invalid psigs format
-        const invalidPsigs = create_mock_message(JSON.stringify({
+        const invalidPsigs = create_mock_accept({
           ...VALID_PSIG,
           psigs : 'not-an-array'
-        }))
+        })
         st.throws(() => parse_psig_message(invalidPsigs), /signature message failed validation/, 'throws on invalid psigs')
 
         // Invalid pubkey length
-        const invalidPubkey = create_mock_message(JSON.stringify({
+        const invalidPubkey = create_mock_accept({
           ...VALID_PSIG,
           pubkey : HEX32  // 32 bytes instead of 33
-        }))
+        })
         st.throws(() => parse_psig_message(invalidPubkey), /signature message failed validation/, 'throws on invalid pubkey length')
 
         st.end()

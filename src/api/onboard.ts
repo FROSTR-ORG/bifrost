@@ -6,18 +6,21 @@
  * it uses this API to receive the full GroupPackage and initial nonces.
  */
 
-import { BifrostNode }      from '@/class/client.js'
-import { finalize_message } from '@cmdcode/nostr-p2p/lib'
-import Schema               from '@/schema/index.js'
+import { BifrostNode } from '@/class/client.js'
+import Schema          from '@/schema/index.js'
 
-import { pubkeys_match }    from '@/lib/util.js'
+import { pubkeys_match } from '@/lib/util.js'
 
 import {
   Assert,
   parse_error
 } from '@/util/index.js'
 
-import type { SignedMessage } from '@cmdcode/nostr-p2p'
+import type {
+  RpcMessageData,
+  RpcMessageEnvelope,
+  RequestRpcMessage
+} from '@vbyte/nostr-sdk'
 
 import type {
   ApiResponse,
@@ -43,7 +46,7 @@ import type {
  */
 export async function onboard_handler_api (
   node : BifrostNode,
-  msg  : SignedMessage<OnboardRequest>
+  msg  : RpcMessageEnvelope<RequestRpcMessage> & { data: OnboardRequest }
 ) {
   try {
     // Emit the request message
@@ -75,18 +78,12 @@ export async function onboard_handler_api (
       status : 'ok'
     }
 
-    // Finalize and publish the response
-    const envelope = finalize_message({
-      data : JSON.stringify(response),
-      id   : msg.id,
-      tag  : '/onboard/res'
-    })
-
-    const res = await node.client.publish(envelope, msg.env.pubkey)
+    // Send the response using the new respond API
+    const res = await node.client.respond(msg).accept(response)
     if (!res.ok) throw new Error('failed to publish onboard response')
 
     // Emit success
-    node.emit('/onboard/handler/res', res.data)
+    node.emit('/onboard/handler/res', msg)
 
   } catch (err) {
     // Log and emit error
@@ -101,12 +98,7 @@ export async function onboard_handler_api (
         status : 'error',
         error  : parse_error(err)
       }
-      const envelope = finalize_message({
-        data : JSON.stringify(error_response),
-        id   : msg.id,
-        tag  : '/onboard/res'
-      })
-      await node.client.publish(envelope, msg.env.pubkey)
+      await node.client.respond(msg).reject(error_response.error ?? 'unknown error')
     } catch {
       // Ignore publish errors for error response
     }
@@ -146,7 +138,7 @@ export function onboard_request_api (node : BifrostNode) {
 
   return async (peer_pubkey : string) : Promise<ApiResponse<OnboardResponse>> => {
 
-    let msg : SignedMessage<string> | null = null
+    let msg : RpcMessageData | null = null
 
     try {
       // Create the onboard request
@@ -210,14 +202,11 @@ async function create_onboard_request (
   node    : BifrostNode,
   pubkey  : string,
   request : OnboardRequest
-) : Promise<SignedMessage<string>> {
-  const res = await node.client.request({
-    data : JSON.stringify(request),
-    tag  : '/onboard/req'
-  }, pubkey, {})
-
-  if (!res.ok) throw new Error(res.reason)
-  return res.inbox[0]
+) : Promise<RpcMessageData> {
+  return node.client.request({
+    method : 'onboard',
+    params : [ JSON.stringify(request) ]
+  }, pubkey)
 }
 
 /**
@@ -226,11 +215,13 @@ async function create_onboard_request (
  * @internal
  */
 function parse_onboard_response (
-  msg : SignedMessage<string>
+  msg : RpcMessageData
 ) : OnboardResponse | null {
   try {
-    const json   = JSON.parse(msg.data)
-    const parsed = Schema.onboard.onboard_res.safeParse(json)
+    // Check if this is an accept message with data
+    if (msg.type !== 'accept') return null
+    const data = (msg as { data: unknown }).data
+    const parsed = Schema.onboard.onboard_res.safeParse(data)
     if (!parsed.success) return null
     return parsed.data as OnboardResponse
   } catch {

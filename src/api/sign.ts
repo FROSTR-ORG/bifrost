@@ -1,6 +1,5 @@
 import { BifrostNode } from '@/class/client.js'
 
-import { finalize_message }   from '@cmdcode/nostr-p2p/lib'
 import { parse_psig_message } from '@/lib/parse.js'
 import { get_send_pubkeys }   from '@/lib/peer.js'
 import { format_sigvector }   from '@/lib/sighash.js'
@@ -28,7 +27,11 @@ import {
   verify_psig_pkg
 } from '@/lib/sign.js'
 
-import type { SignedMessage } from '@cmdcode/nostr-p2p'
+import type {
+  RpcMessageData,
+  RpcMessageEnvelope,
+  RequestRpcMessage
+} from '@vbyte/nostr-sdk'
 
 import type {
   ApiResponse,
@@ -63,25 +66,25 @@ import type {
  */
 export async function sign_handler_api (
   node : BifrostNode,
-  msg  : SignedMessage<SignSessionPackage>
+  msg  : RpcMessageEnvelope<RequestRpcMessage> & { data: SignSessionPackage }
 ) {
   // Get the middleware.
   const middleware = node.config.middleware.sign
   // Try to handle the request.
   try {
     // Emit the request package.
-    node.emit('/sign/handler/req', copy_obj(msg))
+    node.emit('/sign/handler/req', msg)
 
     // If the middleware is a function, apply it.
     if (typeof middleware === 'function') {
-      msg = middleware(node, msg)
+      msg = middleware(node, msg) as RpcMessageEnvelope<RequestRpcMessage> & { data: SignSessionPackage }
     }
 
     const session = msg.data
 
     // Get our nonce from the session
     const our_idx = node.signer.idx
-    const requester_idx = get_member_idx_by_pubkey(node, msg.env.pubkey)
+    const requester_idx = get_member_idx_by_pubkey(node, msg.event.pubkey)
 
     // Find our nonce in the session's unified nonces array
     const our_nonce = session.nonces?.find(n => n.idx === our_idx)
@@ -104,23 +107,16 @@ export async function sign_handler_api (
     // Mark the nonce as spent
     node.pool.mark_spent(requester_idx, our_nonce.code)
 
-    // Publish the response package.
-    const envelope = finalize_message({
-      data : JSON.stringify(pkg),
-      id   : msg.id,
-      tag  : '/sign/res'
-    })
-
-    // Send the response package to the peer.
-    const res = await node.client.publish(envelope, msg.env.pubkey)
+    // Send the response using the new respond API.
+    const res = await node.client.respond(msg).accept(pkg)
     if (!res.ok) throw new Error('failed to publish response')
 
     // Emit the response package.
-    node.emit('/sign/handler/res', copy_obj(res.data))
+    node.emit('/sign/handler/res', msg)
 
   } catch (err) {
     if (node.debug) console.log(err)
-    node.emit('/sign/handler/rej', [ parse_error(err), copy_obj(msg) ])
+    node.emit('/sign/handler/rej', [ parse_error(err), msg ])
   }
 }
 
@@ -228,7 +224,7 @@ export function sign_request_api (node : BifrostNode) {
     }
 
     // Initialize the list of response packages.
-    let msgs : SignedMessage<PartialSigPackage>[] | null = null
+    let msgs : (RpcMessageData & { data: PartialSigPackage })[] | null = null
 
     try {
       // Create the request.
@@ -326,7 +322,7 @@ function collect_nonces_for_session (
  * @param node - The BifrostNode sending the request.
  * @param peers - Array of peer public keys to send to.
  * @param session - The signing session package to send.
- * @returns A Promise resolving to the array of signed partial signature responses.
+ * @returns A Promise resolving to the array of partial signature responses.
  * @throws Error if the multicast request fails.
  * @internal
  */
@@ -334,16 +330,14 @@ async function create_sign_request (
   node    : BifrostNode,
   peers   : string[],
   session : SignSessionPackage
-) : Promise<SignedMessage<PartialSigPackage>[]> {
-  // Send this request to other nodes, and await their response.
-  const res = await node.client.multicast({
-    data : JSON.stringify(session),
-    tag  : '/sign/req'
-  }, peers)
-  // Return the response.
-  if (!res.sub.ok) throw new Error(res.sub.reason)
-  // Return the response.
-  return res.sub.inbox
+) : Promise<(RpcMessageData & { data: PartialSigPackage })[]> {
+  // Send this request to other nodes using the new cast API.
+  const responses = await node.client.cast({
+    method : 'sign',
+    params : [ JSON.stringify(session) ]
+  }, peers, { threshold: node.group.threshold })
+  // Parse responses to extract partial signature packages.
+  return responses.map(e => parse_psig_message(e))
 }
 
 /**
@@ -353,7 +347,7 @@ async function create_sign_request (
  * local partial signature, and produces the final aggregated signatures.
  *
  * @param node - The BifrostNode that initiated the request.
- * @param responses - Array of signed partial signature responses from peers.
+ * @param responses - Array of partial signature responses from peers.
  * @param session - The original signing session package.
  * @param our_secret - Our secret nonce for signing.
  * @returns Array of signature entries [id, signature].
@@ -362,7 +356,7 @@ async function create_sign_request (
  */
 function finalize_sign_response (
   node       : BifrostNode,
-  responses  : SignedMessage<PartialSigPackage>[],
+  responses  : (RpcMessageData & { data: PartialSigPackage })[],
   session    : SignSessionPackage,
   our_secret : SecretNoncePair
 ) : SignatureEntry[] {
@@ -378,12 +372,11 @@ function finalize_sign_response (
   // Collect all partial signatures
   const pkgs = [ our_pkg ]
 
-  // Parse and verify peer responses.
+  // Verify and collect peer responses.
   responses.forEach(e => {
-    const parsed = parse_psig_message(e)
-    const error  = verify_psig_pkg(ctx, parsed.data)
-    Assert.ok(error === null, error + ' : ' + e.env.pubkey)
-    pkgs.push(parsed.data)
+    const error = verify_psig_pkg(ctx, e.data)
+    Assert.ok(error === null, error + ' : ' + e.event.pubkey)
+    pkgs.push(e.data)
   })
 
   // Return the aggregate signature.

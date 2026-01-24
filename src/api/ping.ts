@@ -1,6 +1,5 @@
-import { BifrostNode }      from '@/class/client.js'
-import { finalize_message } from '@cmdcode/nostr-p2p/lib'
-import Schema               from '@/schema/index.js'
+import { BifrostNode } from '@/class/client.js'
+import Schema          from '@/schema/index.js'
 
 import {
   Assert,
@@ -13,7 +12,11 @@ import {
   pubkeys_match
 } from '@/lib/util.js'
 
-import type { SignedMessage } from '@cmdcode/nostr-p2p'
+import type {
+  RpcMessageData,
+  RpcMessageEnvelope,
+  RequestRpcMessage
+} from '@vbyte/nostr-sdk'
 
 import type {
   ApiResponse,
@@ -45,18 +48,18 @@ const PROTOCOL_VERSION = 2
  */
 export async function ping_handler_api (
   node : BifrostNode,
-  msg  : SignedMessage<string>
+  msg  : RpcMessageEnvelope<RequestRpcMessage>
 ) {
   try {
     // Emit the request message
     node.emit('/ping/handler/req', msg)
 
     // Get the peer data
-    const peer_data = node.peers.find(e => e.pubkey === msg.env.pubkey)
+    const peer_data = node.peers.find(e => e.pubkey === msg.event.pubkey)
     if (peer_data === undefined) throw new Error('peer data not found')
 
-    // Try to parse enhanced ping request
-    const request = parse_ping_request(msg.data)
+    // Try to parse enhanced ping request from params
+    const request = parse_ping_request(msg.params)
 
     // Get peer index from group
     const peer_member = node.group.members.find(m => pubkeys_match(m.pubkey, peer_data.pubkey))
@@ -88,14 +91,8 @@ export async function ping_handler_api (
       }
     }
 
-    // Finalize and publish the response
-    const envelope = finalize_message({
-      data : JSON.stringify(response),
-      id   : msg.id,
-      tag  : '/ping/res'
-    })
-
-    const res = await node.client.publish(envelope, msg.env.pubkey)
+    // Send the response using the new respond API
+    const res = await node.client.respond(msg).accept(response)
     if (!res.ok) throw new Error('failed to publish response')
 
     // Update the peer state
@@ -106,7 +103,7 @@ export async function ping_handler_api (
     })
 
     // Emit the response
-    node.emit('/ping/handler/res', res.data)
+    node.emit('/ping/handler/res', msg)
 
   } catch (err) {
     if (node.debug) console.log(err)
@@ -156,7 +153,7 @@ export function ping_request_api (node : BifrostNode) {
     const peer_member = node.group.members.find(m => pubkeys_match(m.pubkey, pubkey))
     const peer_idx = peer_member?.idx
 
-    let msg : SignedMessage<string> | null = null
+    let msg : RpcMessageData | null = null
 
     try {
       // Build the enhanced ping request
@@ -237,7 +234,7 @@ export function ping_request_api (node : BifrostNode) {
  * @param node - The BifrostNode sending the request.
  * @param pubkey - The public key of the peer to ping.
  * @param request - The enhanced ping request payload.
- * @returns A Promise resolving to the signed ping response.
+ * @returns A Promise resolving to the RPC message response.
  * @throws Error if the request fails or times out.
  * @internal
  */
@@ -245,27 +242,25 @@ async function create_ping_request (
   node    : BifrostNode,
   pubkey  : string,
   request : PingRequest
-) : Promise<SignedMessage<string>> {
-  const res = await node.client.request({
-    data : JSON.stringify(request),
-    tag  : '/ping/req'
-  }, pubkey, {})
-
-  if (!res.ok) throw new Error(res.reason)
-  return res.inbox[0]
+) : Promise<RpcMessageData> {
+  return node.client.request({
+    method : 'ping',
+    params : [ JSON.stringify(request) ]
+  }, pubkey)
 }
 
 /**
  * Parses an incoming ping request.
  *
- * @param data - The raw request data.
+ * @param params - The request params array.
  * @returns The parsed ping request, or null if parsing fails.
  * @internal
  */
-function parse_ping_request (data : string) : PingRequest | null {
+function parse_ping_request (params : string[]) : PingRequest | null {
   try {
+    const data = params[0] ?? ''
     // Handle legacy "ping" string
-    if (data === 'ping') {
+    if (data === 'ping' || data === '') {
       return { version: 1 }
     }
     const json   = JSON.parse(data)
@@ -280,22 +275,24 @@ function parse_ping_request (data : string) : PingRequest | null {
 /**
  * Parses a ping response to extract policy and nonce information.
  *
- * @param msg - The signed message containing the ping response.
+ * @param msg - The RPC message containing the ping response.
  * @returns The parsed ping response, or null if parsing fails.
  * @internal
  */
-function parse_ping_response (msg : SignedMessage<string>) : PingResponse | null {
+function parse_ping_response (msg : RpcMessageData) : PingResponse | null {
   try {
-    const json = JSON.parse(msg.data)
+    // Check if this is an accept message with data
+    if (msg.type !== 'accept') return null
+    const data = (msg as { data: unknown }).data
 
     // Try enhanced response format first
-    const parsed = Schema.peer.ping_res.safeParse(json)
+    const parsed = Schema.peer.ping_res.safeParse(data)
     if (parsed.success) {
       return parsed.data as PingResponse
     }
 
     // Fall back to legacy policy-only format
-    const legacy = Schema.peer.policy.safeParse(json)
+    const legacy = Schema.peer.policy.safeParse(data)
     if (legacy.success) {
       return { policy: legacy.data }
     }
