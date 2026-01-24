@@ -7,9 +7,108 @@ import path from 'node:path'
 
 import type { GroupPackage, SharePackage, OnboardPackage, PeerData } from '@/types/index.js'
 
+/* ================ [ Config ] ================ */
+
+/** Demo configuration type */
+export interface DemoConfig {
+  relay: {
+    port: number
+    purgeInterval: number
+  }
+  network: {
+    members: string[]
+    threshold: number
+  }
+  timeouts: {
+    connection: number
+    ping: number
+    sign: number
+    ecdh: number
+  }
+  healthCheck: {
+    enabled: boolean
+    intervalMs: number
+  }
+  reconnect: {
+    enabled: boolean
+    maxAttempts: number
+    baseDelayMs: number
+  }
+}
+
+/** Default configuration (fallback if config.json missing) */
+const DEFAULT_CONFIG: DemoConfig = {
+  relay: {
+    port: 8194,
+    purgeInterval: 300
+  },
+  network: {
+    members: ['alice', 'bob', 'carol'],
+    threshold: 2
+  },
+  timeouts: {
+    connection: 5000,
+    ping: 10000,
+    sign: 30000,
+    ecdh: 30000
+  },
+  healthCheck: {
+    enabled: true,
+    intervalMs: 30000
+  },
+  reconnect: {
+    enabled: true,
+    maxAttempts: 10,
+    baseDelayMs: 2000
+  }
+}
+
+/**
+ * Load the demo configuration from config.json.
+ * Falls back to defaults if file is missing or invalid.
+ */
+export function load_config(): DemoConfig {
+  const configPath = path.join(process.cwd(), 'demo', 'config.json')
+
+  try {
+    if (fs.existsSync(configPath)) {
+      const content = fs.readFileSync(configPath, 'utf-8')
+      const loaded = JSON.parse(content) as Partial<DemoConfig>
+      // Merge with defaults to ensure all fields exist
+      return {
+        relay: { ...DEFAULT_CONFIG.relay, ...loaded.relay },
+        network: { ...DEFAULT_CONFIG.network, ...loaded.network },
+        timeouts: { ...DEFAULT_CONFIG.timeouts, ...loaded.timeouts },
+        healthCheck: { ...DEFAULT_CONFIG.healthCheck, ...loaded.healthCheck },
+        reconnect: { ...DEFAULT_CONFIG.reconnect, ...loaded.reconnect }
+      }
+    }
+  } catch {
+    // Fall through to defaults
+  }
+
+  return DEFAULT_CONFIG
+}
+
+/** Cached config instance */
+let _config: DemoConfig | null = null
+
+/**
+ * Get the demo configuration (cached).
+ */
+export function get_config(): DemoConfig {
+  if (!_config) {
+    _config = load_config()
+  }
+  return _config
+}
+
 /* ================ [ Constants ] ================ */
 
-export const DEMO_RELAY_PORT = 8194
+// Load config for constants
+const CONFIG = get_config()
+
+export const DEMO_RELAY_PORT = CONFIG.relay.port
 export const DEMO_RELAY_URL  = `ws://localhost:${DEMO_RELAY_PORT}`
 export const DATA_DIR        = path.join(process.cwd(), 'demo', 'data')
 export const LOG_DIR         = path.join(process.cwd(), 'demo', 'logs')

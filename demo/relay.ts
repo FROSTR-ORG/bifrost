@@ -16,6 +16,7 @@ import {
   log_success,
   log_error,
   init_logging,
+  get_config,
   DEMO_RELAY_PORT
 } from './shared.js'
 
@@ -50,8 +51,9 @@ async function main () {
   print_banner('FROSTR Demo Relay')
   console.log()
 
-  // Create and start the relay
-  const relay = new NostrRelay(port, 300) // Purge events every 5 minutes
+  // Create and start the relay using config
+  const config = get_config()
+  const relay = new NostrRelay(port, config.relay.purgeInterval)
 
   log_info('Starting relay...')
 

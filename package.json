@@ -51,6 +51,7 @@
     "test:unit": "npm run script test/case/unit/runner.ts",
     "test:int": "npm run script test/case/integration/runner.ts",
     "test:e2e": "npm run script test/case/e2e/runner.ts",
+    "demo": "npm run script demo/orchestrator.ts",
     "demo:start": "./demo/tmux.sh start",
     "demo:stop": "./demo/tmux.sh stop",
     "demo:relay": "npm run script demo/relay.ts",

@@ -1,0 +1,25 @@
+{
+  "relay": {
+    "port": 8194,
+    "purgeInterval": 300
+  },
+  "network": {
+    "members": ["alice", "bob", "carol"],
+    "threshold": 2
+  },
+  "timeouts": {
+    "connection": 5000,
+    "ping": 10000,
+    "sign": 30000,
+    "ecdh": 30000
+  },
+  "healthCheck": {
+    "enabled": true,
+    "intervalMs": 30000
+  },
+  "reconnect": {
+    "enabled": true,
+    "maxAttempts": 10,
+    "baseDelayMs": 2000
+  }
+}

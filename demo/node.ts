@@ -34,6 +34,7 @@ import {
   sleep,
   hash_message,
   generate_random_pubkey,
+  get_config,
   DEMO_RELAY_URL
 } from './shared.js'
 
@@ -151,9 +152,11 @@ async function handle_ping (ctx : NodeContext, args : string[]) {
   log_debug(`  Our pubkey: ${ctx.node.pubkey}`)
 
   try {
-    // Add timeout to ping request
+    // Add timeout to ping request using config
+    const config = get_config()
+    const timeout_ms = config.timeouts.ping
     const timeout_promise = new Promise<{ ok: false, err: string }>((resolve) => {
-      setTimeout(() => resolve({ ok: false, err: 'Ping timeout (10s)' }), 10000)
+      setTimeout(() => resolve({ ok: false, err: `Ping timeout (${timeout_ms}ms)` }), timeout_ms)
     })
 
     const result = await Promise.race([
@@ -644,6 +647,73 @@ function setup_event_listeners (ctx : NodeContext) {
   })
 }
 
+/* ================ [ Reconnection ] ================ */
+
+/**
+ * Setup automatic reconnection when relay connection is lost.
+ */
+function setup_reconnection (ctx: NodeContext): void {
+  const config = get_config()
+
+  if (!config.reconnect.enabled) {
+    return
+  }
+
+  let reconnecting = false
+
+  ctx.node.on('closed', async () => {
+    if (!ctx.running || reconnecting) return
+
+    reconnecting = true
+    log_warn('Disconnected from relay, attempting to reconnect...')
+
+    const maxAttempts = config.reconnect.maxAttempts
+    const baseDelay = config.reconnect.baseDelayMs
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      // Exponential backoff: baseDelay * attempt (capped at 30s)
+      const delay = Math.min(baseDelay * attempt, 30000)
+      log_info(`Reconnect attempt ${attempt}/${maxAttempts} in ${delay}ms...`)
+      await sleep(delay)
+
+      // Check if we were stopped while waiting
+      if (!ctx.running) {
+        reconnecting = false
+        return
+      }
+
+      try {
+        await ctx.node.connect()
+
+        // Wait briefly for ready state
+        const connected = await Promise.race([
+          new Promise<boolean>(resolve => {
+            if (ctx.node.is_ready) {
+              resolve(true)
+            } else {
+              ctx.node.once('ready', () => resolve(true))
+            }
+          }),
+          new Promise<boolean>(resolve => {
+            setTimeout(() => resolve(false), config.timeouts.connection)
+          })
+        ])
+
+        if (connected) {
+          log_success('Reconnected to relay!')
+          reconnecting = false
+          return
+        }
+      } catch (err) {
+        log_error(`Reconnect attempt ${attempt} failed: ${err}`)
+      }
+    }
+
+    log_error(`Failed to reconnect after ${maxAttempts} attempts`)
+    reconnecting = false
+  })
+}
+
 /* ================ [ REPL ] ================ */
 
 async function run_repl (ctx : NodeContext) {
@@ -739,6 +809,9 @@ export async function start_node (
   // Setup event listeners
   setup_event_listeners(ctx)
 
+  // Setup reconnection logic
+  setup_reconnection(ctx)
+
   // Connect
   log_info('Connecting to relay...')
 
@@ -757,7 +830,8 @@ export async function start_node (
 
   await node.connect()
 
-  // Wait for ready with timeout
+  // Wait for ready with timeout (using config)
+  const config = get_config()
   const connected = await Promise.race([
     new Promise<boolean>(resolve => {
       if (node.is_ready) {
@@ -767,7 +841,7 @@ export async function start_node (
       }
     }),
     new Promise<boolean>(resolve => {
-      setTimeout(() => resolve(false), 5000)
+      setTimeout(() => resolve(false), config.timeouts.connection)
     })
   ])
 
