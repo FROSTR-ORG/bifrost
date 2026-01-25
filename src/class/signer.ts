@@ -13,7 +13,6 @@ import {
 } from '@/lib/parse.js'
 
 import type {
-  SignerConfig,
   ECDHPackage,
   GroupPackage,
   SecretNoncePair,
@@ -21,14 +20,6 @@ import type {
   SharePackage,
   PartialSigPackage
 } from '@/types/index.js'
-
-/**
- * Creates the default configuration for a BifrostSigner.
- * @returns An empty SignerConfig object.
- */
-const SIGNER_CONFIG : () => SignerConfig = () => {
-  return {}
-}
 
 /**
  * Normalize auxrand input to Uint8Array or undefined.
@@ -64,8 +55,6 @@ function normalize_auxrand (
  */
 export class BifrostSigner {
 
-  /** Signer configuration options. */
-  private readonly _config : SignerConfig
   /** The group package containing group public key and members. */
   private readonly _group  : GroupPackage
   /** The share package containing this signer's secret share. */
@@ -80,25 +69,14 @@ export class BifrostSigner {
    *
    * @param group - The group package containing the group public key and member info.
    * @param share - The share package containing this signer's secret share and index.
-   * @param options - Optional signer configuration.
    */
   constructor (
-    group    : GroupPackage,
-    share    : SharePackage,
-    options? : Partial<SignerConfig>
+    group : GroupPackage,
+    share : SharePackage
   ) {
-    this._config = { ...SIGNER_CONFIG(), ...options }
     this._group  = parse_group_pkg(group)
     this._share  = parse_share_pkg(share)
     this._pubkey = get_pubkey(this._share.seckey, 'bip340')
-  }
-
-  /**
-   * Gets the signer configuration.
-   * @returns The SignerConfig object.
-   */
-  get config () {
-    return this._config
   }
 
   /**
@@ -216,7 +194,7 @@ export class BifrostSigner {
   decrypt (
     content : string,
     pubkey  : string
-  ) {
+  ) : string {
     this._check_destroyed()
     const seckey = this._share.seckey
     const secret = CRYPTO.get_shared_secret(seckey, pubkey)
@@ -236,7 +214,7 @@ export class BifrostSigner {
   encrypt (
     content : string,
     pubkey  : string
-  ) {
+  ) : string {
     this._check_destroyed()
     const seckey = this._share.seckey
     const secret = CRYPTO.get_shared_secret(seckey, pubkey)

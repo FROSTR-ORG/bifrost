@@ -35,17 +35,16 @@ export interface OnboardRequest {
 }
 
 /**
- * Response from an existing peer to a new node during onboarding.
+ * Response data from an existing peer to a new node during onboarding.
+ *
+ * This is the data payload - wrap in ApiResponse<OnboardResponse> for
+ * the full response type with success/error handling.
  */
 export interface OnboardResponse {
   /** The group package with all member info */
-  group     : GroupPackage
+  group  : GroupPackage
   /** Initial nonces for the new node from this peer */
-  nonces    : NoncePackage
-  /** Status message */
-  status    : 'ok' | 'error'
-  /** Error message if status is 'error' */
-  error?    : string
+  nonces : NoncePackage
 }
 
 /**

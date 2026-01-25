@@ -28,6 +28,32 @@ import type {
   OnboardResponse
 } from '@/types/index.js'
 
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Creates an onboard response with group and nonces.
+ *
+ * @param node - The BifrostNode handling the request.
+ * @param peer_idx - The peer's member index.
+ * @returns An OnboardResponse with group and nonces.
+ * @internal
+ */
+function build_onboard_response (
+  node     : BifrostNode,
+  peer_idx : number
+) : OnboardResponse {
+  return {
+    group  : node.group,
+    nonces : node.pool.generate_for_peer(peer_idx, node.pool.config.pool_size)
+  }
+}
+
+// ============================================================================
+// Handler API
+// ============================================================================
+
 /**
  * Handles incoming onboard requests from new nodes.
  *
@@ -65,20 +91,8 @@ export async function onboard_handler_api (
       throw new Error('requester not a valid group member')
     }
 
-    // Generate initial nonces for the new node
-    const nonce_pkg = node.pool.generate_for_peer(
-      request.idx,
-      node.pool.config.pool_size
-    )
-
-    // Build the response
-    const response : OnboardResponse = {
-      group  : node.group,
-      nonces : nonce_pkg,
-      status : 'ok'
-    }
-
-    // Send the response using the new respond API
+    // Build and send the success response
+    const response = build_onboard_response(node, request.idx)
     const res = await node.client.respond(msg).accept(response)
     if (!res.ok) throw new Error('failed to publish onboard response')
 
@@ -90,20 +104,18 @@ export async function onboard_handler_api (
     if (node.debug) console.log(err)
     node.emit('/onboard/handler/rej', [ parse_error(err), msg ])
 
-    // Try to send error response
+    // Send error response via RPC reject
     try {
-      const error_response : OnboardResponse = {
-        group  : node.group,
-        nonces : [],
-        status : 'error',
-        error  : parse_error(err)
-      }
-      await node.client.respond(msg).reject(error_response.error ?? 'unknown error')
+      await node.client.respond(msg).reject(parse_error(err))
     } catch {
       // Ignore publish errors for error response
     }
   }
 }
+
+// ============================================================================
+// Request API
+// ============================================================================
 
 /**
  * Creates a request API function for onboarding.
@@ -167,10 +179,6 @@ export function onboard_request_api (node : BifrostNode) {
         throw new Error('invalid onboard response')
       }
 
-      if (response.status === 'error') {
-        throw new Error(response.error ?? 'onboard request rejected')
-      }
-
       // Find the peer's member index
       const peer_member = node.group.members.find(m => pubkeys_match(m.pubkey, peer_pubkey))
       if (!peer_member) {
@@ -192,6 +200,10 @@ export function onboard_request_api (node : BifrostNode) {
     }
   }
 }
+
+// ============================================================================
+// Internal Helpers
+// ============================================================================
 
 /**
  * Sends an onboard request to a specific peer.

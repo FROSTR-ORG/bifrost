@@ -32,8 +32,6 @@ export type PartialSigEntry = [ sighash : string, psig : string ]
  */
 export type SignatureEntry = [ sighash : string, pubkey : string, signature : string ]
 
-export interface SignerConfig {}
-
 /**
  * Dynamic nonce commit for signing sessions.
  */

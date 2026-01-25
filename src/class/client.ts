@@ -1,3 +1,4 @@
+import { Cache }                     from './cache.js'
 import { EventEmitter }              from './emitter.js'
 import { BifrostSigner }             from './signer.js'
 import { SignBatcher, ECDHBatcher }  from './batcher.js'
@@ -7,6 +8,18 @@ import { NostrNode }      from '@vbyte/nostr-sdk'
 import { parse_error }    from '@vbyte/nostr-sdk/lib'
 import { convert_pubkey } from '@/util/crypto.js'
 import { now }            from '@/util/helpers.js'
+
+import {
+  DEFAULT_SIGN_INTERVAL,
+  DEFAULT_ECDH_INTERVAL,
+  DEFAULT_MSG_TIMEOUT,
+  DEFAULT_SUB_TIMEOUT,
+  DEFAULT_ECDH_CACHE_SIZE,
+  DEFAULT_CACHE_TTL,
+  DEFAULT_POOL_SIZE,
+  MAX_SIGN_BATCH_SIZE,
+  MAX_ECDH_BATCH_SIZE
+} from '@/const.js'
 
 import {
   parse_ecdh_message,
@@ -22,7 +35,6 @@ import {
 import type { RpcMessageData } from '@vbyte/nostr-sdk'
 
 import type {
-  BifrostNodeCache,
   BifrostNodeConfig,
   BifrostNodeEvent,
   BifrostNodeOptions,
@@ -35,33 +47,20 @@ import * as API from '@/api/index.js'
 import Schema   from '@/schema/index.js'
 
 /**
- * Creates the default cache object for a BifrostNode.
- * @returns A new BifrostNodeCache with an empty ECDH map.
- */
-const DEFAULT_CACHE : () => BifrostNodeCache = () => {
-  return {
-    ecdh : new Map()
-  }
-}
-
-/**
  * Creates the default configuration object for a BifrostNode.
  * @returns A new BifrostNodeConfig with default values.
  */
-const DEFAULT_CONFIG : () => BifrostNodeConfig = () => {
-  return {
-    debug      : false,
-    middleware : {},
-    policies   : [],
-    sign_interval  : 100,
-    ecdh_interval  : 100,
-    nonce_pool : {},
-    sdk_config : {
-      msg_timeout : 15000,  // 15s (SDK default is 5s)
-      sub_timeout : 30000   // 30s (SDK default is 30s)
-    }
-  }
-}
+const DEFAULT_CONFIG = () : BifrostNodeConfig => ({
+  debug          : false,
+  middleware     : {},
+  policies       : [],
+  default_policy : { send: true, recv: true },
+  sign_interval  : DEFAULT_SIGN_INTERVAL,
+  max_sign_batch : MAX_SIGN_BATCH_SIZE,
+  ecdh_interval  : DEFAULT_ECDH_INTERVAL,
+  max_ecdh_batch : MAX_ECDH_BATCH_SIZE
+  // pool_config and node_config remain optional (use component defaults)
+})
 
 /**
  * BifrostNode is the main entry point for the FROSTR protocol.
@@ -89,8 +88,8 @@ const DEFAULT_CONFIG : () => BifrostNodeConfig = () => {
  */
 export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
 
-  /** Cache for storing ECDH shared secrets. */
-  private readonly _cache  : BifrostNodeCache
+  /** Cache for storing encrypted ECDH shared secrets (pubkey -> encrypted secret). */
+  private readonly _ecdh_cache : Cache<string, string>
   /** Underlying Nostr P2P client for relay communication. */
   private readonly _client : NostrNode
   /** Node configuration options. */
@@ -124,13 +123,16 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     options? : BifrostNodeOptions
   ) {
     super()
-    this._cache        = get_node_cache(options?.cache)
     this._config       = get_node_config(options)
+    this._ecdh_cache   = new Cache<string, string>({
+      max_size : DEFAULT_ECDH_CACHE_SIZE,
+      ttl      : DEFAULT_CACHE_TTL
+    })
     this._sign_batcher = new SignBatcher(this)
     this._ecdh_batcher = new ECDHBatcher(this)
-    this._signer       = new BifrostSigner(group, share, options)
+    this._signer       = new BifrostSigner(group, share)
     this._peers  = init_peer_data(this)
-    this._pool   = new NoncePool(share.idx, share.seckey, this._config.nonce_pool)
+    this._pool   = new NoncePool(share.idx, share.seckey, this._config.pool_config)
 
     // Initialize nonce pools for all peers
     this._pool.init_peers(group.members)
@@ -140,7 +142,15 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     const self_pk  = convert_pubkey(this._signer.pubkey, 'bip340')
     const all_pks  = [ ...peer_pks, self_pk ]
 
-    this._client = new NostrNode(all_pks, relays, share.seckey, this._config.sdk_config)
+    // Build NostrNode config with defaults for missing values
+    const nostr_config = {
+      msg_timeout : this._config.node_config?.msg_timeout ?? DEFAULT_MSG_TIMEOUT,
+      sub_timeout : this._config.node_config?.sub_timeout ?? DEFAULT_SUB_TIMEOUT,
+      ...(this._config.node_config?.max_retries !== undefined && {
+        max_retries: this._config.node_config.max_retries
+      })
+    }
+    this._client = new NostrNode(all_pks, relays, share.seckey, nostr_config)
 
     this._client.on('closed', () => {
       this._is_ready = false
@@ -236,10 +246,10 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
 
   /**
    * Gets the node's cache containing ECDH shared secrets.
-   * @returns The cache object with ECDH secret mappings.
+   * @returns An object with the ECDH cache.
    */
   get cache () {
-    return this._cache
+    return { ecdh: this._ecdh_cache }
   }
 
   /**
@@ -357,7 +367,7 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
    *
    * This method:
    * 1. Closes the batchers (clearing timers and rejecting pending requests)
-   * 2. Destroys the signer and pool to clear secrets from memory
+   * 2. Destroys the signer, pool, and cache to clear secrets from memory
    * 3. Removes event listeners from the underlying client
    * 4. Closes the underlying Nostr client
    *
@@ -370,9 +380,10 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     this._sign_batcher.close()
     this._ecdh_batcher.close()
 
-    // Destroy signer and pool to clear secrets from memory
+    // Destroy signer, pool, and cache to clear secrets from memory
     this._signer.destroy()
     this._pool.destroy()
+    this._ecdh_cache.destroy()
 
     // Remove event listeners from the client to prevent memory leaks
     this._client.clear('closed')
@@ -399,36 +410,36 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
 }
 
 /**
- * Merges user-provided cache options with defaults.
- * @param opt - Partial cache options to merge.
- * @returns A complete BifrostNodeCache object.
- */
-function get_node_cache (
-  opt : Partial<BifrostNodeCache> = {}
-) : BifrostNodeCache {
-  return { ...DEFAULT_CACHE(), ...opt }
-}
-
-/**
  * Merges user-provided config options with defaults and validates the result.
- * @param opt - Partial config options to merge.
+ * @param opt - User-provided config options to merge with defaults.
  * @returns A validated BifrostNodeConfig object.
- * @throws Error if the merged config fails validation.
+ * @throws Error if the merged config fails validation or cross-config constraints.
  */
 function get_node_config (
-  opt : Partial<BifrostNodeConfig> = {}
+  opt : BifrostNodeOptions = {}
 ) : BifrostNodeConfig {
   const config = { ...DEFAULT_CONFIG(), ...opt }
   const parsed = Schema.node.config.safeParse(config)
   if (!parsed.success) throw new Error('invalid node config')
-  return parsed.data as BifrostNodeConfig
+
+  const result = parsed.data as BifrostNodeConfig
+
+  // Validate max_sign_batch against pool_config constraints
+  const pool_size = result.pool_config?.pool_size ?? DEFAULT_POOL_SIZE
+  if (result.max_sign_batch > pool_size) {
+    throw new Error(
+      `max_sign_batch (${result.max_sign_batch}) cannot exceed pool_size (${pool_size})`
+    )
+  }
+
+  return result
 }
 
 /**
  * Initializes peer data for all group members except self.
  *
  * Creates a PeerData entry for each group member with:
- * - Policy from config or default (send: true, recv: true)
+ * - Policy from config or default_policy from node config
  * - Status set to 'offline'
  * - Updated timestamp set to current time
  *
@@ -447,16 +458,15 @@ function init_peer_data (
     .map(e => convert_pubkey(e.pubkey, 'bip340'))
     .filter(e => e !== node_pk)
   // Define a list of policies.
-  let peer_data : PeerData[] = []
+  const peer_data : PeerData[] = []
   // For each peer, configure a policy.
   for (const peer_pk of peers_pks) {
     // Check if the policy is configured.
     const config = node.config.policies.find(e => e.pubkey === peer_pk)
-    // If the policy is not configured, set the default policy.
-    const policy = config?.policy ?? { send : true, recv : true }
+    // If the policy is not configured, use the default policy from config.
+    const policy = config?.policy ?? node.config.default_policy
     // Add the peer data to the list.
     peer_data.push({
-      // TODO: We should not default these to true.
       policy  : policy,
       pubkey  : peer_pk,
       status  : 'offline',

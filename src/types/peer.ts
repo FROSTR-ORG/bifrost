@@ -1,5 +1,8 @@
 import type { NoncePackage, NoncePoolStatus } from './nonce.js'
 
+// Re-export PING_PROTOCOL_VERSION from const.ts for backward compatibility
+export { PING_PROTOCOL_VERSION } from '@/const.js'
+
 export type PeerStatus = 'online' | 'offline'
 
 export interface PeerPolicy {
@@ -41,5 +44,3 @@ export interface PingResponse {
   nonces?      : NoncePackage
 }
 
-/** Current ping protocol version */
-export const PING_PROTOCOL_VERSION = 2

@@ -15,6 +15,14 @@
 import { Buff, Bytes } from '@vbyte/buff'
 
 import {
+  SHARE_INDEX_SIZE,
+  SHARE_SECKEY_SIZE,
+  MAX_RELAY_LENGTH,
+  MAX_RELAY_COUNT,
+  PREFIX_ONBOARD
+} from '@/const.js'
+
+import {
   Assert,
   create_stream,
   to_bech32m,
@@ -24,16 +32,10 @@ import {
 import type { OnboardPackage, SharePackage } from '@/types/index.js'
 
 /** Size constants */
-const SHARE_INDEX_SIZE  = 4
-const SHARE_SECKEY_SIZE = 32
 const PEER_PK_SIZE      = 32
 const RELAY_COUNT_SIZE  = 2
 const RELAY_LEN_SIZE    = 2
 const MIN_DATA_SIZE     = SHARE_INDEX_SIZE + SHARE_SECKEY_SIZE + PEER_PK_SIZE + RELAY_COUNT_SIZE
-/** Maximum relay URL length (prevents DoS via oversized relay strings) */
-const MAX_RELAY_LENGTH  = 512
-/** Maximum number of relays to prevent DoS */
-const MAX_RELAY_COUNT   = 100
 
 /**
  * Encode an onboard package to bech32m format.
@@ -45,11 +47,8 @@ export function encode_onboard_package (
   pkg : OnboardPackage
 ) : string {
   const data = serialize_onboard_data(pkg)
-  return to_bech32m(data, 'bfonboard')
+  return to_bech32m(data, PREFIX_ONBOARD)
 }
-
-/** Bech32m prefix for onboard packages */
-const ONBOARD_PREFIX = 'bfonboard'
 
 /**
  * Decode an onboard package from bech32m format.
@@ -61,7 +60,7 @@ const ONBOARD_PREFIX = 'bfonboard'
 export function decode_onboard_package (
   str : string
 ) : OnboardPackage {
-  const data = from_bech32m(str, ONBOARD_PREFIX)
+  const data = from_bech32m(str, PREFIX_ONBOARD)
   return deserialize_onboard_data(data)
 }
 

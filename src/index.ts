@@ -7,6 +7,7 @@ import Schema from './schema/index.js'
 
 export { BifrostNode }    from './class/client.js'
 export { BifrostSigner }  from './class/signer.js'
+export { Cache }          from './class/cache.js'
 export { PackageEncoder } from './encoder/index.js'
 
 export * from './types/index.js'

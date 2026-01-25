@@ -12,6 +12,7 @@
  * - SecretNoncePair: with secret values (for signing operations)
  */
 
+
 /**
  * Base public nonce pair.
  * Contains the public commitments to the secret nonces.
@@ -91,16 +92,6 @@ export interface NoncePoolConfig {
   critical_threshold : number
   /** Number of nonces to send during replenishment (default: 50) */
   replenish_count    : number
-}
-
-/**
- * Default nonce pool configuration values.
- */
-export const DEFAULT_NONCE_POOL_CONFIG : NoncePoolConfig = {
-  pool_size          : 100,
-  min_threshold      : 20,
-  critical_threshold : 5,
-  replenish_count    : 50
 }
 
 /**

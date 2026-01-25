@@ -25,7 +25,6 @@ export default function (tape : Test) {
         st.ok(signer.pubkey !== undefined, 'pubkey getter returns value')
         st.equal(typeof signer.pubkey, 'string', 'pubkey is a string')
         st.equal(signer.pubkey.length, 64, 'pubkey is 32 bytes hex')
-        st.ok(signer.config !== undefined, 'config getter returns value')
         st.end()
       })
 

@@ -1,4 +1,4 @@
-import z     from 'zod'
+import { z } from 'zod'
 import base  from './base.js'
 import nonce from './nonce.js'
 

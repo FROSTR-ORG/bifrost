@@ -20,6 +20,7 @@ import type {
 
 import type {
   ApiResponse,
+  PeerData,
   PeerStatus,
   PingRequest,
   PingResponse
@@ -27,6 +28,85 @@ import type {
 
 /** Current protocol version for ping messages */
 const PROTOCOL_VERSION = 2
+
+// ============================================================================
+// Helper Functions (extracted to reduce duplication)
+// ============================================================================
+
+/**
+ * Gets peer data by public key.
+ *
+ * @param node - The BifrostNode to search.
+ * @param pubkey - The peer's public key.
+ * @returns The peer data, or undefined if not found.
+ * @internal
+ */
+function get_peer_data (
+  node   : BifrostNode,
+  pubkey : string
+) : PeerData | undefined {
+  return node.peers.find(e => e.pubkey === pubkey)
+}
+
+/**
+ * Gets a peer's member index from the group.
+ *
+ * @param node - The BifrostNode containing the group.
+ * @param pubkey - The peer's public key.
+ * @returns The peer's member index, or undefined if not found.
+ * @internal
+ */
+function get_peer_idx (
+  node   : BifrostNode,
+  pubkey : string
+) : number | undefined {
+  const peer_member = node.group.members.find(m => pubkeys_match(m.pubkey, pubkey))
+  return peer_member?.idx
+}
+
+/**
+ * Builds a map of member indexes to normalized public keys.
+ *
+ * @param node - The BifrostNode containing the group.
+ * @returns Map of member index to normalized pubkey.
+ * @internal
+ */
+function build_peer_pks_map (node : BifrostNode) : Map<number, string> {
+  const peer_pks = new Map<number, string>()
+  for (const member of node.group.members) {
+    peer_pks.set(member.idx, normalize_pubkey(member.pubkey))
+  }
+  return peer_pks
+}
+
+/**
+ * Adds pool status and nonces to a ping request or response.
+ *
+ * @param node - The BifrostNode with the nonce pool.
+ * @param target - The request or response object to populate.
+ * @param peer_idx - The peer's member index.
+ * @internal
+ */
+function add_pool_info <T extends PingRequest | PingResponse> (
+  node     : BifrostNode,
+  target   : T,
+  peer_idx : number | undefined
+) : void {
+  if (!node.pool || peer_idx === undefined) return
+
+  // Add pool status
+  const peer_pks = build_peer_pks_map(node)
+  target.pool_status = node.pool.get_pool_status(peer_pks)
+
+  // Include nonces if peer needs them from us (check outgoing pool)
+  if (node.pool.should_send_nonces_to(peer_idx)) {
+    target.nonces = node.pool.generate_for_peer(peer_idx)
+  }
+}
+
+// ============================================================================
+// Handler API
+// ============================================================================
 
 /**
  * Handles incoming ping requests from peers.
@@ -55,43 +135,28 @@ export async function ping_handler_api (
     node.emit('/ping/handler/req', msg)
 
     // Get the peer data
-    const peer_data = node.peers.find(e => e.pubkey === msg.event.pubkey)
+    const peer_pubkey = msg.event.pubkey
+    const peer_data = get_peer_data(node, peer_pubkey)
     if (peer_data === undefined) throw new Error('peer data not found')
+
+    // Get peer index from group
+    const peer_idx = get_peer_idx(node, peer_data.pubkey)
 
     // Try to parse enhanced ping request from params
     const request = parse_ping_request(msg.params)
 
-    // Get peer index from group
-    const peer_member = node.group.members.find(m => pubkeys_match(m.pubkey, peer_data.pubkey))
-    const peer_idx = peer_member?.idx
-
-    // Process incoming nonces if present (pass peer_idx)
+    // Process incoming nonces if present
     if (request?.nonces && node.pool && peer_idx !== undefined) {
       node.pool.store_incoming(peer_idx, request.nonces)
     }
 
-    // Build response with nonce pool information
+    // Build response with policy and pool information
     const response : PingResponse = {
       policy : peer_data.policy
     }
+    add_pool_info(node, response, peer_idx)
 
-    // Include pool status if we have a pool
-    if (node.pool && peer_idx !== undefined) {
-      // Get pool status for all peers
-      const peer_pks = new Map<number, string>()
-      for (const member of node.group.members) {
-        peer_pks.set(member.idx, normalize_pubkey(member.pubkey))
-      }
-      response.pool_status = node.pool.get_pool_status(peer_pks)
-
-      // Include nonces if peer needs them FROM US (check OUTGOING pool)
-      // This is the correct direction check - we're deciding whether to SEND nonces
-      if (node.pool.should_send_nonces_to(peer_idx)) {
-        response.nonces = node.pool.generate_for_peer(peer_idx)
-      }
-    }
-
-    // Send the response using the new respond API
+    // Send the response using the respond API
     const res = await node.client.respond(msg).accept(response)
     if (!res.ok) throw new Error('failed to publish response')
 
@@ -110,6 +175,10 @@ export async function ping_handler_api (
     node.emit('/ping/handler/rej', [ parse_error(err), msg ])
   }
 }
+
+// ============================================================================
+// Request API
+// ============================================================================
 
 /**
  * Creates a request API function for pinging peers.
@@ -146,12 +215,11 @@ export function ping_request_api (node : BifrostNode) {
   return async (pubkey : string) : Promise<ApiResponse<PingResponse>> => {
 
     // Get the peer data
-    const peer_data = node.peers.find(e => e.pubkey === pubkey)
+    const peer_data = get_peer_data(node, pubkey)
     Assert.exists(peer_data, 'peer data not found')
 
     // Get peer index
-    const peer_member = node.group.members.find(m => pubkeys_match(m.pubkey, pubkey))
-    const peer_idx = peer_member?.idx
+    const peer_idx = get_peer_idx(node, pubkey)
 
     let msg : RpcMessageData | null = null
 
@@ -160,21 +228,7 @@ export function ping_request_api (node : BifrostNode) {
       const request : PingRequest = {
         version : PROTOCOL_VERSION
       }
-
-      // Add pool status if we have a pool
-      if (node.pool && peer_idx !== undefined) {
-        const peer_pks = new Map<number, string>()
-        for (const member of node.group.members) {
-          peer_pks.set(member.idx, normalize_pubkey(member.pubkey))
-        }
-        request.pool_status = node.pool.get_pool_status(peer_pks)
-
-        // Include nonces if peer needs them FROM US (check OUTGOING pool)
-        // This is the correct direction check - we're deciding whether to SEND nonces
-        if (node.pool.should_send_nonces_to(peer_idx)) {
-          request.nonces = node.pool.generate_for_peer(peer_idx)
-        }
-      }
+      add_pool_info(node, request, peer_idx)
 
       // Send the request
       msg = await create_ping_request(node, pubkey, request)
@@ -194,7 +248,7 @@ export function ping_request_api (node : BifrostNode) {
       const response = parse_ping_response(msg)
       if (response === null) throw new Error('invalid ping response')
 
-      // Store incoming nonces if present (pass peer_idx)
+      // Store incoming nonces if present
       if (response.nonces && node.pool && peer_idx !== undefined) {
         node.pool.store_incoming(peer_idx, response.nonces)
       }
@@ -227,6 +281,10 @@ export function ping_request_api (node : BifrostNode) {
     }
   }
 }
+
+// ============================================================================
+// Internal Helpers
+// ============================================================================
 
 /**
  * Sends an enhanced ping request to a specific peer.

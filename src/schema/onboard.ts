@@ -21,13 +21,12 @@ const onboard_req = z.object({
 })
 
 /**
- * Schema for onboard response (sent by existing peer).
+ * Schema for onboard response data (sent by existing peer).
+ * This is the data payload - success/error is handled by the RPC layer.
  */
 const onboard_res = z.object({
   group  : pkg.group,
-  nonces : nonce.nonce_package,
-  status : z.enum([ 'ok', 'error' ]),
-  error  : base.str.optional()
+  nonces : nonce.nonce_package
 })
 
 /**

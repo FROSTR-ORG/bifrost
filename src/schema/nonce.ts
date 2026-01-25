@@ -1,6 +1,11 @@
 import { z } from 'zod'
 import base  from './base.js'
 
+import {
+  MIN_POOL_SIZE,
+  MAX_POOL_SIZE
+} from '@/const.js'
+
 /**
  * Schema for base public nonce (binder_pn + hidden_pn only).
  */
@@ -45,7 +50,7 @@ const nonce_package = z.array(derived_public_nonce)
  * Used for partial config validation where not all fields are present.
  */
 const pool_config_base = z.object({
-  pool_size          : base.num.min(10).max(1000),
+  pool_size          : base.num.min(MIN_POOL_SIZE).max(MAX_POOL_SIZE),
   min_threshold      : base.num.min(1),
   critical_threshold : base.num.min(1),
   replenish_count    : base.num.min(1)

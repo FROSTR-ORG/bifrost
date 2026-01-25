@@ -1,5 +1,12 @@
 import { Buff, Bytes } from '@vbyte/buff'
-import * as CONST      from '@/const.js'
+
+import {
+  SHARE_INDEX_SIZE,
+  SHARE_SECKEY_SIZE,
+  SHARE_DATA_SIZE,
+  SHARE_SNONCE_SIZE,
+  PREFIX_SHARE
+} from '@/const.js'
 
 import {
   Assert,
@@ -12,7 +19,7 @@ import {
 import type { SharePackage } from '@/types/index.js'
 
 /** New share data size (idx + seckey only) */
-const NEW_SHARE_DATA_SIZE = CONST.SHARE_INDEX_SIZE + CONST.SHARE_SECKEY_SIZE
+const NEW_SHARE_DATA_SIZE = SHARE_INDEX_SIZE + SHARE_SECKEY_SIZE
 
 /**
  * Encode a member share package (new format without static nonces).
@@ -25,7 +32,7 @@ export function encode_share_package (
 ) : string {
   const data = serialize_share_data(pkg)
   Assert.size(data, NEW_SHARE_DATA_SIZE)
-  return to_bech32m(data, 'bfshare')
+  return to_bech32m(data, PREFIX_SHARE)
 }
 
 /**
@@ -38,10 +45,10 @@ export function encode_share_package (
 export function decode_share_package (
   sharestr : string
 ) : SharePackage {
-  const data = from_bech32m(sharestr, 'bfshare')
+  const data = from_bech32m(sharestr, PREFIX_SHARE)
 
   // Check size to determine format
-  if (data.length === CONST.SHARE_DATA_SIZE) {
+  if (data.length === SHARE_DATA_SIZE) {
     // Legacy format with static nonces - extract just idx and seckey
     return deserialize_legacy_share_data(data)
   } else if (data.length === NEW_SHARE_DATA_SIZE) {
@@ -61,8 +68,8 @@ export function decode_share_package (
 export function serialize_share_data (
   pkg : SharePackage
 ) : Buff {
-  const idx = Buff.num(pkg.idx,    CONST.SHARE_INDEX_SIZE)
-  const ssk = Buff.hex(pkg.seckey, CONST.SHARE_SECKEY_SIZE)
+  const idx = Buff.num(pkg.idx,    SHARE_INDEX_SIZE)
+  const ssk = Buff.hex(pkg.seckey, SHARE_SECKEY_SIZE)
   return Buff.join([ idx, ssk ])
 }
 
@@ -77,8 +84,8 @@ export function deserialize_share_data (
 ) : SharePackage {
   const stream = create_stream(Buff.bytes(data))
   Assert.size(stream.data, NEW_SHARE_DATA_SIZE)
-  const idx    = stream.read(CONST.SHARE_INDEX_SIZE).num
-  const seckey = stream.read(CONST.SHARE_SECKEY_SIZE).hex
+  const idx    = stream.read(SHARE_INDEX_SIZE).num
+  const seckey = stream.read(SHARE_SECKEY_SIZE).hex
   Assert.size(stream.data, 0)
   return normalize_obj({ idx, seckey })
 }
@@ -92,12 +99,12 @@ function deserialize_legacy_share_data (
   data : Bytes
 ) : SharePackage {
   const stream = create_stream(Buff.bytes(data))
-  Assert.size(stream.data, CONST.SHARE_DATA_SIZE)
-  const idx    = stream.read(CONST.SHARE_INDEX_SIZE).num
-  const seckey = stream.read(CONST.SHARE_SECKEY_SIZE).hex
+  Assert.size(stream.data, SHARE_DATA_SIZE)
+  const idx    = stream.read(SHARE_INDEX_SIZE).num
+  const seckey = stream.read(SHARE_SECKEY_SIZE).hex
   // Skip the static nonces (they're no longer used)
-  stream.read(CONST.SHARE_SNONCE_SIZE) // binder_sn
-  stream.read(CONST.SHARE_SNONCE_SIZE) // hidden_sn
+  stream.read(SHARE_SNONCE_SIZE) // binder_sn
+  stream.read(SHARE_SNONCE_SIZE) // hidden_sn
   Assert.size(stream.data, 0)
   return normalize_obj({ idx, seckey })
 }

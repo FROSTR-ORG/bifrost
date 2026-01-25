@@ -5,12 +5,6 @@ import { parse_error }           from '@/util/index.js'
 
 import type { SighashVector, SignatureEntry } from '@/types/index.js'
 
-/** Maximum signatures per batch to prevent memory/relay issues */
-const MAX_SIGN_BATCH_SIZE = 100
-
-/** Maximum number of ECDH public keys per batch to avoid relay message size limits */
-const MAX_ECDH_BATCH_SIZE = 100
-
 /**
  * Generic request with Promise resolve/reject callbacks.
  */
@@ -125,6 +119,8 @@ export class SignBatcher extends BaseBatcher<SighashVector, SignatureEntry> {
 
   /** Cached batch signing API function. */
   private readonly _sign_batch : ReturnType<typeof sign_batch_request_api>
+  /** Maximum batch size from config. */
+  private readonly _max_batch  : number
 
   /**
    * Creates a new SignBatcher instance.
@@ -134,6 +130,7 @@ export class SignBatcher extends BaseBatcher<SighashVector, SignatureEntry> {
   constructor(node: BifrostNode) {
     super(node, node.config.sign_interval)
     this._sign_batch = sign_batch_request_api(node)
+    this._max_batch  = node.config.max_sign_batch
   }
 
   /**
@@ -181,8 +178,8 @@ export class SignBatcher extends BaseBatcher<SighashVector, SignatureEntry> {
       // If there are no requests, return.
       if (batch.length === 0) return
     // Reject if batch exceeds maximum size
-    if (batch.length > MAX_SIGN_BATCH_SIZE) {
-      const reason = `batch size ${batch.length} exceeds maximum ${MAX_SIGN_BATCH_SIZE}`
+    if (batch.length > this._max_batch) {
+      const reason = `batch size ${batch.length} exceeds maximum ${this._max_batch}`
       batch.forEach(req => req.reject(reason))
       return
     }
@@ -250,6 +247,8 @@ export class ECDHBatcher extends BaseBatcher<string, string> {
 
   /** Cached batch ECDH API function. */
   private readonly _ecdh_batch : ReturnType<typeof ecdh_batch_request_api>
+  /** Maximum batch size from config. */
+  private readonly _max_batch  : number
 
   /**
    * Creates a new ECDHBatcher instance.
@@ -259,6 +258,7 @@ export class ECDHBatcher extends BaseBatcher<string, string> {
   constructor(node: BifrostNode) {
     super(node, node.config.ecdh_interval)
     this._ecdh_batch = ecdh_batch_request_api(node)
+    this._max_batch  = node.config.max_ecdh_batch
   }
 
   /**
@@ -331,8 +331,8 @@ export class ECDHBatcher extends BaseBatcher<string, string> {
     if (uncached.length === 0) return
 
     // Reject if batch size exceeds limit to avoid relay message size limits.
-    if (uncached.length > MAX_ECDH_BATCH_SIZE) {
-      const reason = `ECDH batch size ${uncached.length} exceeds maximum ${MAX_ECDH_BATCH_SIZE}`
+    if (uncached.length > this._max_batch) {
+      const reason = `ECDH batch size ${uncached.length} exceeds maximum ${this._max_batch}`
       for (const req of uncached) {
         req.reject(reason)
       }

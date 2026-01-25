@@ -22,6 +22,13 @@ import { EventEmitter } from './emitter.js'
 import Schema from '@/schema/index.js'
 
 import {
+  DEFAULT_POOL_SIZE,
+  DEFAULT_MIN_THRESHOLD,
+  DEFAULT_CRITICAL_THRESHOLD,
+  DEFAULT_REPLENISH_COUNT
+} from '@/const.js'
+
+import {
   generate_nonce_pairs,
   validate_public_nonce,
   derive_secret_nonce,
@@ -606,9 +613,9 @@ export class NoncePool extends EventEmitter<NoncePoolEvent> {
  */
 function get_default_config () : NoncePoolConfig {
   return {
-    pool_size          : 100,
-    min_threshold      : 20,
-    critical_threshold : 5,
-    replenish_count    : 50
+    pool_size          : DEFAULT_POOL_SIZE,
+    min_threshold      : DEFAULT_MIN_THRESHOLD,
+    critical_threshold : DEFAULT_CRITICAL_THRESHOLD,
+    replenish_count    : DEFAULT_REPLENISH_COUNT
   }
 }

@@ -9,6 +9,7 @@ import tape from 'tape'
 
 import type { Test } from 'tape'
 
+import cache_unit_case    from './cache.test.js'
 import encode_unit_case   from './encode.test.js'
 import group_unit_case    from './group.test.js'
 import session_unit_case  from './session.test.js'
@@ -31,6 +32,7 @@ import ecdh_unit_case     from './ecdh.test.js'
  * Used when running as part of the main test suite.
  */
 export default function unit_test_cases (t : Test) {
+  cache_unit_case(t)
   encode_unit_case(t)
   group_unit_case(t)
   tweak_unit_case(t)

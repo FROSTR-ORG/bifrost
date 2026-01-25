@@ -7,22 +7,10 @@ import type {
   OnboardResponse,
   PeerConfig,
   PeerData,
+  PeerPolicy,
   SignatureEntry,
   SignSessionPackage
 } from '@/types/index.js'
-
-/**
- * Cache for storing encrypted ECDH shared secrets.
- *
- * The cache maps remote public keys to encrypted shared secrets.
- * Secrets are encrypted with the node's key before storage to
- * prevent exposure in memory dumps.
- *
- * @property ecdh - Map from ECDH public key (hex) to encrypted shared secret.
- */
-export interface BifrostNodeCache {
-  ecdh : Map<string, string>
-}
 
 /**
  * Middleware functions for filtering and transforming requests.
@@ -39,48 +27,60 @@ export interface BifrostNodeMiddleware {
 }
 
 /**
- * Configuration options for the underlying @vbyte/nostr-sdk.
+ * Configuration for the underlying @vbyte/nostr-sdk NostrNode.
  *
- * @property msg_timeout - Connection/message timeout in milliseconds (default: 10000).
- * @property sub_timeout - Subscription timeout in milliseconds (default: 60000).
- * @property max_retries - Maximum retry count for failed operations (default: 3).
+ * @property msg_timeout - Connection/message timeout in milliseconds (default: 15000).
+ * @property sub_timeout - Subscription timeout in milliseconds (default: 30000).
+ * @property max_retries - Maximum retry count for failed operations.
  */
-export interface SdkConfig {
+export interface NodeConfig {
   msg_timeout? : number
   sub_timeout? : number
   max_retries? : number
 }
 
 /**
- * Configuration options for a BifrostNode.
+ * Options for creating a BifrostNode. All fields are optional with sensible defaults.
  *
- * @property debug - Enable debug logging when true.
+ * @property debug - Enable debug logging (default: false).
  * @property middleware - Request middleware functions.
  * @property policies - Per-peer send/receive policies.
- * @property sign_interval - Signature batch interval in milliseconds.
- * @property ecdh_interval - ECDH batch interval in milliseconds.
- * @property nonce_pool - Optional nonce pool configuration.
- * @property sdk_config - Optional @vbyte/nostr-sdk configuration overrides.
+ * @property default_policy - Default policy for peers not in policies list (default: { send: true, recv: true }).
+ * @property sign_interval - Signature batch interval in milliseconds (default: 100).
+ * @property max_sign_batch - Max signatures per batch (default: 100).
+ * @property ecdh_interval - ECDH batch interval in milliseconds (default: 100).
+ * @property max_ecdh_batch - Max ECDH operations per batch (default: 100).
+ * @property pool_config - Nonce pool configuration.
+ * @property node_config - NostrNode SDK configuration.
  */
-export interface BifrostNodeConfig {
-  debug      : boolean
-  middleware : BifrostNodeMiddleware
-  policies   : PeerConfig[]
-  sign_interval  : number
-  ecdh_interval  : number
-  nonce_pool : Partial<NoncePoolConfig>
-  sdk_config : Partial<SdkConfig>
+export interface BifrostNodeOptions {
+  debug?          : boolean
+  middleware?     : BifrostNodeMiddleware
+  policies?       : PeerConfig[]
+  default_policy? : PeerPolicy
+  sign_interval?  : number
+  max_sign_batch? : number
+  ecdh_interval?  : number
+  max_ecdh_batch? : number
+  pool_config?    : Partial<NoncePoolConfig>
+  node_config?    : NodeConfig
 }
 
 /**
- * Options for creating a new BifrostNode.
- *
- * Extends BifrostNodeConfig with additional optional settings.
- *
- * @property cache - Optional pre-populated cache for ECDH secrets.
+ * Internal resolved config with all defaults applied.
+ * Used internally by BifrostNode after merging user options with defaults.
  */
-export interface BifrostNodeOptions extends Partial<BifrostNodeConfig> {
-  cache? : BifrostNodeCache
+export interface BifrostNodeConfig {
+  debug          : boolean
+  middleware     : BifrostNodeMiddleware
+  policies       : PeerConfig[]
+  default_policy : PeerPolicy
+  sign_interval  : number
+  max_sign_batch : number
+  ecdh_interval  : number
+  max_ecdh_batch : number
+  pool_config?   : Partial<NoncePoolConfig>
+  node_config?   : NodeConfig
 }
 
 /**

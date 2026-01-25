@@ -1,5 +1,14 @@
 import { Buff, Bytes } from '@vbyte/buff'
-import * as CONST      from '@/const.js'
+
+import {
+  COMMIT_DATA_SIZE,
+  COMMIT_INDEX_SIZE,
+  COMMIT_PUBKEY_SIZE,
+  COMMIT_PNONCE_SIZE,
+  GROUP_THOLD_SIZE,
+  GROUP_PUBKEY_SIZE,
+  PREFIX_GROUP
+} from '@/const.js'
 
 import {
   Assert,
@@ -30,9 +39,9 @@ type GroupDataFormat = 'member' | 'legacy'
  */
 function detect_group_format (remaining : number) : GroupDataFormat {
   const is_member_format = remaining % MEMBER_DATA_SIZE === 0 &&
-                           remaining % CONST.COMMIT_DATA_SIZE !== 0
+                           remaining % COMMIT_DATA_SIZE !== 0
   if (is_member_format) return 'member'
-  if (remaining % CONST.COMMIT_DATA_SIZE === 0) return 'legacy'
+  if (remaining % COMMIT_DATA_SIZE === 0) return 'legacy'
   throw new Error('malformed group data: invalid member count')
 }
 
@@ -46,7 +55,7 @@ export function encode_group_package (
   pkg : GroupPackage
 ) : string {
   const data = serialize_group_data(pkg)
-  return to_bech32m(data, 'bfgroup')
+  return to_bech32m(data, PREFIX_GROUP)
 }
 
 /**
@@ -60,7 +69,7 @@ export function encode_group_package (
 export function decode_group_package (
   str : string
 ) : GroupPackage {
-  const data = from_bech32m(str, 'bfgroup')
+  const data = from_bech32m(str, PREFIX_GROUP)
   return deserialize_group_data(data)
 }
 
@@ -73,8 +82,8 @@ export function decode_group_package (
 export function serialize_group_data (
   pkg : GroupPackage
 ) : Buff {
-  const thd = Buff.num(pkg.threshold, CONST.GROUP_THOLD_SIZE)
-  const gpk = Buff.hex(pkg.group_pk, CONST.GROUP_PUBKEY_SIZE)
+  const thd = Buff.num(pkg.threshold, GROUP_THOLD_SIZE)
+  const gpk = Buff.hex(pkg.group_pk, GROUP_PUBKEY_SIZE)
   const mem = pkg.members.map(member => serialize_member_data(member))
   return Buff.join([ gpk, thd, ...mem ])
 }
@@ -90,8 +99,8 @@ export function deserialize_group_data (
   data : Bytes
 ) : GroupPackage {
   const stream    = create_stream(Buff.bytes(data))
-  const group_pk  = stream.read(CONST.COMMIT_PUBKEY_SIZE).hex
-  const threshold = stream.read(CONST.GROUP_THOLD_SIZE).num
+  const group_pk  = stream.read(COMMIT_PUBKEY_SIZE).hex
+  const threshold = stream.read(GROUP_THOLD_SIZE).num
 
   const remaining = stream.size
   const format    = detect_group_format(remaining)
@@ -105,9 +114,9 @@ export function deserialize_group_data (
     }
   } else {
     // Legacy format - convert to new format (nonces discarded)
-    const count = remaining / CONST.COMMIT_DATA_SIZE
+    const count = remaining / COMMIT_DATA_SIZE
     for (let i = 0; i < count; i++) {
-      const cbytes = stream.read(CONST.COMMIT_DATA_SIZE)
+      const cbytes = stream.read(COMMIT_DATA_SIZE)
       const { idx, pubkey } = deserialize_commit_data(cbytes)
       members.push({ idx, pubkey })
     }
@@ -150,12 +159,12 @@ function deserialize_commit_data (
   data : Uint8Array
 ) : { idx: number, pubkey: string } {
   const stream    = create_stream(data)
-  Assert.size(stream.data, CONST.COMMIT_DATA_SIZE)
-  const idx       = stream.read(CONST.COMMIT_INDEX_SIZE).num
-  const pubkey    = stream.read(CONST.COMMIT_PUBKEY_SIZE).hex
+  Assert.size(stream.data, COMMIT_DATA_SIZE)
+  const idx       = stream.read(COMMIT_INDEX_SIZE).num
+  const pubkey    = stream.read(COMMIT_PUBKEY_SIZE).hex
   // Skip the static nonces (they're no longer used)
-  stream.read(CONST.COMMIT_PNONCE_SIZE) // binder_pn
-  stream.read(CONST.COMMIT_PNONCE_SIZE) // hidden_pn
+  stream.read(COMMIT_PNONCE_SIZE) // binder_pn
+  stream.read(COMMIT_PNONCE_SIZE) // hidden_pn
   Assert.size(stream.data, 0)
   return { idx, pubkey }
 }
