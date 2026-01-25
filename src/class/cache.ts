@@ -110,10 +110,10 @@ export class Cache<K, V> {
    */
   set(key: K, value: V): void {
     // If key already exists, update it
-    if (this._entries.has(key)) {
-      const entry = this._entries.get(key)!
-      entry.value = value
-      entry.access_order = ++this._access_counter
+    const existing = this._entries.get(key)
+    if (existing) {
+      existing.value = value
+      existing.access_order = ++this._access_counter
       return
     }
 

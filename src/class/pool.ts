@@ -142,17 +142,25 @@ export class NoncePool extends EventEmitter<NoncePoolEvent> {
   /**
    * Initialize outgoing state for a peer.
    */
-  private _init_outgoing (peer_idx : number) : void {
-    if (this._outgoing.has(peer_idx)) return
-    this._outgoing.set(peer_idx, new Map())
+  private _init_outgoing (peer_idx : number) : Map<string, DerivedPublicNonce> {
+    let state = this._outgoing.get(peer_idx)
+    if (!state) {
+      state = new Map()
+      this._outgoing.set(peer_idx, state)
+    }
+    return state
   }
 
   /**
    * Initialize incoming state for a peer.
    */
-  private _init_incoming (peer_idx : number) : void {
-    if (this._incoming.has(peer_idx)) return
-    this._incoming.set(peer_idx, new Map())
+  private _init_incoming (peer_idx : number) : Map<string, DerivedPublicNonce> {
+    let state = this._incoming.get(peer_idx)
+    if (!state) {
+      state = new Map()
+      this._incoming.set(peer_idx, state)
+    }
+    return state
   }
 
   /**
@@ -171,8 +179,7 @@ export class NoncePool extends EventEmitter<NoncePoolEvent> {
     count    : number = this._config.replenish_count
   ) : NoncePackage {
     this._check_destroyed()
-    this._init_outgoing(peer_idx)
-    const state = this._outgoing.get(peer_idx)!
+    const state = this._init_outgoing(peer_idx)
 
     // Enforce pool_size limit to prevent unbounded nonce generation
     const current_count = state.size
@@ -205,8 +212,7 @@ export class NoncePool extends EventEmitter<NoncePoolEvent> {
    * @returns Number of valid nonces stored.
    */
   store_incoming (peer_idx : number, nonces : NoncePackage) : number {
-    this._init_incoming(peer_idx)
-    const state = this._incoming.get(peer_idx)!
+    const state = this._init_incoming(peer_idx)
 
     let stored = 0
     for (const nonce of nonces) {
