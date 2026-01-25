@@ -1,6 +1,7 @@
-import * as API   from './api/index.js'
-import * as Lib   from './lib/index.js'
-import * as CONST from './const.js'
+import * as API      from './api/index.js'
+import * as Lib      from './lib/index.js'
+import * as CONST    from './const.js'
+import * as Validate from './util/validate.js'
 
 import Schema from './schema/index.js'
 
@@ -10,4 +11,4 @@ export { PackageEncoder } from './encoder/index.js'
 
 export * from './types/index.js'
 
-export { API, CONST, Lib, Schema }
+export { API, CONST, Lib, Schema, Validate }

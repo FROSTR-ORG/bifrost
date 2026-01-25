@@ -276,7 +276,7 @@ export class ECDHBatcher extends BaseBatcher<string, string> {
     // Check cache first.
     const encrypted = this.node.cache.ecdh.get(ecdh_pk)
     if (encrypted !== undefined) {
-      return this.node.signer.unwrap(encrypted, ecdh_pk)
+      return this.node.signer.decrypt(encrypted, ecdh_pk)
     }
     // Queue the request.
     return new Promise((resolve, reject) => {
@@ -318,7 +318,7 @@ export class ECDHBatcher extends BaseBatcher<string, string> {
       const encrypted = this.node.cache.ecdh.get(req.input)
       if (encrypted !== undefined) {
         try {
-          req.resolve(this.node.signer.unwrap(encrypted, req.input))
+          req.resolve(this.node.signer.decrypt(encrypted, req.input))
         } catch (err) {
           req.reject(parse_error(err))
         }

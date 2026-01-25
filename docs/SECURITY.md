@@ -200,21 +200,32 @@ node.on('/sign/sender/rej', ([reason, session]) => {
 
 For environments requiring stronger protection against malicious group members, rate limiting can be implemented at a lower level (relay, network, or middleware).
 
-### Network Failure and Nonce Loss
+### Network Failure and Nonce Recovery
 
-**Scenario:** If a signing request fails mid-protocol due to network issues, consumed nonces may be "lost" (consumed from the pool but not used in a signature).
+**Scenario:** If a signing request fails mid-protocol due to network issues, what happens to the consumed nonces?
 
-**Design decision:** Nonces are consumed optimistically before the full signing round completes. This is safer than the alternative (risking nonce reuse on retry), which would be catastrophic for key security.
+**Solution:** Bifrost implements automatic retry with nonce caching. When a signing request is initiated:
 
-**Impact:**
-- Lost nonces reduce pool size but do not compromise security
-- Pools automatically replenish during subsequent successful operations
-- In worst case, ping requests can manually trigger replenishment
+1. Nonces are collected once and bound to the session ID
+2. If the network request fails, the same nonces are reused for retry
+3. This is safe because: same session ID = same message, and nonce reuse with the same message is idempotent
+
+**Configuration:**
+```typescript
+// Configure retry attempts (default: 1 retry)
+const result = await node.req.sign_batch(messages, { retries: 2 })
+```
+
+**Why this is safe:**
+- The session ID is deterministic from the message content and member set
+- Retrying with the same session/nonces signs the same message
+- If a peer already processed the original request, they reject the retry (nonce already spent) - but this is no worse than a fresh attempt
+- If peers didn't receive the original, the retry succeeds
 
 **Best practices:**
-- Configure adequate `pool_size` for your expected failure rate
-- Monitor `critical_low` events to detect pool depletion
-- Ensure stable network connectivity between signing sessions
+- Configure `retries` based on your network reliability
+- Monitor `debug` events to track retry attempts
+- Ensure stable network connectivity for best performance
 
 ### Audit Logging
 

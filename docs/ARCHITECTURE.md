@@ -98,11 +98,11 @@ interface BifrostSigner {
   // Operations
   sign_session(session, nonce): PartialSigPackage
   gen_ecdh_share(members, pubkey): ECDHPackage
-  gen_batched_ecdh_shares(members, pubkeys): ECDHPackage
+  gen_ecdh_shares(members, pubkeys): ECDHPackage
 
   // Encryption
-  wrap(content, pubkey): string    // Encrypt for recipient
-  unwrap(content, pubkey): string  // Decrypt from sender
+  encrypt(content, pubkey): string  // Encrypt for recipient
+  decrypt(content, pubkey): string  // Decrypt from sender
 }
 ```
 

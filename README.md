@@ -69,6 +69,44 @@ See the [Guide](docs/GUIDE.md) for complete examples.
 
 See [API Reference](docs/API.md) for full documentation.
 
+## Events
+
+BifrostNode emits typed events for lifecycle and operations:
+
+### Lifecycle Events
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `ready` | `BifrostNode` | Node connected and ready for operations |
+| `closed` | `BifrostNode` | Node disconnected |
+| `message` | `RpcMessageData` | Raw message received (for debugging) |
+| `bounced` | `[reason, msg]` | Message rejected (unauthorized or invalid) |
+
+### Signature Events
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `/sign/sender/req` | `SignSessionPackage` | Signature request sent to peers |
+| `/sign/sender/res` | `PartialSigPackage[]` | Partial signatures received from peers |
+| `/sign/sender/sig` | `[SignatureEntry[], msgs]` | Final signatures aggregated |
+| `/sign/sender/rej` | `[reason, session]` | Signature request phase failed |
+| `/sign/sender/err` | `[reason, msgs]` | Signature aggregation failed |
+| `/sign/handler/req` | `msg` | Incoming sign request from peer |
+| `/sign/handler/res` | `msg` | Partial signature sent to requester |
+| `/sign/handler/rej` | `[reason, msg]` | Sign request rejected |
+
+### ECDH Events
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `/ecdh/sender/res` | `msgs` | ECDH shares received from peers |
+| `/ecdh/sender/ret` | `[ecdh_pk, secret]` | Shared secret derived |
+| `/ecdh/sender/rej` | `[reason, pkg]` | ECDH request phase failed |
+| `/ecdh/sender/err` | `[reason, msgs]` | ECDH derivation failed |
+| `/ecdh/handler/req` | `msg` | Incoming ECDH request from peer |
+| `/ecdh/handler/res` | `msg` | ECDH share sent to requester |
+| `/ecdh/handler/rej` | `[reason, msg]` | ECDH request rejected |
+
 ## Documentation
 
 | Document | Description |

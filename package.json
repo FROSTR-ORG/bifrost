@@ -31,9 +31,9 @@
       "default": "./dist/encoder/index.js"
     },
     "./lib": {
-      "import": "./dist/lib/index.js",
-      "types": "./dist/lib/index.d.ts",
-      "default": "./dist/lib/index.js"
+      "import": "./dist/lib/api.js",
+      "types": "./dist/lib/api.d.ts",
+      "default": "./dist/lib/api.js"
     },
     "./util": {
       "import": "./dist/util/index.js",

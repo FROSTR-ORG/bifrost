@@ -197,6 +197,8 @@ export function sign_batch_request_api (node : BifrostNode) {
     const thold    = node.group.threshold
     // Calculate required peers (we are one of the signers).
     const required = thold - 1
+    // Get retry count (default: 1 retry on network failure)
+    const max_retries = options.retries ?? 1
 
     // Get candidates filtered by send policy AND nonce availability.
     let candidates : string[]
@@ -224,7 +226,9 @@ export function sign_batch_request_api (node : BifrostNode) {
     // Assert the template is not null.
     Assert.ok(template !== null, 'invalid session template')
 
-    // Collect nonces for all participating members (unified format)
+    // Collect nonces ONCE for all retry attempts.
+    // This prevents nonce loss on network failure - the same nonces can be
+    // safely reused for the same session (same message + members).
     const { nonces, our_secret } = collect_nonces_for_session(node, selected)
 
     // Create the session package with unified nonces array.
@@ -234,35 +238,51 @@ export function sign_batch_request_api (node : BifrostNode) {
       nonces
     }
 
-    // Initialize the list of response packages.
-    let msgs : (RpcMessageData & { data: PartialSigPackage })[] | null = null
+    // Retry loop for network failures.
+    // Nonces are cached in the session, so retries use the same nonces.
+    // This is safe because: same session ID = same message, and
+    // nonce reuse with same message is idempotent.
+    let last_error : string = ''
+    for (let attempt = 0; attempt <= max_retries; attempt++) {
+      // Initialize the list of response packages.
+      let msgs : (RpcMessageData & { data: PartialSigPackage })[] | null = null
 
-    try {
-      // Create the request.
-      msgs = await create_sign_request(node, selected, session)
-      // Emit the response.
-      node.emit('/sign/sender/res', copy_obj(msgs))
-    } catch (err) {
-      if (node.debug) console.log(err)
-      const reason = parse_error(err)
-      node.emit('/sign/sender/rej', [ reason, session ])
-      return { ok : false, err : reason }
+      try {
+        // Create the request.
+        msgs = await create_sign_request(node, selected, session)
+        // Emit the response.
+        node.emit('/sign/sender/res', copy_obj(msgs))
+      } catch (err) {
+        if (node.debug) console.log(err)
+        last_error = parse_error(err)
+        // If we have retries left, continue to next attempt
+        if (attempt < max_retries) {
+          node.emit('debug', `sign request failed (attempt ${attempt + 1}/${max_retries + 1}), retrying...`)
+          continue
+        }
+        // All retries exhausted
+        node.emit('/sign/sender/rej', [ last_error, session ])
+        return { ok : false, err : last_error }
+      }
+
+      try {
+        Assert.ok(msgs !== null, 'no responses from peers')
+        // Finalize the response.
+        const sigs = finalize_sign_response(node, msgs, session, our_secret)
+        // Emit the response.
+        node.emit('/sign/sender/ret', [ session.sid, sigs ])
+        // Return the signature.
+        return { ok : true, data : sigs }
+      } catch (err) {
+        if (node.debug) console.log(err)
+        const reason = parse_error(err)
+        node.emit('/sign/sender/err', [ reason, msgs ?? [] ])
+        return { ok : false, err : reason }
+      }
     }
 
-    try {
-      Assert.ok(msgs !== null, 'no responses from peers')
-      // Finalize the response.
-      const sigs = finalize_sign_response(node, msgs, session, our_secret)
-      // Emit the response.
-      node.emit('/sign/sender/ret', [ session.sid, sigs ])
-      // Return the signature.
-      return { ok : true, data : sigs }
-    } catch (err) {
-      if (node.debug) console.log(err)
-      const reason = parse_error(err)
-      node.emit('/sign/sender/err', [ reason, msgs ?? [] ])
-      return { ok : false, err : reason }
-    }
+    // Should not reach here, but just in case
+    return { ok : false, err : last_error || 'signing failed' }
   }
 }
 
@@ -288,12 +308,14 @@ export function sign_batch_request_api (node : BifrostNode) {
  * ```
  */
 export function sign_single_request_api (node : BifrostNode) {
+  // Access private batcher (internal API only)
+  const batcher = (node as any)._sign_batcher as import('@/class/batcher.js').SignBatcher
   return async (
     message : string | SighashVector
   ) : Promise<ApiResponse<SignatureEntry>> => {
     try {
       const sigvec = format_sigvector(message)
-      const entry = await node.sign_batcher.push(sigvec)
+      const entry = await batcher.push(sigvec)
       return { ok : true, data : entry }
     } catch (err) {
       return { ok : false, err : parse_error(err) }

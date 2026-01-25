@@ -401,6 +401,33 @@ npm run demo:keygen -- --fresh
 
 Member names follow the pattern: alice, bob, carol, dave, eve, ...
 
+## Middleware
+
+Middleware allows you to intercept and modify messages before processing. This is useful for logging, filtering, or transforming requests.
+
+```typescript
+const node = new BifrostNode(group, share, relays, {
+  middleware: {
+    // Filter or modify incoming sign requests
+    sign: (node, msg) => {
+      console.log('Sign request:', msg.data.hashes)
+      return msg // Return message to continue processing
+    },
+    // Filter or modify incoming ECDH requests
+    ecdh: (node, msg) => {
+      console.log('ECDH request:', msg.data.entries.length, 'keys')
+      return msg // Return null to drop the request
+    }
+  }
+})
+```
+
+Middleware functions receive:
+- `node` - The BifrostNode instance
+- `msg` - The parsed request message with data payload
+
+Return the message (modified or unmodified) to continue processing, or return `null` to drop the request.
+
 ## Next Steps
 
 - [API Reference](./API.md) - Full API documentation

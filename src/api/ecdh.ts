@@ -58,7 +58,7 @@ export async function ecdh_handler_api (
     // Extract all ecdh_pks from entries.
     const ecdh_pks = entries.map(e => e.ecdh_pk)
     // Generate ECDH shares for all requested keys.
-    const pkg = node.signer.gen_batched_ecdh_shares(members, ecdh_pks)
+    const pkg = node.signer.gen_ecdh_shares(members, ecdh_pks)
     // Send the response using the new respond API.
     const res = await node.client.respond(msg).accept(pkg)
     // If the response is not ok, throw an error.
@@ -119,7 +119,7 @@ export function ecdh_batch_request_api (node : BifrostNode) {
     for (const ecdh_pk of ecdh_pks) {
       const encrypted = node.cache.ecdh.get(ecdh_pk)
       if (encrypted !== undefined) {
-        const secret = node.signer.unwrap(encrypted, ecdh_pk)
+        const secret = node.signer.decrypt(encrypted, ecdh_pk)
         cached_results.push([ ecdh_pk, secret ])
       } else {
         uncached_pks.push(ecdh_pk)
@@ -140,7 +140,7 @@ export function ecdh_batch_request_api (node : BifrostNode) {
     // Get the indexes of the members.
     const members  = get_member_indexes(node.group, [ node.pubkey, ...selected ])
     // Generate ECDH shares for all uncached keys.
-    const self_pkg = node.signer.gen_batched_ecdh_shares(members, uncached_pks)
+    const self_pkg = node.signer.gen_ecdh_shares(members, uncached_pks)
 
     let msgs : (RpcMessageData & { data: ECDHPackage })[] | null = null
 
@@ -173,7 +173,7 @@ export function ecdh_batch_request_api (node : BifrostNode) {
         const secret = secrets.get(ecdh_pk)
         if (secret) {
           // Wrap the secret with encryption.
-          const content = node.signer.wrap(secret, ecdh_pk)
+          const content = node.signer.encrypt(secret, ecdh_pk)
           // Store the encrypted secret in cache.
           node.cache.ecdh.set(ecdh_pk, content)
           // Emit the shared secret.
@@ -220,9 +220,11 @@ export function ecdh_batch_request_api (node : BifrostNode) {
  * ```
  */
 export function ecdh_single_request_api (node : BifrostNode) {
+  // Access private batcher (internal API only)
+  const batcher = (node as any)._ecdh_batcher as import('@/class/batcher.js').ECDHBatcher
   return async (ecdh_pk : string) : Promise<ApiResponse<string>> => {
     try {
-      const secret = await node.ecdh_batcher.push(ecdh_pk)
+      const secret = await batcher.push(ecdh_pk)
       return { ok : true, data : secret }
     } catch (err) {
       return { ok : false, err : parse_error(err) }

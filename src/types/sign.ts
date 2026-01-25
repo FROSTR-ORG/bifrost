@@ -2,9 +2,35 @@ import type { GroupSigningCtx } from '@vbyte/frost'
 
 import type { MemberPublicNonce, NoncePackage, SigningNonce } from './nonce.js'
 
-export type SighashVector   = [ sighash : string, ...tweaks : string[] ]
+/**
+ * A sighash vector containing the hash to sign and optional tweaks.
+ * The first element is the sighash (message digest), followed by
+ * zero or more tweak values for key derivation.
+ *
+ * @example
+ * // Simple message hash
+ * const vec: SighashVector = ['abc123def...']
+ *
+ * // With BIP-32 style tweaks
+ * const vec: SighashVector = ['abc123def...', 'tweak1', 'tweak2']
+ */
+export type SighashVector = [ sighash : string, ...tweaks : string[] ]
+
+/**
+ * A partial signature entry containing the sighash and partial signature.
+ * Used in PartialSigPackage to represent individual partial signatures.
+ *
+ * @example ['abc123...', 'psig456...']
+ */
 export type PartialSigEntry = [ sighash : string, psig : string ]
-export type SignatureEntry  = [ sighash : string, pubkey : string, signature : string ]
+
+/**
+ * A signature entry containing the signed hash, group public key, and final signature.
+ * This is the result type returned from successful signing operations.
+ *
+ * @example ['abc123...', '02abc...', 'sig789...']
+ */
+export type SignatureEntry = [ sighash : string, pubkey : string, signature : string ]
 
 export interface SignerConfig {}
 
@@ -38,6 +64,8 @@ export interface SignSessionConfig {
 
 export interface SignRequestConfig extends SignSessionConfig {
   peers : string[]
+  /** Number of retry attempts on network failure (default: 1) */
+  retries? : number
 }
 
 export interface SignSessionTemplate extends SignSessionConfig {

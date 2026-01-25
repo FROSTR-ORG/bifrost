@@ -153,7 +153,7 @@ export class BifrostSigner {
    * @param ecdh_pks - The remote public keys to perform ECDH with (hex-encoded).
    * @returns An ECDHPackage containing partial ECDH shares for all keys.
    */
-  gen_batched_ecdh_shares (
+  gen_ecdh_shares (
     members  : number[],
     ecdh_pks : string[]
   ) : ECDHPackage {
@@ -213,7 +213,7 @@ export class BifrostSigner {
    * @param pubkey - The sender's public key used for ECDH.
    * @returns The decrypted content as a string.
    */
-  unwrap (
+  decrypt (
     content : string,
     pubkey  : string
   ) {
@@ -233,7 +233,7 @@ export class BifrostSigner {
    * @param pubkey - The recipient's public key used for ECDH.
    * @returns The encrypted content as a string.
    */
-  wrap (
+  encrypt (
     content : string,
     pubkey  : string
   ) {

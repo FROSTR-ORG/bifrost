@@ -78,13 +78,13 @@ export default function (tape : Test) {
         st.end()
       })
 
-      // Test gen_batched_ecdh_shares
-      t.test('gen_batched_ecdh_shares() creates batched ECDH package', st => {
+      // Test gen_ecdh_shares
+      t.test('gen_ecdh_shares() creates batched ECDH package', st => {
         const members = [ 1, 2, 3 ]
         // Use real valid public keys from group members
         const ecdh_pks = vec.group.members.slice(0, 3).map(m => m.pubkey)
 
-        const pkg = signer.gen_batched_ecdh_shares(members, ecdh_pks)
+        const pkg = signer.gen_ecdh_shares(members, ecdh_pks)
 
         st.ok(pkg !== undefined, 'returns ECDH package')
         st.equal(pkg.idx, share.idx, 'package idx matches share idx')
@@ -99,30 +99,30 @@ export default function (tape : Test) {
         st.end()
       })
 
-      // Test wrap and unwrap (encryption/decryption roundtrip)
-      t.test('wrap() and unwrap() roundtrip', st => {
+      // Test encrypt and decrypt (encryption/decryption roundtrip)
+      t.test('encrypt() and decrypt() roundtrip', st => {
         // Use signer's own pubkey for a self-encryption test
         const content = 'secret message to encrypt'
         const pubkey = signer.pubkey
 
-        const encrypted = signer.wrap(content, pubkey)
+        const encrypted = signer.encrypt(content, pubkey)
         st.notEqual(encrypted, content, 'encrypted content differs from original')
 
-        const decrypted = signer.unwrap(encrypted, pubkey)
+        const decrypted = signer.decrypt(encrypted, pubkey)
         st.equal(decrypted, content, 'decrypted content matches original')
         st.end()
       })
 
-      // Test wrap with different pubkeys produces different ciphertext
-      t.test('wrap() with different recipients', st => {
+      // Test encrypt with different pubkeys produces different ciphertext
+      t.test('encrypt() with different recipients', st => {
         const content = 'test content'
         const pubkey1 = signer.pubkey
         // Use second signer's pubkey
         const signer2 = new BifrostSigner(group, vec.shares[1])
         const pubkey2 = signer2.pubkey
 
-        const encrypted1 = signer.wrap(content, pubkey1)
-        const encrypted2 = signer.wrap(content, pubkey2)
+        const encrypted1 = signer.encrypt(content, pubkey1)
+        const encrypted2 = signer.encrypt(content, pubkey2)
 
         st.notEqual(encrypted1, encrypted2, 'different recipients produce different ciphertext')
         st.end()
@@ -144,17 +144,17 @@ export default function (tape : Test) {
       })
 
       // Test wrong-recipient decryption fails
-      t.test('unwrap() fails for wrong recipient', st => {
+      t.test('decrypt() fails for wrong recipient', st => {
         const signer1 = new BifrostSigner(group, vec.shares[0])
         const signer2 = new BifrostSigner(group, vec.shares[1])
 
         const content = 'secret message'
         // Encrypt for signer1's pubkey
-        const encrypted = signer1.wrap(content, signer1.pubkey)
+        const encrypted = signer1.encrypt(content, signer1.pubkey)
 
         // Try to decrypt with signer2 (wrong recipient)
         st.throws(
-          () => signer2.unwrap(encrypted, signer1.pubkey),
+          () => signer2.decrypt(encrypted, signer1.pubkey),
           'decryption with wrong recipient throws'
         )
         st.end()
@@ -179,9 +179,9 @@ export default function (tape : Test) {
         )
 
         st.throws(
-          () => testSigner.wrap('content', testSigner.pubkey),
+          () => testSigner.encrypt('content', testSigner.pubkey),
           /destroyed/,
-          'wrap throws after destroy'
+          'encrypt throws after destroy'
         )
 
         st.end()

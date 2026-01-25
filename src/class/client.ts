@@ -283,24 +283,6 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   }
 
   /**
-   * Gets the signature batcher for batch processing.
-   * @returns The SignBatcher instance.
-   * @internal
-   */
-  get sign_batcher () {
-    return this._sign_batcher
-  }
-
-  /**
-   * Gets the ECDH batcher for batch processing.
-   * @returns The ECDHBatcher instance.
-   * @internal
-   */
-  get ecdh_batcher () {
-    return this._ecdh_batcher
-  }
-
-  /**
    * Gets the list of peer data for all group members (excluding self).
    * @returns Array of PeerData objects with pubkey, policy, and status.
    */
