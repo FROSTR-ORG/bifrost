@@ -68,13 +68,15 @@ export class NoncePool extends EventEmitter<NoncePoolEvent> {
   /** Our member index */
   private readonly _our_idx : number
   /** Our secret share for deriving nonces */
-  private readonly _seckey  : string
+  private _seckey  : string
   /** Pool configuration */
   private readonly _config  : NoncePoolConfig
   /** Outgoing nonces (we generated for peers) - Map<peer_idx, Map<code, DerivedPublicNonce>> */
   private readonly _outgoing : Map<number, Map<string, DerivedPublicNonce>>
   /** Incoming nonces (received from peers) - Map<peer_idx, Map<code, DerivedPublicNonce>> */
   private readonly _incoming : Map<number, Map<string, DerivedPublicNonce>>
+  /** Whether the pool has been destroyed */
+  private _destroyed : boolean = false
 
   /**
    * Creates a new NoncePool.
@@ -151,6 +153,7 @@ export class NoncePool extends EventEmitter<NoncePoolEvent> {
    *
    * Only stores the derivation codes, not the secrets.
    * Secrets are derived on-demand when needed for signing.
+   * Enforces pool_size limit to prevent unbounded nonce generation.
    *
    * @param peer_idx - The target peer's member index.
    * @param count - Number of nonces to generate (default: replenish_count).
@@ -160,11 +163,22 @@ export class NoncePool extends EventEmitter<NoncePoolEvent> {
     peer_idx : number,
     count    : number = this._config.replenish_count
   ) : NoncePackage {
+    this._check_destroyed()
     this._init_outgoing(peer_idx)
     const state = this._outgoing.get(peer_idx)!
 
+    // Enforce pool_size limit to prevent unbounded nonce generation
+    const current_count = state.size
+    const available_slots = this._config.pool_size - current_count
+    const actual_count = Math.min(count, available_slots)
+
+    // If no slots available, return empty array
+    if (actual_count <= 0) {
+      return []
+    }
+
     // Generate new nonce pairs (public nonces with codes)
-    const nonces = generate_nonce_pairs(this._seckey, count)
+    const nonces = generate_nonce_pairs(this._seckey, actual_count)
 
     // Store by code
     for (const nonce of nonces) {
@@ -371,6 +385,7 @@ export class NoncePool extends EventEmitter<NoncePoolEvent> {
     peer_idx : number,
     nonce    : MemberPublicNonce
   ) : SecretNoncePair | null {
+    this._check_destroyed()
     const state = this._outgoing.get(peer_idx)
     if (!state) return null
 
@@ -400,6 +415,7 @@ export class NoncePool extends EventEmitter<NoncePoolEvent> {
    * @returns The secret nonce, or null if not found.
    */
   get_secret_nonce (peer_idx : number, code : string) : SecretNoncePair | null {
+    this._check_destroyed()
     const state = this._outgoing.get(peer_idx)
     if (!state) return null
 
@@ -510,6 +526,8 @@ export class NoncePool extends EventEmitter<NoncePoolEvent> {
    * @param state - The state to import.
    */
   import (state : NoncePoolState) : void {
+    this._check_destroyed()
+
     // Validate our_idx matches
     if (state.our_idx !== this._our_idx) {
       throw new Error('pool state our_idx mismatch')
@@ -543,6 +561,43 @@ export class NoncePool extends EventEmitter<NoncePoolEvent> {
       }
       this._incoming.set(idx, map)
     }
+  }
+
+  /**
+   * Check if the pool has been destroyed.
+   * @returns True if the pool has been destroyed.
+   */
+  get destroyed () : boolean {
+    return this._destroyed
+  }
+
+  /**
+   * Throws an error if the pool has been destroyed.
+   * @private
+   */
+  private _check_destroyed () : void {
+    if (this._destroyed) {
+      throw new Error('nonce pool has been destroyed')
+    }
+  }
+
+  /**
+   * Destroys the pool by securely clearing the secret key from memory.
+   *
+   * After calling this method, any operations requiring the secret key
+   * will throw an error. This should be called when the pool is no
+   * longer needed to minimize the window of exposure for the secret key.
+   */
+  destroy () : void {
+    if (this._destroyed) return
+
+    // Overwrite the secret key with zeros
+    this._seckey = '0'.repeat(64)
+
+    // Clear all pool state
+    this.clear()
+
+    this._destroyed = true
   }
 }
 

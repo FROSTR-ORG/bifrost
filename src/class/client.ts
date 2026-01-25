@@ -375,7 +375,9 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
    *
    * This method:
    * 1. Closes the batchers (clearing timers and rejecting pending requests)
-   * 2. Closes the underlying Nostr client
+   * 2. Destroys the signer and pool to clear secrets from memory
+   * 3. Removes event listeners from the underlying client
+   * 4. Closes the underlying Nostr client
    *
    * Emits 'closed' event when disconnected.
    *
@@ -385,6 +387,16 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
     // Close the batchers first to clear timers and reject pending requests
     this._sign_batcher.close()
     this._ecdh_batcher.close()
+
+    // Destroy signer and pool to clear secrets from memory
+    this._signer.destroy()
+    this._pool.destroy()
+
+    // Remove event listeners from the client to prevent memory leaks
+    this._client.clear('closed')
+    this._client.clear('ready')
+    this._client.clear('message')
+
     // Close the underlying client
     void this.client.close()
   }

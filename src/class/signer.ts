@@ -69,9 +69,11 @@ export class BifrostSigner {
   /** The group package containing group public key and members. */
   private readonly _group  : GroupPackage
   /** The share package containing this signer's secret share. */
-  private readonly _share  : SharePackage
+  private _share  : SharePackage
   /** This signer's public key in BIP-340 format. */
   private readonly _pubkey : string
+  /** Whether the signer has been destroyed. */
+  private _destroyed : boolean = false
 
   /**
    * Creates a new BifrostSigner instance.
@@ -137,6 +139,7 @@ export class BifrostSigner {
     members : number[],
     ecdh_pk : string
   ) : ECDHPackage {
+    this._check_destroyed()
     return create_ecdh_pkg(members, ecdh_pk, this._share)
   }
 
@@ -154,6 +157,7 @@ export class BifrostSigner {
     members  : number[],
     ecdh_pks : string[]
   ) : ECDHPackage {
+    this._check_destroyed()
     return create_batched_ecdh_pkg(members, ecdh_pks, this._share)
   }
 
@@ -171,6 +175,7 @@ export class BifrostSigner {
     message  : string,
     auxrand? : string | Uint8Array
   ) : string {
+    this._check_destroyed()
     const msg = Buff.hex(message)
     const sk  = Buff.hex(this._share.seckey)
     const aux = normalize_auxrand(auxrand)
@@ -192,6 +197,7 @@ export class BifrostSigner {
     session : SignSessionPackage,
     nonce   : SecretNoncePair
   ) : PartialSigPackage {
+    this._check_destroyed()
     const ctx = get_session_ctx(this._group, session)
 
     return create_psig_pkg(ctx, this._share, nonce)
@@ -211,6 +217,7 @@ export class BifrostSigner {
     content : string,
     pubkey  : string
   ) {
+    this._check_destroyed()
     const seckey = this._share.seckey
     const secret = CRYPTO.get_shared_secret(seckey, pubkey)
     return LIB.nip44_decrypt(secret, content)
@@ -230,9 +237,48 @@ export class BifrostSigner {
     content : string,
     pubkey  : string
   ) {
+    this._check_destroyed()
     const seckey = this._share.seckey
     const secret = CRYPTO.get_shared_secret(seckey, pubkey)
     return LIB.nip44_encrypt(secret, content)
+  }
+
+  /**
+   * Check if the signer has been destroyed.
+   * @returns True if the signer has been destroyed.
+   */
+  get destroyed () : boolean {
+    return this._destroyed
+  }
+
+  /**
+   * Throws an error if the signer has been destroyed.
+   * @private
+   */
+  private _check_destroyed () : void {
+    if (this._destroyed) {
+      throw new Error('signer has been destroyed')
+    }
+  }
+
+  /**
+   * Destroys the signer by securely clearing the secret key from memory.
+   *
+   * After calling this method, any operations requiring the secret key
+   * will throw an error. This should be called when the signer is no
+   * longer needed to minimize the window of exposure for the secret key.
+   */
+  destroy () : void {
+    if (this._destroyed) return
+
+    // Overwrite the secret key with zeros
+    const zero_key = '0'.repeat(64)
+    this._share = {
+      idx    : this._share.idx,
+      seckey : zero_key
+    }
+
+    this._destroyed = true
   }
 
 }

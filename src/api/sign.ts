@@ -98,7 +98,7 @@ export async function sign_handler_api (
       our_nonce
     )
     if (!secret_nonce) {
-      throw new Error('failed to derive secret from nonce code: ' + our_nonce.code)
+      throw new Error('failed to derive secret from nonce code')
     }
 
     // Sign the session with the secret nonce.
@@ -134,7 +134,7 @@ function get_member_idx_by_pubkey (
   pubkey : string
 ) : number {
   const member = node.group.members.find(m => pubkeys_match(m.pubkey, pubkey))
-  if (!member) throw new Error('member not found for pubkey: ' + pubkey)
+  if (!member) throw new Error('member not found for pubkey')
   return member.idx
 }
 
@@ -418,13 +418,16 @@ function finalize_sign_response (
   // Collect all partial signatures
   const pkgs = [ our_pkg ]
 
-  // Verify and collect peer responses.
+  // Phase 1: Verify all peer responses before any state changes
+  // This ensures we don't store replenishment nonces from invalid signatures
   responses.forEach(e => {
     const error = verify_psig_pkg(ctx, e.data)
-    Assert.ok(error === null, error + ' : ' + e.event.pubkey)
+    Assert.ok(error === null, 'invalid partial signature from peer')
     pkgs.push(e.data)
+  })
 
-    // Process replenishment nonces if present
+  // Phase 2: Process replenishment nonces only after all signatures verified
+  responses.forEach(e => {
     if (e.data.replenish && e.data.replenish.length > 0) {
       node.pool.store_incoming(e.data.idx, e.data.replenish)
     }

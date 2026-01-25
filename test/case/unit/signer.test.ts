@@ -143,6 +143,50 @@ export default function (tape : Test) {
         st.end()
       })
 
+      // Test wrong-recipient decryption fails
+      t.test('unwrap() fails for wrong recipient', st => {
+        const signer1 = new BifrostSigner(group, vec.shares[0])
+        const signer2 = new BifrostSigner(group, vec.shares[1])
+
+        const content = 'secret message'
+        // Encrypt for signer1's pubkey
+        const encrypted = signer1.wrap(content, signer1.pubkey)
+
+        // Try to decrypt with signer2 (wrong recipient)
+        st.throws(
+          () => signer2.unwrap(encrypted, signer1.pubkey),
+          'decryption with wrong recipient throws'
+        )
+        st.end()
+      })
+
+      // Test destroy() clears secrets
+      t.test('destroy() prevents further operations', st => {
+        const testSigner = new BifrostSigner(group, vec.shares[0])
+
+        st.equal(testSigner.destroyed, false, 'signer not destroyed initially')
+
+        // Destroy the signer
+        testSigner.destroy()
+        st.equal(testSigner.destroyed, true, 'signer is now destroyed')
+
+        // Operations should throw after destroy
+        const message = hash_string('test')
+        st.throws(
+          () => testSigner.sign_message(message),
+          /destroyed/,
+          'sign_message throws after destroy'
+        )
+
+        st.throws(
+          () => testSigner.wrap('content', testSigner.pubkey),
+          /destroyed/,
+          'wrap throws after destroy'
+        )
+
+        st.end()
+      })
+
     } catch (err) {
       t.fail(parse_error(err))
     }

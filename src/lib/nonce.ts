@@ -12,6 +12,7 @@
 import { Buff }          from '@vbyte/buff'
 import { hmac }          from '@noble/hashes/hmac.js'
 import { sha256 }        from '@noble/hashes/sha2.js'
+import { equalBytes }    from '@noble/ciphers/utils.js'
 import { get_pubkey }    from '@/util/crypto.js'
 import { Assert }        from '@/util/assert.js'
 import { sha256_digest } from '@/util/encoding.js'
@@ -318,7 +319,16 @@ export function verify_nonce_code (
     const derived = derive_secret_nonce(share_secret, nonce.code)
     const binder_pn = get_pubkey(derived.binder_sn, 'ecdsa')
     const hidden_pn = get_pubkey(derived.hidden_sn, 'ecdsa')
-    return binder_pn === nonce.binder_pn && hidden_pn === nonce.hidden_pn
+    // Use constant-time comparison to prevent timing attacks
+    const binder_match = equalBytes(
+      Buff.hex(binder_pn),
+      Buff.hex(nonce.binder_pn)
+    )
+    const hidden_match = equalBytes(
+      Buff.hex(hidden_pn),
+      Buff.hex(nonce.hidden_pn)
+    )
+    return binder_match && hidden_match
   } catch {
     return false
   }

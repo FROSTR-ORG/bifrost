@@ -37,14 +37,16 @@ type ECDHRequest = BatchRequest<string, string>
 abstract class BaseBatcher<TInput, TOutput> {
   protected readonly _node     : BifrostNode
   protected readonly _interval : number
-  protected _queue : BatchRequest<TInput, TOutput>[]
-  protected _timer : NodeJS.Timeout | null
+  protected _queue      : BatchRequest<TInput, TOutput>[]
+  protected _timer      : NodeJS.Timeout | null
+  protected _processing : boolean
 
   constructor(node: BifrostNode, interval: number) {
-    this._node     = node
-    this._interval = interval
-    this._queue    = []
-    this._timer    = null
+    this._node       = node
+    this._interval   = interval
+    this._queue      = []
+    this._timer      = null
+    this._processing = false
   }
 
   /**
@@ -166,13 +168,18 @@ export class SignBatcher extends BaseBatcher<SighashVector, SignatureEntry> {
    * manually to force immediate processing.
    */
   async process() {
-    // Get the current batch from the queue.
-    const batch = [...this._queue] as SignRequest[]
-    // Clear the timer and queue.
-    this._queue = []
-    this._timer = null
-    // If there are no requests, return.
-    if (batch.length === 0) return
+    // Prevent concurrent processing
+    if (this._processing) return
+    this._processing = true
+
+    try {
+      // Get the current batch from the queue.
+      const batch = [...this._queue] as SignRequest[]
+      // Clear the timer and queue.
+      this._queue = []
+      this._timer = null
+      // If there are no requests, return.
+      if (batch.length === 0) return
     // Reject if batch exceeds maximum size
     if (batch.length > MAX_SIGN_BATCH_SIZE) {
       const reason = `batch size ${batch.length} exceeds maximum ${MAX_SIGN_BATCH_SIZE}`
@@ -210,6 +217,9 @@ export class SignBatcher extends BaseBatcher<SighashVector, SignatureEntry> {
     } catch (err: unknown) {
       // If there's an error, reject all requests.
       batch.forEach(req => req.reject(parse_error(err)))
+    }
+    } finally {
+      this._processing = false
     }
   }
 }
@@ -288,13 +298,18 @@ export class ECDHBatcher extends BaseBatcher<string, string> {
    * manually to force immediate processing.
    */
   async process() {
-    // Get the current batch from the queue.
-    const batch = [...this._queue] as ECDHRequest[]
-    // Clear the timer and queue.
-    this._queue = []
-    this._timer = null
-    // If there are no requests, return.
-    if (batch.length === 0) return
+    // Prevent concurrent processing
+    if (this._processing) return
+    this._processing = true
+
+    try {
+      // Get the current batch from the queue.
+      const batch = [...this._queue] as ECDHRequest[]
+      // Clear the timer and queue.
+      this._queue = []
+      this._timer = null
+      // If there are no requests, return.
+      if (batch.length === 0) return
 
     // Resolve cached requests immediately and collect uncached.
     const uncached: ECDHRequest[] = []
@@ -349,6 +364,9 @@ export class ECDHBatcher extends BaseBatcher<string, string> {
       } else {
         req.reject('secret missing from response')
       }
+    }
+    } finally {
+      this._processing = false
     }
   }
 }

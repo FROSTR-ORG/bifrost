@@ -186,6 +186,36 @@ node.on('/sign/sender/rej', ([reason, session]) => {
 })
 ```
 
+### Nonce Exhaustion Considerations
+
+**Theoretical concern:** A malicious group member could attempt to exhaust another member's nonce pool by initiating many signing requests without completing them (wasting nonces).
+
+**FROSTR's design philosophy:** FROSTR operates optimistically, assuming trusted group members. All peers in a signing group have been explicitly added through a trusted key ceremony, so there is an implicit trust relationship.
+
+**Mitigations:**
+1. **Pool size limits**: Nonce generation enforces `pool_size` limits (default: 100) to prevent unbounded growth
+2. **Critical thresholds**: Signing is refused when pools fall below `critical_threshold` (default: 5)
+3. **Replenishment**: Nonces are automatically replenished during successful ping/sign operations
+4. **Middleware**: Production deployments can implement rate limiting via middleware
+
+For environments requiring stronger protection against malicious group members, rate limiting can be implemented at a lower level (relay, network, or middleware).
+
+### Network Failure and Nonce Loss
+
+**Scenario:** If a signing request fails mid-protocol due to network issues, consumed nonces may be "lost" (consumed from the pool but not used in a signature).
+
+**Design decision:** Nonces are consumed optimistically before the full signing round completes. This is safer than the alternative (risking nonce reuse on retry), which would be catastrophic for key security.
+
+**Impact:**
+- Lost nonces reduce pool size but do not compromise security
+- Pools automatically replenish during subsequent successful operations
+- In worst case, ping requests can manually trigger replenishment
+
+**Best practices:**
+- Configure adequate `pool_size` for your expected failure rate
+- Monitor `critical_low` events to detect pool depletion
+- Ensure stable network connectivity between signing sessions
+
 ### Audit Logging
 
 Log all signing operations for security audits:

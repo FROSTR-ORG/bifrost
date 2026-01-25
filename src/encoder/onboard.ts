@@ -30,6 +30,10 @@ const PEER_PK_SIZE      = 32
 const RELAY_COUNT_SIZE  = 2
 const RELAY_LEN_SIZE    = 2
 const MIN_DATA_SIZE     = SHARE_INDEX_SIZE + SHARE_SECKEY_SIZE + PEER_PK_SIZE + RELAY_COUNT_SIZE
+/** Maximum relay URL length (prevents DoS via oversized relay strings) */
+const MAX_RELAY_LENGTH  = 512
+/** Maximum number of relays to prevent DoS */
+const MAX_RELAY_COUNT   = 100
 
 /**
  * Encode an onboard package to bech32m format.
@@ -44,16 +48,20 @@ export function encode_onboard_package (
   return to_bech32m(data, 'bfonboard')
 }
 
+/** Bech32m prefix for onboard packages */
+const ONBOARD_PREFIX = 'bfonboard'
+
 /**
  * Decode an onboard package from bech32m format.
  *
  * @param str - The bech32m encoded string.
  * @returns The decoded onboard package.
+ * @throws Error if the bech32m prefix is invalid.
  */
 export function decode_onboard_package (
   str : string
 ) : OnboardPackage {
-  const data = from_bech32m(str)
+  const data = from_bech32m(str, ONBOARD_PREFIX)
   return deserialize_onboard_data(data)
 }
 
@@ -109,10 +117,12 @@ export function deserialize_onboard_data (
 
   // Read relays
   const relay_count = stream.read(RELAY_COUNT_SIZE).num
+  Assert.ok(relay_count <= MAX_RELAY_COUNT, 'relay count exceeds maximum allowed')
   const relays : string[] = []
 
   for (let i = 0; i < relay_count; i++) {
     const relay_len = stream.read(RELAY_LEN_SIZE).num
+    Assert.ok(relay_len <= MAX_RELAY_LENGTH, 'relay URL length exceeds maximum allowed')
     const relay_str = stream.read(relay_len).str
     relays.push(relay_str)
   }

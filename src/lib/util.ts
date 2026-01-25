@@ -1,4 +1,6 @@
+import { Buff }                 from '@vbyte/buff'
 import { derive_shares_secret } from '@vbyte/frost/lib'
+import { equalBytes }           from '@noble/ciphers/utils.js'
 import { Assert }               from '@/util/index.js'
 
 import {
@@ -32,13 +34,17 @@ export function normalize_pubkey (pk : string) : string {
  * Check if two public keys match, regardless of format.
  *
  * Handles both 33-byte compressed and 32-byte x-only pubkeys.
+ * Uses constant-time comparison to prevent timing attacks.
  *
  * @param pk1 - First public key.
  * @param pk2 - Second public key.
  * @returns True if the pubkeys represent the same key.
  */
 export function pubkeys_match (pk1 : string, pk2 : string) : boolean {
-  return normalize_pubkey(pk1) === normalize_pubkey(pk2)
+  const normalized1 = normalize_pubkey(pk1)
+  const normalized2 = normalize_pubkey(pk2)
+  // Use constant-time comparison to prevent timing attacks
+  return equalBytes(Buff.hex(normalized1), Buff.hex(normalized2))
 }
 
 /**
@@ -109,7 +115,7 @@ export function recover_secret_key (
   const pubkeys = group.members.map(e => e.pubkey)
   for (const share of shares) {
     const pk = get_pubkey(share.seckey, 'ecdsa')
-    Assert.ok(pubkeys.includes(pk), 'share not found in group: ' + share.idx)
+    Assert.ok(pubkeys.includes(pk), 'share not found in group')
   }
   return derive_shares_secret(shares)
 }

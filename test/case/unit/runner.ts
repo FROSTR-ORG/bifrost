@@ -24,6 +24,7 @@ import helpers_unit_case  from './helpers.test.js'
 import libutil_unit_case  from './lib-util.test.js'
 import nonce_unit_case    from './nonce.test.js'
 import pool_unit_case     from './pool.test.js'
+import ecdh_unit_case     from './ecdh.test.js'
 
 /**
  * Register unit test cases on a parent test.
@@ -45,6 +46,7 @@ export default function unit_test_cases (t : Test) {
   libutil_unit_case(t)
   nonce_unit_case(t)
   pool_unit_case(t)
+  ecdh_unit_case(t)
 }
 
 // Run standalone if executed directly

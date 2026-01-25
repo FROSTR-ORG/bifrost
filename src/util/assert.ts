@@ -37,7 +37,8 @@ export namespace Assert {
   ) : boolean {
     const bytes = Buff.bytes(input)
     if (bytes.length !== size) {
-      throw new Error(err_msg ?? `Invalid byte size: ${bytes.hex} !== ${size}`)
+      // Don't leak actual data in error message
+      throw new Error(err_msg ?? `Invalid byte size: expected ${size}, got ${bytes.length}`)
     }
     return true
   }
@@ -54,12 +55,14 @@ export namespace Assert {
   export function is_hex (
     input : unknown
   ) : asserts input is string {
-    if (
-      typeof input !== 'string'            ||
-      input.match(/[^a-fA-F0-9]/) !== null ||
-      input.length % 2 !== 0
-    ) {
-      throw new Error('invalid hex:' + input)
+    if (typeof input !== 'string') {
+      throw new Error('invalid hex: expected string')
+    }
+    if (input.match(/[^a-fA-F0-9]/) !== null) {
+      throw new Error('invalid hex: contains non-hex characters')
+    }
+    if (input.length % 2 !== 0) {
+      throw new Error('invalid hex: odd length')
     }
   }
 }
