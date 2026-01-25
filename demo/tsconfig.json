@@ -3,8 +3,8 @@
   "compilerOptions": {
     "baseUrl": "..",
     "paths": {
-      "@/*"      : [ "src/*"      ],
-      "@/test/*" : [ "test/src/*" ]
+      "@/*"      : [ "src/*"  ],
+      "@/demo/*" : [ "demo/*" ]
     },
     "rootDir": null,
     "outDir": null,
