@@ -1,6 +1,6 @@
 # Bifrost
 
-> Threshold signing SDK for FROSTR - Distributed key custody using Nostr relays
+> Reference client and SDK for FROSTR - Distributed key custody using Nostr relays
 
 [![npm version](https://img.shields.io/npm/v/@frostr/bifrost)](https://www.npmjs.com/package/@frostr/bifrost)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -8,7 +8,7 @@
 
 ## What is FROSTR?
 
-**FROSTR** (Frost Over Nostr) is a threshold cryptography protocol that enables distributed key custody using Nostr relays as the communication layer. It implements the FROST (Flexible Round-Optimized Schnorr Threshold) signature scheme.
+**FROSTR** (FROST Over Nostr) is a threshold cryptography protocol that enables distributed key custody using Nostr relays as the communication layer. It implements the FROST (Flexible Round-Optimized Schnorr Threshold) signature scheme.
 
 **The problem**: Traditional key management creates single points of failure. If a private key is compromised, lost, or held by a single party that becomes unavailable, access to funds or signing capability is lost.
 
