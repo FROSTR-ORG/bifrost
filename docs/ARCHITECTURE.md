@@ -25,8 +25,8 @@ Bifrost implements a layered architecture separating application concerns from c
           ▼                 ▼                 ▼
 ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
 │  BifrostSigner  │ │    NoncePool    │ │   NostrNode     │
-│                 │ │                 │ │ (@cmdcode/      │
-│  - Signing ops  │ │  - Generation   │ │  nostr-p2p)     │
+│                 │ │                 │ │ (@vbyte/        │
+│  - Signing ops  │ │  - Generation   │ │  nostr-sdk)     │
 │  - ECDH ops     │ │  - Storage      │ │                 │
 │  - Encryption   │ │  - Consumption  │ │  - Relays       │
 └─────────────────┘ └─────────────────┘ └─────────────────┘
