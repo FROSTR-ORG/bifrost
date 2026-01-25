@@ -16,7 +16,7 @@ npm run scratch   # Ad-hoc testing via test/scratch.ts
 npm run demo      # Launch interactive 4-pane tmux demo
 ```
 
-Tests are located in `test/src/case/unit/`. Entry point is `test/tape.ts`.
+Tests are located in `test/case/unit/`. Entry point is `test/runner.ts`.
 
 ## Architecture
 
@@ -30,7 +30,7 @@ Tests are located in `test/src/case/unit/`. Entry point is `test/tape.ts`.
 ```
 src/
 ├── api/        # Request/response handlers (sign, ecdh, ping, echo)
-├── class/      # BifrostNode, BifrostSigner, SignerQueue, EventEmitter
+├── class/      # BifrostNode, BifrostSigner, SignBatcher, ECDHBatcher, EventEmitter
 ├── encoder/    # Bech32 encoding/decoding for group/share packages
 ├── lib/        # Core protocol functions (group, sign, session, ecdh)
 ├── schema/     # Zod validation schemas
@@ -74,8 +74,3 @@ import { get_pubkey } from '@frostr/bifrost/util'
 - Strict mode enabled (noImplicitAny, noUnusedLocals, noUnusedParameters)
 - Target: ESNext, Module: NodeNext
 
-## Current Development Focus
-
-Active work on `feature/proto_upgrade` branch addressing nonce security:
-- Randomized nonce generation to prevent key leakage from nonce reuse
-- HD keypair derivation per peer for unique nonce packages

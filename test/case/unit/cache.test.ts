@@ -121,15 +121,15 @@ export default function (tape: Test) {
       // Test TTL expiration
       t.test('TTL expiration works', async st => {
         const cache = new Cache<string, string>({
-          ttl: 50,  // 50ms TTL
-          cleanup_interval: 1000  // Don't auto-cleanup during test
+          ttl: 100,  // 100ms TTL
+          cleanup_interval: 10000  // Don't auto-cleanup during test
         })
 
         cache.set('key', 'value')
         st.equal(cache.get('key'), 'value', 'value accessible immediately')
 
-        // Wait for TTL to expire
-        await new Promise(resolve => setTimeout(resolve, 60))
+        // Wait for TTL to expire (generous margin for slow systems)
+        await new Promise(resolve => setTimeout(resolve, 200))
 
         st.equal(cache.get('key'), undefined, 'value expired after TTL')
         st.equal(cache.has('key'), false, 'has() returns false for expired key')
@@ -277,15 +277,15 @@ export default function (tape: Test) {
       // Test TTL cleanup runs periodically
       t.test('cleanup removes expired entries', async st => {
         const cache = new Cache<string, string>({
-          ttl: 30,
-          cleanup_interval: 50
+          ttl: 100,
+          cleanup_interval: 150
         })
 
         cache.set('key1', 'value1')
         cache.set('key2', 'value2')
 
-        // Wait for TTL to expire and cleanup to run
-        await new Promise(resolve => setTimeout(resolve, 100))
+        // Wait for TTL to expire and cleanup to run (generous margin)
+        await new Promise(resolve => setTimeout(resolve, 350))
 
         // Size should reflect cleanup (entries removed during cleanup)
         // Note: size may still show old count until get/has is called

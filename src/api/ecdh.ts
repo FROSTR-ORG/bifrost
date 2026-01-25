@@ -4,7 +4,7 @@ import { combine_batched_ecdh_pkgs }  from '@/lib/ecdh.js'
 import { parse_ecdh_message } from '@/lib/parse.js'
 import { get_send_pubkeys }   from '@/lib/peer.js'
 
-import { Assert, copy_obj, parse_error } from '@/util/index.js'
+import { Assert, copy_obj, parse_error, ecdhDebug } from '@/util/index.js'
 
 import {
   get_member_indexes,
@@ -67,7 +67,7 @@ export async function ecdh_handler_api (
     node.emit('/ecdh/handler/res', msg)
   } catch (err) {
     // Log the error.
-    if (node.debug) console.log(err)
+    ecdhDebug('error: %O', err)
     // Emit the error.
     node.emit('/ecdh/handler/rej', [ parse_error(err), msg ])
   }
@@ -151,7 +151,7 @@ export function ecdh_batch_request_api (node : BifrostNode) {
       node.emit('/ecdh/sender/res', copy_obj(msgs))
     } catch (err) {
       // Log the error.
-      if (node.debug) console.log(err)
+      ecdhDebug('error: %O', err)
       // Parse the error.
       const reason = parse_error(err)
       // Emit the error.
@@ -189,7 +189,7 @@ export function ecdh_batch_request_api (node : BifrostNode) {
       return { ok : true, data : results }
     } catch (err) {
       // Log the error.
-      if (node.debug) console.log(err)
+      ecdhDebug('error: %O', err)
       // Parse the error.
       const reason = parse_error(err)
       // Emit the error.
@@ -220,8 +220,7 @@ export function ecdh_batch_request_api (node : BifrostNode) {
  * ```
  */
 export function ecdh_single_request_api (node : BifrostNode) {
-  // Access private batcher (internal API only)
-  const batcher = (node as any)._ecdh_batcher as import('@/class/batcher.js').ECDHBatcher
+  const batcher = node.ecdh_batcher
   return async (ecdh_pk : string) : Promise<ApiResponse<string>> => {
     try {
       const secret = await batcher.push(ecdh_pk)

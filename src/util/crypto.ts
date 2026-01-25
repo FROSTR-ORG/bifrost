@@ -4,14 +4,21 @@ import { Assert } from './assert.js'
 import { secp256k1, schnorr } from '@noble/curves/secp256k1.js'
 import { Field }              from '@noble/curves/abstract/modular.js'
 
-type ECCPoint = ReturnType<typeof secp256k1.Point.fromHex>
+// Base type from noble-curves
+type ECCPointBase = ReturnType<typeof secp256k1.Point.fromHex>
+
+// Extended type that includes hasEvenY (exists at runtime in noble-curves)
+interface ECCPoint extends ECCPointBase {
+  hasEvenY(): boolean
+}
 
 const _N = secp256k1.Point.CURVE().n
 const FD = Field(_N, { isLE: true })
 const GP = secp256k1.Point.BASE
 
-// Type helper for hasEvenY (method exists at runtime but not in types)
-const hasEvenY = (pt: ECCPoint): boolean => (pt as any).hasEvenY()
+// Type-safe helper that casts to our extended interface
+const asECCPoint = (pt: ECCPointBase): ECCPoint => pt as ECCPoint
+const hasEvenY = (pt: ECCPointBase): boolean => asECCPoint(pt).hasEvenY()
 
 /**
  * Get the secret key from the given secret.

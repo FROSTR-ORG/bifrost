@@ -13,7 +13,8 @@ import {
 import {
   Assert,
   copy_obj,
-  parse_error
+  parse_error,
+  signDebug
 } from '@/util/index.js'
 
 import {
@@ -120,7 +121,7 @@ export async function sign_handler_api (
     node.emit('/sign/handler/res', msg)
 
   } catch (err) {
-    if (node.debug) console.log(err)
+    signDebug('error: %O', err)
     node.emit('/sign/handler/rej', [ parse_error(err), msg ])
   }
 }
@@ -253,7 +254,7 @@ export function sign_batch_request_api (node : BifrostNode) {
         // Emit the response.
         node.emit('/sign/sender/res', copy_obj(msgs))
       } catch (err) {
-        if (node.debug) console.log(err)
+        signDebug('error: %O', err)
         last_error = parse_error(err)
         // If we have retries left, continue to next attempt
         if (attempt < max_retries) {
@@ -274,7 +275,7 @@ export function sign_batch_request_api (node : BifrostNode) {
         // Return the signature.
         return { ok : true, data : sigs }
       } catch (err) {
-        if (node.debug) console.log(err)
+        signDebug('error: %O', err)
         const reason = parse_error(err)
         node.emit('/sign/sender/err', [ reason, msgs ?? [] ])
         return { ok : false, err : reason }
@@ -308,8 +309,7 @@ export function sign_batch_request_api (node : BifrostNode) {
  * ```
  */
 export function sign_single_request_api (node : BifrostNode) {
-  // Access private batcher (internal API only)
-  const batcher = (node as any)._sign_batcher as import('@/class/batcher.js').SignBatcher
+  const batcher = node.sign_batcher
   return async (
     message : string | SighashVector
   ) : Promise<ApiResponse<SignatureEntry>> => {

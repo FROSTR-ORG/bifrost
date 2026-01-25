@@ -351,6 +351,24 @@ export class BifrostNode extends EventEmitter<BifrostNodeEvent> {
   }
 
   /**
+   * Gets the signature request batcher.
+   * @returns The SignBatcher instance for batching sign requests.
+   * @internal
+   */
+  get sign_batcher () {
+    return this._sign_batcher
+  }
+
+  /**
+   * Gets the ECDH request batcher.
+   * @returns The ECDHBatcher instance for batching ECDH requests.
+   * @internal
+   */
+  get ecdh_batcher () {
+    return this._ecdh_batcher
+  }
+
+  /**
    * Connects to the configured Nostr relays.
    *
    * Emits 'ready' event when connected successfully.

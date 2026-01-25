@@ -9,23 +9,27 @@ import tape from 'tape'
 
 import type { Test } from 'tape'
 
-import cache_unit_case    from './cache.test.js'
-import encode_unit_case   from './encode.test.js'
-import group_unit_case    from './group.test.js'
-import session_unit_case  from './session.test.js'
-import tweak_unit_case    from './tweak.test.js'
-import sign_unit_case     from './sign.test.js'
-import recover_unit_case  from './recover.test.js'
-import emitter_unit_case  from './emitter.test.js'
-import peer_unit_case     from './peer.test.js'
-import parse_unit_case    from './parse.test.js'
-import signer_unit_case   from './signer.test.js'
-import assert_unit_case   from './assert.test.js'
-import helpers_unit_case  from './helpers.test.js'
-import libutil_unit_case  from './lib-util.test.js'
-import nonce_unit_case    from './nonce.test.js'
-import pool_unit_case     from './pool.test.js'
-import ecdh_unit_case     from './ecdh.test.js'
+import cache_unit_case      from './cache.test.js'
+import client_unit_case     from './client.test.js'
+import encode_unit_case     from './encode.test.js'
+import group_unit_case      from './group.test.js'
+import session_unit_case    from './session.test.js'
+import tweak_unit_case      from './tweak.test.js'
+import sign_unit_case       from './sign.test.js'
+import recover_unit_case    from './recover.test.js'
+import emitter_unit_case    from './emitter.test.js'
+import peer_unit_case       from './peer.test.js'
+import parse_unit_case      from './parse.test.js'
+import signer_unit_case     from './signer.test.js'
+import assert_unit_case     from './assert.test.js'
+import helpers_unit_case    from './helpers.test.js'
+import libutil_unit_case    from './lib-util.test.js'
+import nonce_unit_case      from './nonce.test.js'
+import pool_unit_case       from './pool.test.js'
+import ecdh_unit_case       from './ecdh.test.js'
+import schema_unit_case     from './schema.test.js'
+import batcher_unit_case    from './batcher.test.js'
+import middleware_unit_case from './middleware.test.js'
 
 /**
  * Register unit test cases on a parent test.
@@ -33,6 +37,7 @@ import ecdh_unit_case     from './ecdh.test.js'
  */
 export default function unit_test_cases (t : Test) {
   cache_unit_case(t)
+  client_unit_case(t)
   encode_unit_case(t)
   group_unit_case(t)
   tweak_unit_case(t)
@@ -49,6 +54,9 @@ export default function unit_test_cases (t : Test) {
   nonce_unit_case(t)
   pool_unit_case(t)
   ecdh_unit_case(t)
+  schema_unit_case(t)
+  batcher_unit_case(t)
+  middleware_unit_case(t)
 }
 
 // Run standalone if executed directly

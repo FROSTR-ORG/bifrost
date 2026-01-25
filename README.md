@@ -36,7 +36,6 @@ npm install @frostr/bifrost
 ```typescript
 import { BifrostNode }             from '@frostr/bifrost'
 import { generate_dealer_package } from '@frostr/bifrost/lib'
-import { get_seckey }              from '@frostr/bifrost/util'
 
 // Generate a 2-of-3 threshold group
 const { group, shares } = generate_dealer_package(2, 3)
@@ -63,9 +62,12 @@ See the [Guide](docs/GUIDE.md) for complete examples.
 | Method | Description |
 |--------|-------------|
 | `node.req.sign(message)` | Request threshold signature |
+| `node.req.sign_batch(messages)` | Request multiple threshold signatures |
 | `node.req.ecdh(pubkey)` | Collaborative ECDH key exchange |
+| `node.req.ecdh_batch(pubkeys)` | Batch ECDH key exchange for multiple pubkeys |
 | `node.req.ping(peer)` | Ping peer and exchange nonces |
 | `node.req.echo(message)` | Test relay connectivity |
+| `node.req.onboard(pubkey)` | Onboard a new peer with group credentials |
 
 See [API Reference](docs/API.md) for full documentation.
 

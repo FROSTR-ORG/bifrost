@@ -4,7 +4,8 @@ import Schema          from '@/schema/index.js'
 import {
   Assert,
   now,
-  parse_error
+  parse_error,
+  pingDebug
 } from '@/util/index.js'
 
 import {
@@ -171,7 +172,7 @@ export async function ping_handler_api (
     node.emit('/ping/handler/res', msg)
 
   } catch (err) {
-    if (node.debug) console.log(err)
+    pingDebug('error: %O', err)
     node.emit('/ping/handler/rej', [ parse_error(err), msg ])
   }
 }
@@ -235,7 +236,7 @@ export function ping_request_api (node : BifrostNode) {
       node.emit('/ping/sender/res', msg)
 
     } catch (err) {
-      if (node.debug) console.log(err)
+      pingDebug('error: %O', err)
       const reason = parse_error(err)
       node.emit('/ping/sender/rej', [ reason, msg ])
       return { ok: false, err: reason }
@@ -266,7 +267,7 @@ export function ping_request_api (node : BifrostNode) {
       return { ok: true, data: response }
 
     } catch (err) {
-      if (node.debug) console.log(err)
+      pingDebug('error: %O', err)
       const reason = parse_error(err)
       node.emit('/ping/sender/err', [ reason, msg ])
 

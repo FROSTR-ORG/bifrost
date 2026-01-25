@@ -81,9 +81,11 @@
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
     "@scure/base": "^1.2.1",
+    "@types/debug": "^4.1.12",
     "@vbyte/buff": "^1.0.4",
     "@vbyte/frost": "^1.1.5",
     "@vbyte/nostr-sdk": "^1.0.1",
+    "debug": "^4.4.3",
     "zod": "^4.3.6"
   }
 }

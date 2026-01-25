@@ -1,5 +1,5 @@
 import { BifrostNode }         from '@/class/client.js'
-import { Assert, parse_error } from '@/util/index.js'
+import { Assert, parse_error, echoDebug } from '@/util/index.js'
 
 import type {
   RpcMessageData,
@@ -48,7 +48,7 @@ export async function echo_handler_api (
     node.emit('/echo/handler/res', msg)
   } catch (err) {
     // Log the error.
-    if (node.debug) console.log(err)
+    echoDebug('error: %O', err)
     // Emit the error.
     node.emit('/echo/handler/rej', [ parse_error(err), msg ])
   }
@@ -92,7 +92,7 @@ export function echo_request_api (node : BifrostNode) {
       node.emit('/echo/sender/res', msg)
     } catch (err) {
       // Log the error.
-      if (node.debug) console.log(err)
+      echoDebug('error: %O', err)
       // Parse the error.
       const reason = parse_error(err)
       // Emit the error.
@@ -111,7 +111,7 @@ export function echo_request_api (node : BifrostNode) {
       return { ok : true, data }
     } catch (err) {
       // Log the error.
-      if (node.debug) console.log(err)
+      echoDebug('error: %O', err)
       // Parse the error.
       const reason = parse_error(err)
       // Emit the error.

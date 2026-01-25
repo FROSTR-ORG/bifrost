@@ -34,8 +34,8 @@ export function parse_ecdh_message (
     }
     const parsed = schema.parse(json)
     return { ...msg, data : parsed } as RpcMessageEnvelope<RequestRpcMessage> & { data: ECDHPackage }
-  } catch {
-    throw new Error('ecdh message failed validation')
+  } catch (err) {
+    throw new Error('ecdh message failed validation: ' + parse_error(err))
   }
 }
 
@@ -59,8 +59,8 @@ export function parse_session_message (
     }
     const parsed = schema.parse(json)
     return { ...msg, data : parsed } as RpcMessageEnvelope<RequestRpcMessage> & { data: SignSessionPackage }
-  } catch {
-    throw new Error('session message failed validation')
+  } catch (err) {
+    throw new Error('session message failed validation: ' + parse_error(err))
   }
 }
 
@@ -85,7 +85,7 @@ export function parse_psig_message (
     const parsed = schema.parse(json)
     return { ...msg, data : parsed } as RpcMessageData & { data: PartialSigPackage }
   } catch (err) {
-    throw new Error('signature message failed validation')
+    throw new Error('signature message failed validation: ' + parse_error(err))
   }
 }
 
@@ -143,7 +143,7 @@ export function parse_onboard_message (
     }
     const parsed = schema.parse(json)
     return { ...msg, data : parsed } as RpcMessageEnvelope<RequestRpcMessage> & { data: OnboardRequest }
-  } catch {
-    throw new Error('onboard request failed validation')
+  } catch (err) {
+    throw new Error('onboard request failed validation: ' + parse_error(err))
   }
 }

@@ -13,7 +13,8 @@ import { pubkeys_match } from '@/lib/util.js'
 
 import {
   Assert,
-  parse_error
+  parse_error,
+  onboardDebug
 } from '@/util/index.js'
 
 import type {
@@ -101,7 +102,7 @@ export async function onboard_handler_api (
 
   } catch (err) {
     // Log and emit error
-    if (node.debug) console.log(err)
+    onboardDebug('error: %O', err)
     node.emit('/onboard/handler/rej', [ parse_error(err), msg ])
 
     // Send error response via RPC reject
@@ -164,7 +165,7 @@ export function onboard_request_api (node : BifrostNode) {
       node.emit('/onboard/sender/res', msg)
 
     } catch (err) {
-      if (node.debug) console.log(err)
+      onboardDebug('error: %O', err)
       const reason = parse_error(err)
       node.emit('/onboard/sender/rej', [ reason, msg ])
       return { ok: false, err: reason }
@@ -193,7 +194,7 @@ export function onboard_request_api (node : BifrostNode) {
       return { ok: true, data: response }
 
     } catch (err) {
-      if (node.debug) console.log(err)
+      onboardDebug('error: %O', err)
       const reason = parse_error(err)
       node.emit('/onboard/sender/err', [ reason, msg ])
       return { ok: false, err: reason }
