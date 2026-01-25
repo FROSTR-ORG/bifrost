@@ -105,10 +105,10 @@ This script:
 For development releases (from `dev`):
 
 ```bash
-# Manual tagging with -dev suffix
-git tag v2.1.0-dev
-git push origin v2.1.0-dev
+./scripts/release.sh --dev
 ```
+
+This appends `-dev` to the version tag (e.g., `v2.1.0-dev`).
 
 ### 5. Publish to npm
 
@@ -134,17 +134,64 @@ npm publish --access public
 
 ## Development Releases
 
-For pre-release testing:
+Development releases allow testing before official release. They use a `-dev` suffix and are marked as prereleases on GitHub.
+
+### Creating a Dev Release
 
 ```bash
-# 1. Update version with -dev suffix
-npm version 2.1.0-dev --no-git-tag-version
+# 1. Run the package pipeline
+npm run package
 
-# 2. Publish with dev tag
-npm publish --tag dev
+# 2. Create and push the dev tag
+./scripts/release.sh --dev
+```
+
+This creates tag `v2.1.0-dev` and triggers the GitHub workflow.
+
+### Publishing to npm with Dev Tag
+
+```bash
+# Publish with 'dev' dist-tag (not 'latest')
+npm publish --tag dev --access public
 
 # Users install with:
 npm install @frostr/bifrost@dev
+```
+
+The `--tag dev` flag ensures users running `npm install @frostr/bifrost` still get the stable release, while testers can opt-in with `@dev`.
+
+### How the GitHub Workflow Handles Dev Releases
+
+The `.github/workflows/release.yml` automatically:
+
+1. Detects `-dev` suffix in the tag
+2. Looks up changelog entry using base version (e.g., `## [2.1.0]` not `## [2.1.0-dev]`)
+3. Creates GitHub release marked as **prerelease**
+
+**Important:** Your `CHANGELOG.md` entry should use the base version:
+
+```markdown
+## [2.1.0] - 2025-01-24
+### Added
+- New feature...
+```
+
+Both `v2.1.0` and `v2.1.0-dev` tags will use this same changelog entry.
+
+### Managing npm Dist-Tags
+
+```bash
+# List all tags for your package
+npm dist-tag ls @frostr/bifrost
+
+# Move 'dev' tag to a specific version
+npm dist-tag add @frostr/bifrost@2.1.0-dev dev
+
+# Remove the 'dev' tag
+npm dist-tag rm @frostr/bifrost dev
+
+# Promote dev to latest (after testing)
+npm dist-tag add @frostr/bifrost@2.1.0 latest
 ```
 
 ---
@@ -181,10 +228,12 @@ git merge master
 
 | Task | Command |
 |------|---------|
-| Full package check | `./scripts/package.sh` |
-| Create release tag | `./scripts/release.sh` |
+| Full package check | `npm run package` |
+| Create release tag | `npm run release` |
+| Create dev release tag | `npm run release -- --dev` |
 | Publish to npm | `npm publish --access public` |
-| Publish dev release | `npm publish --tag dev` |
+| Publish dev to npm | `npm publish --tag dev --access public` |
+| List npm dist-tags | `npm dist-tag ls @frostr/bifrost` |
 
 ### Version Examples
 
