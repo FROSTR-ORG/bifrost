@@ -74,3 +74,59 @@ import { get_pubkey } from '@frostr/bifrost/util'
 - Strict mode enabled (noImplicitAny, noUnusedLocals, noUnusedParameters)
 - Target: ESNext, Module: NodeNext
 
+## Commit Guidelines
+
+Follow [Conventional Commits](https://conventionalcommits.org/) format:
+
+```
+<type>: <subject>
+
+[optional body]
+```
+
+### Types
+
+| Type | Description |
+|------|-------------|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `docs` | Documentation only |
+| `refactor` | Code change that neither fixes a bug nor adds a feature |
+| `test` | Adding or updating tests |
+| `chore` | Maintenance tasks, dependencies |
+| `style` | Formatting, whitespace (no code change) |
+| `perf` | Performance improvement |
+
+### Rules
+
+- **Subject line**: Max 72 characters, imperative mood ("add feature" not "added feature")
+- **Body**: Wrap at 80 characters, explain *what* and *why* (not *how*)
+- **Scope**: Optional, use parentheses: `feat(signer): add batch signing`
+- **Breaking changes**: Add `!` after type: `feat!: remove deprecated API`
+
+### Examples
+
+```bash
+# Simple fix
+fix: handle empty nonce pool gracefully
+
+# Feature with scope
+feat(api): add sign_batch method for bulk signing
+
+# Breaking change with body
+feat!: change ECDH return type to tuple
+
+The previous string return made it difficult to correlate
+requests with responses in batch operations.
+
+# Docs update
+docs: add commit guidelines to CLAUDE.md
+```
+
+### Don'ts
+
+- Don't amend commits unless explicitly asked
+- Don't use `git add -A` or `git add .` (stage specific files)
+- Don't commit generated files (dist/, node_modules/)
+- Don't commit secrets or credentials
+
