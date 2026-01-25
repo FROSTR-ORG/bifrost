@@ -38,7 +38,7 @@ export function create_psig_pkg (
 
   const psigs = sighashes.map(sighash => {
     const sig_ctx = ctx.sigmap.get(sighash)
-    Assert.exists(sig_ctx, 'context not found for sighash: ' + sighash)
+    Assert.exists(sig_ctx, `context not found for sighash: ${sighash}`)
 
     // Create the partial signature using the dynamic nonce
     const psig = create_partial_sig(sig_ctx, share, nonce)
@@ -75,11 +75,11 @@ export function verify_psig_pkg (
     // Get the partial signature entry for the current sighash.
     const psig_entry = psigs.find(entry => entry[0] === sighash)
     // Check if the partial signature entry is undefined.
-    if (psig_entry === undefined) return 'partial signature entry not found for sighash: ' + sighash
+    if (psig_entry === undefined) return `partial signature entry not found for sighash: ${sighash}`
     // Get the commit package for the package index.
     const pnonce = sigctx.pnonces.find(nonce => nonce.idx === idx)
     // Check if the commit package is undefined.
-    if (pnonce === undefined) return 'commit package not found for psig idx: ' + idx
+    if (pnonce === undefined) return `commit package not found for psig idx: ${idx}`
     // Verify the partial signature.
     if (!verify_partial_sig(sigctx, pnonce, pubkey, psig_entry[1])) return 'partial signature invalid'
   }
@@ -117,7 +117,7 @@ export function combine_signature_pkgs (
   const sigs : SignatureEntry[] = []
   for (const [ sighash, sigctx ] of ctx.sigmap.entries()) {
     const psigs = records.filter(record => record.sighash === sighash)
-    Assert.ok(psigs.length === count, 'missing partial signatures for sighash: ' + sighash)
+    Assert.ok(psigs.length === count, `missing partial signatures for sighash: ${sighash}`)
     const pubkey = sigctx.group_pk
     const sig    = combine_partial_sigs(sigctx, psigs)
     sigs.push([ sighash, pubkey, sig ])

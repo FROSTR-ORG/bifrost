@@ -23,6 +23,50 @@ VERBOSE=true npm test # Enable verbose logging
 
 ---
 
+## Code Quality
+
+Before committing, always run type checking and linting:
+
+```bash
+npm run check         # TypeScript type checking (tsc --noEmit)
+npm run lint          # Biome linter
+```
+
+### Fixing Lint Issues
+
+```bash
+# Auto-fix safe issues
+npx biome check src/ --write
+
+# Auto-fix all issues (including unsafe)
+npx biome check src/ --write --unsafe
+```
+
+### Common Lint Rules
+
+| Rule | Issue | Fix |
+|------|-------|-----|
+| `useTemplate` | String concatenation | Use template literals: `` `text ${var}` `` |
+| `noNonNullAssertion` | `value!` assertions | Use optional chaining or null checks |
+| `useIterableCallbackReturn` | forEach returning value | Use `for...of` loop instead |
+| `noAssignInExpressions` | `x ??= y` in expression | Separate assignment from expression |
+
+### Debug Logging
+
+The codebase uses the `debug` package with namespaced loggers:
+
+```bash
+# Enable all bifrost debug output
+DEBUG=bifrost:* npm test
+
+# Enable specific namespaces
+DEBUG=bifrost:sign,bifrost:ecdh npm test
+```
+
+Available namespaces: `bifrost:sign`, `bifrost:ecdh`, `bifrost:ping`, `bifrost:echo`, `bifrost:onboard`
+
+---
+
 ## Git Worktree Workflow
 
 Use worktrees for parallel feature development without stashing.

@@ -180,11 +180,13 @@ export class SignBatcher extends BaseBatcher<SighashVector, SignatureEntry> {
     // Reject if batch exceeds maximum size
     if (batch.length > this._max_batch) {
       const reason = `batch size ${batch.length} exceeds maximum ${this._max_batch}`
-      batch.forEach(req => req.reject(reason))
+      for (const req of batch) {
+        req.reject(reason)
+      }
       return
     }
     // Emit the info event.
-    this.node.emit('info', 'batch signing event ids: ' + String(batch.map(req => req.input[0])))
+    this.node.emit('info', `batch signing event ids: ${String(batch.map(req => req.input[0]))}`)
     // Try to sign the batch.
     try {
       // Collect all IDs to be signed
@@ -193,7 +195,9 @@ export class SignBatcher extends BaseBatcher<SighashVector, SignatureEntry> {
       const res = await this._sign_batch(vec)
       // If the batch failed, reject all requests.
       if (!res.ok) {
-        batch.forEach(req => req.reject(res.err))
+        for (const req of batch) {
+          req.reject(res.err)
+        }
         return
       }
       // Build a Map for O(1) signature lookup instead of O(n*m)
@@ -213,7 +217,9 @@ export class SignBatcher extends BaseBatcher<SighashVector, SignatureEntry> {
       })
     } catch (err: unknown) {
       // If there's an error, reject all requests.
-      batch.forEach(req => req.reject(parse_error(err)))
+      for (const req of batch) {
+        req.reject(parse_error(err))
+      }
     }
     } finally {
       this._processing = false
@@ -343,13 +349,15 @@ export class ECDHBatcher extends BaseBatcher<string, string> {
     const unique_pks = [...new Set(uncached.map(r => r.input))]
 
     // Emit info event.
-    this.node.emit('info', 'batch ECDH pubkeys: ' + String(unique_pks.map(pk => pk.slice(0, 8) + '...')))
+    this.node.emit('info', `batch ECDH pubkeys: ${String(unique_pks.map(pk => `${pk.slice(0, 8)}...`))}`)
 
     // Delegate to cached batch API.
     const res = await this._ecdh_batch(unique_pks)
 
     if (!res.ok) {
-      uncached.forEach(req => req.reject(res.err))
+      for (const req of uncached) {
+        req.reject(res.err)
+      }
       return
     }
 

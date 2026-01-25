@@ -135,8 +135,10 @@ export function ecdh_batch_request_api (node : BifrostNode) {
     const thold = node.group.threshold
     // Get peers with send policy active.
     const send_pks = get_send_pubkeys(node.peers)
+    // Use provided peers or default to send_pks
+    const peer_pks = peers ?? send_pks
     // Randomly select peers.
-    const selected  = select_random_peers(peers ??= send_pks, thold)
+    const selected = select_random_peers(peer_pks, thold)
     // Get the indexes of the members.
     const members  = get_member_indexes(node.group, [ node.pubkey, ...selected ])
     // Generate ECDH shares for all uncached keys.
@@ -181,7 +183,7 @@ export function ecdh_batch_request_api (node : BifrostNode) {
           // Add to results.
           results.push([ ecdh_pk, secret ])
         } else {
-          throw new Error('secret missing for ecdh_pk: ' + ecdh_pk)
+          throw new Error(`secret missing for ecdh_pk: ${ecdh_pk}`)
         }
       }
 
@@ -254,7 +256,7 @@ async function create_ecdh_request (
   // Parse the response packages.
   return responses.map(e => {
     const parsed = parse_ecdh_message(e)
-    Assert.ok(parsed !== null, 'invalid ecdh response from pubkey: ' + e.event.pubkey)
+    Assert.ok(parsed !== null, `invalid ecdh response from pubkey: ${e.event.pubkey}`)
     return parsed
   })
 }

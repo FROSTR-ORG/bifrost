@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# DUCAT Core Package Script
+# Bifrost Package Script
 # Runs the complete packaging pipeline: lint → typecheck → test → build
 
 set -e  # Exit on any error

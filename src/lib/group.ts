@@ -48,7 +48,7 @@ export function get_member_by_pubkey (
   pubkey  : string
 ) : MemberPackage {
   const member = members.find(e => e.pubkey === pubkey)
-  Assert.exists(member, 'member package not found for pubkey: ' + pubkey)
+  Assert.exists(member, `member package not found for pubkey: ${pubkey}`)
   return member
 }
 
@@ -64,7 +64,7 @@ export function get_member_by_idx (
   idx     : number
 ) : MemberPackage {
   const member = members.find(e => e.idx === idx)
-  Assert.exists(member, 'member package not found for idx: ' + idx)
+  Assert.exists(member, `member package not found for idx: ${idx}`)
   return member
 }
 

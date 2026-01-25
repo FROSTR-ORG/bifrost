@@ -32,7 +32,7 @@ export function get_seckey (
   even_y : boolean = false
 ) : string {
   // Convert the secret to a bigint, modulo the curve order.
-  let   sk = serialize_bytes(secret).big % _N
+  const   sk = serialize_bytes(secret).big % _N
   // If the format is bip340:
   if (even_y) {
     // Multiply the generator point by the secret.
@@ -162,7 +162,7 @@ export function verify_pubkey (
   } else if (format === 'ecdsa') {
     Assert.size(pk, 33, 'ecdsa public keys must be 33 bytes long')
   } else {
-    throw new Error('invalid format: ' + format)
+    throw new Error(`invalid format: ${format}`)
   }
   // Verify the point.
   verify_point(pk)
@@ -202,8 +202,8 @@ export function verify_point (
   try {
     const pt = lift_pubkey(pubkey)
     pt.assertValidity()
-  } catch (err) {
-    throw new Error('invalid secp256k1 point: ' + pubkey)
+  } catch (_err) {
+    throw new Error(`invalid secp256k1 point: ${pubkey}`)
   }
 }
 
@@ -230,9 +230,9 @@ export function lift_pubkey (
 ) : ECCPoint {
   try {
     const pk = convert_pubkey(pubkey, 'ecdsa')
-    return secp256k1.Point.fromHex(pk)
-  } catch (err) {
-    throw new Error('invalid pubkey: ' + pubkey)
+    return asECCPoint(secp256k1.Point.fromHex(pk))
+  } catch (_err) {
+    throw new Error(`invalid pubkey: ${pubkey}`)
   }
 }
 
@@ -256,8 +256,8 @@ export function serialize_pubkey (
     } else {
       return pk
     }
-  } catch (err) {
-    throw new Error('invalid pubkey: ' + String(pubkey))
+  } catch (_err) {
+    throw new Error(`invalid pubkey: ${String(pubkey)}`)
   }
 }
 
@@ -288,7 +288,7 @@ export function get_pubkey_format (
   const pk = serialize_bytes(pubkey)
   if (pk.length === 33) return 'ecdsa'
   if (pk.length === 32) return 'bip340'
-  throw new Error('invalid pubkey: ' + String(pubkey))
+  throw new Error(`invalid pubkey: ${String(pubkey)}`)
 }
 
 /**
@@ -300,7 +300,7 @@ export function get_pubkey_format (
 export function serialize_bytes (bytes : string | Uint8Array) : Buff {
   try {
     return Buff.bytes(bytes)
-  } catch (err) {
-    throw new Error('invalid bytes: ' + String(bytes))
+  } catch (_err) {
+    throw new Error(`invalid bytes: ${String(bytes)}`)
   }
 }
