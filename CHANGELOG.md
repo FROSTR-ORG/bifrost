@@ -1,5 +1,40 @@
 # CHANGELOG
 
+## [2.0.2]
+
+### Improvements
+
+- **Debug logging**: Added namespaced debug loggers using the `debug` package (`bifrost:sign`, `bifrost:ecdh`, `bifrost:ping`, `bifrost:echo`, `bifrost:onboard`). Enable with `DEBUG=bifrost:* npm test`
+- **Error context**: Preserved error context in `parse.ts` catch blocks for better debugging
+- **Type safety**: Fixed `hasEvenY` typing in crypto utilities, added public getters for `sign_batcher` and `ecdh_batcher`
+- **Release tooling**: Added `--dev` flag to `release.sh` for development releases, updated CI workflow
+
+### Code Quality
+
+- Replaced `console.log` debug statements with `debug` package
+- Fixed all lint errors (template literals, `for...of` loops, assignment expressions)
+- Fixed timing-dependent cache tests with larger margins
+
+### Documentation
+
+- Updated `CLAUDE.md` with correct paths and commit guidelines
+- Updated `README.md` with missing API methods (`sign_batch`, `ecdh_batch`, `onboard`)
+- Added `RELEASE.md` documenting release workflow and npm dist-tags
+- Updated `DEVELOPMENT.md` with code quality section
+- Fixed stale `@cmdcode/nostr-p2p` reference in `ARCHITECTURE.md`
+
+### Testing
+
+- Added 172 new unit tests (544 → 716 total)
+- New test files: `schema.test.ts`, `client.test.ts`, `middleware.test.ts`, `batcher.test.ts`
+- Comprehensive coverage for schema validation, BifrostNode, middleware, and batchers
+
+### Dependencies
+
+- Added `debug` ^4.4.3
+
+---
+
 ## [2.0.1]
 
 ### Bug Fixes
