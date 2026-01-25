@@ -43,10 +43,12 @@
   },
   "scripts": {
     "build": "./scripts/build.sh",
-    "script": "tsx --tsconfig ./test/tsconfig.json",
+    "check": "npx tsc --project tsconfig.json --noEmit",
+    "lint": "biome check src/",
     "keygen": "npm run script test/keygen.ts",
     "release": "npm test | faucet && npm run build",
     "scratch": "npm run script test/scratch.ts",
+    "script": "tsx --tsconfig ./test/tsconfig.json",
     "test": "npm run script test/runner.ts",
     "test:unit": "npm run script test/case/unit/runner.ts",
     "test:int": "npm run script test/case/integration/runner.ts",
@@ -60,11 +62,13 @@
     "demo:carol": "npm run script demo/node.ts -- --name carol"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.3.12",
     "@rollup/plugin-commonjs": "^29.0.0",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^12.3.0",
+    "@types/node": "^25.0.10",
     "@types/tape": "^5.8.1",
     "@types/ws": "^8.18.1",
     "faucet": "^0.0.4",

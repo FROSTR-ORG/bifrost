@@ -38,6 +38,9 @@ node_modules/
 # Distributions
 dist
 
+# Repositories
+repos/
+
 #VSCode
 .vscode
 
