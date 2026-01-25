@@ -91,8 +91,8 @@ npm run build      # Build for production
 See the protocol in action:
 
 ```bash
-npm run demo:keygen       # Generate test credentials
-./scripts/tmux.sh start   # Launch 4-pane demo (requires tmux)
+npm run demo:keygen   # Generate test credentials
+npm run demo          # Launch 4-pane tmux demo (auto-cleanup on close)
 ```
 
 See [Guide](docs/GUIDE.md) for full instructions.

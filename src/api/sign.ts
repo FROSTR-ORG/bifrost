@@ -107,6 +107,11 @@ export async function sign_handler_api (
     // Mark the nonce as spent
     node.pool.mark_spent(requester_idx, our_nonce.code)
 
+    // Include replenishment nonces if the requester's pool is low
+    if (node.pool.should_send_nonces_to(requester_idx)) {
+      pkg.replenish = node.pool.generate_for_peer(requester_idx)
+    }
+
     // Send the response using the new respond API.
     const res = await node.client.respond(msg).accept(pkg)
     if (!res.ok) throw new Error('failed to publish response')
@@ -418,6 +423,11 @@ function finalize_sign_response (
     const error = verify_psig_pkg(ctx, e.data)
     Assert.ok(error === null, error + ' : ' + e.event.pubkey)
     pkgs.push(e.data)
+
+    // Process replenishment nonces if present
+    if (e.data.replenish && e.data.replenish.length > 0) {
+      node.pool.store_incoming(e.data.idx, e.data.replenish)
+    }
   })
 
   // Return the aggregate signature.

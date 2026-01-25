@@ -24,29 +24,36 @@ Example: Create a 3-of-5 group:
 npm run demo:keygen -- -t 3 -n 5
 ```
 
-### 2. Start the Relay
+### 2. Launch the Demo
 
-In Terminal 1:
+#### Option A: tmux (Recommended)
 
+Launch everything with a single command:
+
+```bash
+npm run demo
+```
+
+This opens a new terminal window with a 4-pane tmux layout (relay + alice/bob/carol). Close the terminal window to stop - cleanup is automatic.
+
+#### Option B: Manual (4 Terminals)
+
+**Terminal 1 - Relay:**
 ```bash
 npm run demo:relay
 ```
 
-The relay runs on `ws://localhost:8194` by default.
-
-### 3. Start Nodes
-
-In Terminal 2:
+**Terminal 2 - Alice:**
 ```bash
 npm run demo:alice
 ```
 
-In Terminal 3:
+**Terminal 3 - Bob:**
 ```bash
 npm run demo:bob
 ```
 
-(Optional) In Terminal 4:
+**(Optional) Terminal 4 - Carol:**
 ```bash
 npm run demo:carol
 ```

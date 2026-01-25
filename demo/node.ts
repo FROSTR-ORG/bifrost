@@ -68,9 +68,13 @@ const COMMANDS : Record<string, {
     usage: 'ping <name|pubkey>',
     handler: handle_ping
   },
+  pingall: {
+    description: 'Ping all peers to check connectivity',
+    handler: handle_pingall
+  },
   sign: {
     description: 'Request threshold signature for a message',
-    usage: 'sign <message>',
+    usage: 'sign <message> [count]',
     handler: handle_sign
   },
   ecdh: {
@@ -180,31 +184,143 @@ async function handle_ping (ctx : NodeContext, args : string[]) {
   }
 }
 
-async function handle_sign (ctx : NodeContext, args : string[]) {
-  if (args.length < 1) {
-    log_error('Usage: sign <message>')
+async function handle_pingall (ctx : NodeContext) {
+  const peers = ctx.node.peers
+  if (peers.length === 0) {
+    log_error('No peers configured')
     return
   }
 
-  const message = args.join(' ')
-  const sighash = await hash_message(message)
+  log_send(`Pinging all ${peers.length} peers...`)
+  console.log()
 
-  log_info(`Message: "${message}"`)
-  log_info(`Sighash: ${format_pubkey(sighash)}`)
-  log_send('Signing...')
+  const config = get_config()
+  const timeout_ms = config.timeouts.ping
 
-  try {
-    const result = await ctx.node.req.sign(sighash)
+  let success = 0
+  let failed = 0
+  const start = Date.now()
 
-    if (!result.ok) {
-      log_error(`Sign failed: ${result.err}`)
-      return
+  // Ping all peers in parallel
+  const results = await Promise.all(
+    peers.map(async (peer) => {
+      const name = get_peer_name(ctx, peer.pubkey) ?? format_pubkey(peer.pubkey)
+
+      try {
+        const timeout_promise = new Promise<{ ok: false, err: string }>((resolve) => {
+          setTimeout(() => resolve({ ok: false, err: `Timeout (${timeout_ms}ms)` }), timeout_ms)
+        })
+
+        const result = await Promise.race([
+          ctx.node.req.ping(peer.pubkey),
+          timeout_promise
+        ])
+
+        if (result.ok) {
+          const data = result.data
+          const nonce_info = data.nonces && data.nonces.length > 0
+            ? ` (+${data.nonces.length} nonces)`
+            : ''
+          return { name, ok: true, info: `send=${data.policy.send}, recv=${data.policy.recv}${nonce_info}` }
+        } else {
+          return { name, ok: false, info: result.err }
+        }
+      } catch (err) {
+        return { name, ok: false, info: String(err) }
+      }
+    })
+  )
+
+  // Display results
+  for (const result of results) {
+    if (result.ok) {
+      success++
+      console.log(`  ${colors.green}✓${colors.reset} ${result.name}: ${result.info}`)
+    } else {
+      failed++
+      console.log(`  ${colors.red}✗${colors.reset} ${result.name}: ${result.info}`)
+    }
+  }
+
+  const elapsed = Date.now() - start
+  console.log()
+  log_success(`Completed: ${success}/${peers.length} online in ${elapsed}ms`)
+}
+
+async function handle_sign (ctx : NodeContext, args : string[]) {
+  if (args.length < 1) {
+    log_error('Usage: sign <message> [count]')
+    return
+  }
+
+  // Check if last argument is a number (count)
+  const last_arg = args[args.length - 1]
+  const count_match = /^\d+$/.test(last_arg) && args.length > 1
+  const count = count_match ? parseInt(last_arg, 10) : 1
+  const message_args = count_match ? args.slice(0, -1) : args
+  const message = message_args.join(' ')
+
+  if (count < 1 || count > 1000) {
+    log_error('Count must be between 1 and 1000')
+    return
+  }
+
+  if (count === 1) {
+    // Single signature
+    const sighash = await hash_message(message)
+    log_info(`Message: "${message}"`)
+    log_info(`Sighash: ${format_pubkey(sighash)}`)
+    log_send('Signing...')
+
+    try {
+      const result = await ctx.node.req.sign(sighash)
+
+      if (!result.ok) {
+        log_error(`Sign failed: ${result.err}`)
+        return
+      }
+
+      log_success('Signature obtained!')
+      log_info(`Signature: ${colors.dim}${format_pubkey(result.data, 16)}${colors.reset}`)
+    } catch (err) {
+      log_error(`Sign error: ${err}`)
+    }
+  } else {
+    // Batch signing
+    log_info(`Message: "${message}"`)
+    log_send(`Signing ${count} times...`)
+
+    const start = Date.now()
+    let success = 0
+    let failed = 0
+
+    for (let i = 0; i < count; i++) {
+      try {
+        // Use unique sighash for each iteration
+        const sighash = await hash_message(`${message}-${i}`)
+        const result = await ctx.node.req.sign(sighash)
+
+        if (result.ok) {
+          success++
+          // Show progress every 10 signatures or on last one
+          if ((i + 1) % 10 === 0 || i === count - 1) {
+            process.stdout.write(`\r  Progress: ${i + 1}/${count} (${success} ok, ${failed} failed)`)
+          }
+        } else {
+          failed++
+          log_error(`\n  [${i + 1}] Sign failed: ${result.err}`)
+        }
+      } catch (err) {
+        failed++
+        log_error(`\n  [${i + 1}] Sign error: ${err}`)
+      }
     }
 
-    log_success('Signature obtained!')
-    log_info(`Signature: ${colors.dim}${format_pubkey(result.data, 16)}${colors.reset}`)
-  } catch (err) {
-    log_error(`Sign error: ${err}`)
+    const elapsed = Date.now() - start
+    const rate = count > 0 ? (count / (elapsed / 1000)).toFixed(1) : '0'
+
+    console.log() // New line after progress
+    log_success(`Completed: ${success}/${count} succeeded in ${elapsed}ms (${rate}/sec)`)
   }
 }
 

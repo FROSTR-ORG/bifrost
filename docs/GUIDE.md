@@ -33,13 +33,13 @@ npm run demo:keygen
 
 ### Using tmux (Recommended)
 
-The tmux script creates a 4-pane layout automatically:
+Launch the demo with a single command:
 
 ```bash
-./demo/tmux.sh start
+npm run demo
 ```
 
-This launches:
+This opens a new terminal window with a 4-pane tmux layout:
 ```
 +-----------------------------+-----------------------------+
 |                             |                             |
@@ -54,10 +54,7 @@ This launches:
 +-----------------------------+-----------------------------+
 ```
 
-To stop the demo:
-```bash
-./demo/tmux.sh stop
-```
+To stop the demo, simply close the terminal window. The tmux session is automatically cleaned up.
 
 ### Manual Setup (4 terminals)
 

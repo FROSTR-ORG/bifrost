@@ -7,7 +7,6 @@ import type {
   OnboardResponse,
   PeerConfig,
   PeerData,
-  SighashVector,
   SignatureEntry,
   SignSessionPackage
 } from '@/types/index.js'
@@ -82,22 +81,6 @@ export interface BifrostNodeConfig {
  */
 export interface BifrostNodeOptions extends Partial<BifrostNodeConfig> {
   cache? : BifrostNodeCache
-}
-
-/**
- * A queued signature request in the SignerQueue.
- *
- * Contains the sighash vector to sign and Promise callbacks
- * for resolving or rejecting the request when batch processing completes.
- *
- * @property sigvec - The sighash vector [id, ...metadata] to sign.
- * @property resolve - Callback to resolve the Promise with the signature.
- * @property reject - Callback to reject the Promise with an error.
- */
-export interface SignRequest {
-  sigvec  : SighashVector
-  resolve : (result: SignatureEntry) => void
-  reject  : (error: string)  => void
 }
 
 /**

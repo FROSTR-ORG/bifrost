@@ -51,12 +51,13 @@
     "test:unit": "npm run script test/case/unit/runner.ts",
     "test:int": "npm run script test/case/integration/runner.ts",
     "test:e2e": "npm run script test/case/e2e/runner.ts",
-    "demo": "npm run script demo/orchestrator.ts",
-    "demo:start": "./demo/tmux.sh start",
-    "demo:stop": "./demo/tmux.sh stop",
+    "demo": "./demo/tmux.sh start",
     "demo:relay": "npm run script demo/relay.ts",
     "demo:keygen": "npm run script demo/keygen.ts",
-    "demo:onboard": "npm run script demo/onboard.ts"
+    "demo:onboard": "npm run script demo/onboard.ts",
+    "demo:alice": "npm run script demo/node.ts -- --name alice",
+    "demo:bob": "npm run script demo/node.ts -- --name bob",
+    "demo:carol": "npm run script demo/node.ts -- --name carol"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.0",

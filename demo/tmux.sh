@@ -103,7 +103,7 @@ case "$1" in
       TERM_EMU=$(find_terminal)
       if [ -n "$TERM_EMU" ]; then
         echo "Launching in $TERM_EMU..."
-        launch_in_terminal "$TERM_EMU" "BIFROST_LAUNCH=1 '$0' start"
+        launch_in_terminal "$TERM_EMU" "trap '$0 stop' EXIT; BIFROST_LAUNCH=1 '$0' start"
       else
         echo "Error: No terminal emulator found and not running in tmux"
         echo "Install gnome-terminal, konsole, xterm, or run this script from within tmux"

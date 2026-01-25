@@ -1,8 +1,7 @@
-import { EventEmitter }  from './emitter.js'
-import { BifrostSigner } from './signer.js'
-import { SignBatcher }   from './sign-batcher.js'
-import { ECDHBatcher }   from './ecdh-batcher.js'
-import { NoncePool }     from './pool.js'
+import { EventEmitter }              from './emitter.js'
+import { BifrostSigner }             from './signer.js'
+import { SignBatcher, ECDHBatcher }  from './batcher.js'
+import { NoncePool }                 from './pool.js'
 
 import { NostrNode }      from '@vbyte/nostr-sdk'
 import { parse_error }    from '@vbyte/nostr-sdk/lib'

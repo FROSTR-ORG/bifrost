@@ -13,7 +13,7 @@ npm test          # Run all tests (uses tape framework with tsx loader)
 npm run build     # Build project (TypeScript + Rollup bundling)
 npm run release   # Run tests and build
 npm run scratch   # Ad-hoc testing via test/scratch.ts
-npm run keygen    # Generate test keypairs via test/keygen.ts
+npm run demo      # Launch interactive 4-pane tmux demo
 ```
 
 Tests are located in `test/src/case/unit/`. Entry point is `test/tape.ts`.

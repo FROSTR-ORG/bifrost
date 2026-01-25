@@ -8,7 +8,12 @@ import { Buff }                       from '@vbyte/buff'
 import { verify_signature }           from '@/util/crypto.js'
 import { parse_error }                from '@/util/index.js'
 import { hash_string }                from '@/test/lib/hash.js'
-import { generate_messages, measure_time } from '../lib/helpers.js'
+import {
+  generate_messages,
+  get_peer_idx,
+  measure_time,
+  replenish_pools_for
+} from '../lib/helpers.js'
 
 import type { TestNetwork } from '@/test/types.js'
 import type { Test }        from 'tape'
@@ -284,6 +289,151 @@ export default function (ctx : TestNetwork, tape : Test) {
 
       } catch (err) {
         st.pass('empty input threw error as expected')
+      } finally {
+        st.end()
+      }
+    })
+  })
+
+  tape.test('Sign API: Nonce Replenishment', t => {
+
+    t.test('sign response includes replenishment nonces when pool is low', async st => {
+      try {
+        const Alice = ctx.nodes.get('alice')!
+        const Bob   = ctx.nodes.get('bob')!
+
+        // Get indexes
+        const bob_idx   = get_peer_idx(Alice, Bob.pubkey)
+        const alice_idx = get_peer_idx(Bob, Alice.pubkey)
+        st.ok(bob_idx !== undefined, 'found Bob index')
+        st.ok(alice_idx !== undefined, 'found Alice index')
+
+        // Drain pools via actual signing until Bob's outgoing pool for Alice is low
+        // Pool starts with ~200 nonces, min_threshold is 20
+        // Need to drain below 20 to trigger replenishment
+        const min_threshold = 20
+        let drain_count = 0
+        const max_drain = 250 // Safety limit
+
+        while (Bob.pool.get_outgoing_count(alice_idx!) > min_threshold && drain_count < max_drain) {
+          const msg = Buff.random(32).hex
+          await Alice.req.sign_batch([[ msg ]], { peers: [ Bob.pubkey ] })
+          drain_count++
+        }
+
+        const before_count = Alice.pool.get_available_count(bob_idx!)
+        const bob_outgoing_before = Bob.pool.get_outgoing_count(alice_idx!)
+        st.ok(bob_outgoing_before <= min_threshold, `Bob outgoing pool drained to ${bob_outgoing_before} (threshold: ${min_threshold})`)
+
+        // Sign one more message - Bob should now include replenishment nonces
+        const message = Buff.random(32).hex
+        const result = await Alice.req.sign_batch([[ message ]], { peers: [ Bob.pubkey ] })
+
+        st.ok(result.ok, 'signing succeeded')
+
+        // After signing, Alice's pool should have been replenished
+        // Replenishment adds ~50 nonces (pool_target), minus 1 for consumption
+        const after_count = Alice.pool.get_available_count(bob_idx!)
+        st.ok(after_count > before_count, `pool replenished: ${before_count} -> ${after_count}`)
+
+      } catch (err) {
+        console.log('error:', err)
+        st.fail(parse_error(err))
+      } finally {
+        st.end()
+      }
+    })
+
+    t.test('continuous signing maintains healthy pool via replenishment', async st => {
+      try {
+        const Alice = ctx.nodes.get('alice')!
+        const Bob   = ctx.nodes.get('bob')!
+
+        const bob_idx   = get_peer_idx(Alice, Bob.pubkey)
+        const alice_idx = get_peer_idx(Bob, Alice.pubkey)
+        st.ok(bob_idx !== undefined, 'found Bob index')
+
+        // First drain the pool to near threshold so replenishment will trigger
+        const min_threshold = 20
+        let drain = 0
+        while (Bob.pool.get_outgoing_count(alice_idx!) > min_threshold + 10 && drain < 250) {
+          await Alice.req.sign_batch([[ Buff.random(32).hex ]], { peers: [ Bob.pubkey ] })
+          drain++
+        }
+
+        const counts : number[] = []
+        counts.push(Alice.pool.get_available_count(bob_idx!))
+
+        // Now sign many more messages - pool should stay healthy via replenishment
+        for (let i = 0; i < 30; i++) {
+          const message = Buff.random(32).hex
+          const result = await Alice.req.sign_batch([[ message ]], { peers: [ Bob.pubkey ] })
+          st.ok(result.ok, `sign ${i + 1} succeeded`)
+          counts.push(Alice.pool.get_available_count(bob_idx!))
+        }
+
+        // Pool should never have dropped to critical levels (< 5)
+        // because replenishment kicks in when pool goes below threshold
+        const min_count = Math.min(...counts)
+        st.ok(min_count >= 5, `pool stayed above critical: min=${min_count}`)
+
+      } catch (err) {
+        console.log('error:', err)
+        st.fail(parse_error(err))
+      } finally {
+        st.end()
+      }
+    })
+
+    t.test('replenishment works bidirectionally', async st => {
+      try {
+        const Alice = ctx.nodes.get('alice')!
+        const Bob   = ctx.nodes.get('bob')!
+
+        const bob_idx   = get_peer_idx(Alice, Bob.pubkey)
+        const alice_idx = get_peer_idx(Bob, Alice.pubkey)
+
+        st.ok(bob_idx !== undefined, 'found Bob index from Alice')
+        st.ok(alice_idx !== undefined, 'found Alice index from Bob')
+
+        const min_threshold = 20
+
+        // Drain Alice's pool from Bob via signing until below threshold
+        let drain = 0
+        while (Bob.pool.get_outgoing_count(alice_idx!) > min_threshold && drain < 250) {
+          await Alice.req.sign_batch([[ Buff.random(32).hex ]], { peers: [ Bob.pubkey ] })
+          drain++
+        }
+
+        // Drain Bob's pool from Alice via signing until below threshold
+        drain = 0
+        while (Alice.pool.get_outgoing_count(bob_idx!) > min_threshold && drain < 250) {
+          await Bob.req.sign_batch([[ Buff.random(32).hex ]], { peers: [ Alice.pubkey ] })
+          drain++
+        }
+
+        const alice_before = Alice.pool.get_available_count(bob_idx!)
+        const bob_before   = Bob.pool.get_available_count(alice_idx!)
+
+        st.ok(alice_before <= min_threshold, `Alice pool drained to ${alice_before}`)
+        st.ok(bob_before <= min_threshold, `Bob pool drained to ${bob_before}`)
+
+        // Alice signs - Bob's response should include replenishment
+        await Alice.req.sign_batch([[ Buff.random(32).hex ]], { peers: [ Bob.pubkey ] })
+
+        // Bob signs - Alice's response should include replenishment
+        await Bob.req.sign_batch([[ Buff.random(32).hex ]], { peers: [ Alice.pubkey ] })
+
+        const alice_after = Alice.pool.get_available_count(bob_idx!)
+        const bob_after   = Bob.pool.get_available_count(alice_idx!)
+
+        // Replenishment should have increased the pools
+        st.ok(alice_after > alice_before, `Alice pool replenished: ${alice_before} -> ${alice_after}`)
+        st.ok(bob_after > bob_before, `Bob pool replenished: ${bob_before} -> ${bob_after}`)
+
+      } catch (err) {
+        console.log('error:', err)
+        st.fail(parse_error(err))
       } finally {
         st.end()
       }
