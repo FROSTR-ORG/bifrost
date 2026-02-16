@@ -74,6 +74,10 @@ import { get_pubkey } from '@frostr/bifrost/util'
 - Strict mode enabled (noImplicitAny, noUnusedLocals, noUnusedParameters)
 - Target: ESNext, Module: NodeNext
 
+## Code Conventions
+
+See [docs/CONVENTIONS.md](./docs/CONVENTIONS.md) for naming, formatting, and code organization standards.
+
 ## Commit Guidelines
 
 Follow [Conventional Commits](https://conventionalcommits.org/) format:

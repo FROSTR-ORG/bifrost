@@ -1,6 +1,8 @@
 # Security Model
 
-This document describes the security model, threat assumptions, and cryptographic guarantees of the FROSTR protocol and Bifrost SDK.
+This document describes the security model, threat assumptions, and deployment guidance for the FROSTR protocol and Bifrost SDK.
+
+For cryptographic implementation details, see [Cryptographic Foundations](CRYPTOGRAPHY.md).
 
 ## Overview
 
@@ -27,24 +29,6 @@ The core security property: an adversary must compromise at least M shareholders
 - **No key reconstruction**: The complete secret key is never assembled, even during signing
 - **Share independence**: Compromising one share reveals nothing about other shares
 - **Threshold enforcement**: Fewer than M shares cannot produce a valid signature
-
-### Cryptographic Foundations
-
-Bifrost uses well-audited, constant-time cryptographic libraries:
-
-| Component | Library | Purpose |
-|-----------|---------|---------|
-| Schnorr signatures | `@noble/curves` | BIP-340 compatible signing |
-| Encryption | `@noble/ciphers` | ChaCha20-Poly1305 AEAD |
-| Hashing | `@noble/hashes` | SHA-256, HMAC |
-| FROST protocol | `@vbyte/frost` | Threshold signing primitives |
-
-All Noble libraries implement:
-- Constant-time operations to prevent timing attacks
-- No dynamic memory allocation in hot paths
-- Extensive test vectors from standards bodies
-
-**See also:** [Cryptographic Foundations](CRYPTOGRAPHY.md) for detailed documentation of all cryptographic operations.
 
 ### Nonce Security
 
@@ -171,7 +155,7 @@ const node = new BifrostNode(group, share, relays, {
 })
 ```
 
-**See:** [Architecture - Extension Points](ARCHITECTURE.md) for detailed middleware examples.
+**See:** [Architecture - Extension Points](ARCHITECTURE.md#extension-points) for detailed middleware examples.
 
 ### Nonce Pool Monitoring
 
@@ -204,11 +188,14 @@ For environments requiring stronger protection against malicious group members, 
 
 **Scenario:** If a signing request fails mid-protocol due to network issues, what happens to the consumed nonces?
 
-**Solution:** Bifrost implements automatic retry with nonce caching. When a signing request is initiated:
+**Solution:** Bifrost collects nonces once at the start of a signing request and reuses them for any retry attempts within that request. This is not a persistent cache—nonces are held in local scope for the duration of the single `sign_batch()` call.
 
-1. Nonces are collected once and bound to the session ID
-2. If the network request fails, the same nonces are reused for retry
-3. This is safe because: same session ID = same message, and nonce reuse with the same message is idempotent
+**How it works:**
+
+1. When `sign_batch()` is called, nonces are collected from peer pools immediately
+2. These nonces are stored in the session object passed to the retry loop
+3. If a network request fails, the same session (with the same nonces) is retried
+4. Once the function returns (success or failure), the nonces are no longer held
 
 **Configuration:**
 ```typescript
@@ -216,11 +203,11 @@ For environments requiring stronger protection against malicious group members, 
 const result = await node.req.sign_batch(messages, { retries: 2 })
 ```
 
-**Why this is safe:**
+**Why reusing nonces within a request is safe:**
 - The session ID is deterministic from the message content and member set
 - Retrying with the same session/nonces signs the same message
-- If a peer already processed the original request, they reject the retry (nonce already spent) - but this is no worse than a fresh attempt
-- If peers didn't receive the original, the retry succeeds
+- Nonce reuse only leaks secrets when signing *different* messages—signing the same message is idempotent
+- If a peer already processed the original request, they reject the retry (nonce already spent)—but this is no worse than a fresh attempt
 
 **Best practices:**
 - Configure `retries` based on your network reliability
@@ -242,17 +229,6 @@ node.on('/sign/sender/ret', ([signature, entries]) => {
 ```
 
 **See:** [API Reference - Events](API.md#events) for the full list of events available for logging.
-
-## Reporting Security Issues
-
-If you discover a security vulnerability in Bifrost:
-
-1. **Do not** open a public GitHub issue
-2. Email security concerns to the maintainers privately
-3. Include steps to reproduce the vulnerability
-4. Allow reasonable time for a fix before public disclosure
-
-We follow responsible disclosure practices and will credit reporters in security advisories.
 
 ## References
 

@@ -2,7 +2,7 @@
 
 SESSION_NAME="bifrost-demo"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
 # Find an available terminal emulator
 find_terminal() {
@@ -57,20 +57,20 @@ create_session() {
   # Create new tmux session with relay in first pane
   # Use exec and call tsx directly for proper stdin handling
   tmux new-session -d -s "$SESSION_NAME" -n demo \
-    "cd '$PROJECT_DIR' && clear && exec npx tsx --tsconfig ./test/tsconfig.json demo/relay.ts"
+    "cd '$PROJECT_DIR' && clear && exec npx tsx --tsconfig ./test/tsconfig.json demo/tmux/relay.ts"
 
   # Split right side and run alice
   # Use exec to replace shell with the node process for proper stdin handling
   tmux split-window -h -t "$SESSION_NAME" \
-    "cd '$PROJECT_DIR' && clear && exec npx tsx --tsconfig ./test/tsconfig.json demo/node.ts -- --name alice"
+    "cd '$PROJECT_DIR' && clear && exec npx tsx --tsconfig ./test/tsconfig.json demo/tmux/node.ts -- --name alice"
 
   # Split alice pane for bob
   tmux split-window -v -t "$SESSION_NAME:demo.1" \
-    "cd '$PROJECT_DIR' && clear && exec npx tsx --tsconfig ./test/tsconfig.json demo/node.ts -- --name bob"
+    "cd '$PROJECT_DIR' && clear && exec npx tsx --tsconfig ./test/tsconfig.json demo/tmux/node.ts -- --name bob"
 
   # Split bob pane for carol
   tmux split-window -v -t "$SESSION_NAME:demo.2" \
-    "cd '$PROJECT_DIR' && clear && exec npx tsx --tsconfig ./test/tsconfig.json demo/node.ts -- --name carol"
+    "cd '$PROJECT_DIR' && clear && exec npx tsx --tsconfig ./test/tsconfig.json demo/tmux/node.ts -- --name carol"
 
   # Select alice pane
   tmux select-pane -t "$SESSION_NAME:demo.1"
@@ -89,7 +89,7 @@ case "$1" in
     fi
 
     # Clear log files
-    LOG_DIR="$PROJECT_DIR/demo/logs"
+    LOG_DIR="$PROJECT_DIR/demo/tmux/logs"
     if [ -d "$LOG_DIR" ]; then
       rm -f "$LOG_DIR"/*.log
       echo "Cleared log files"

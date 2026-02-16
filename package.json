@@ -53,13 +53,13 @@
     "test:unit": "npm run script test/case/unit/runner.ts",
     "test:int": "npm run script test/case/integration/runner.ts",
     "test:e2e": "npm run script test/case/e2e/runner.ts",
-    "demo": "./demo/tmux.sh start",
-    "demo:relay": "npm run script demo/relay.ts",
-    "demo:keygen": "npm run script demo/keygen.ts",
-    "demo:onboard": "npm run script demo/onboard.ts",
-    "demo:alice": "npm run script demo/node.ts -- --name alice",
-    "demo:bob": "npm run script demo/node.ts -- --name bob",
-    "demo:carol": "npm run script demo/node.ts -- --name carol"
+    "demo": "./demo/tmux/tmux.sh start",
+    "demo:relay": "npm run script demo/tmux/relay.ts",
+    "demo:keygen": "npm run script demo/tmux/keygen.ts",
+    "demo:onboard": "npm run script demo/tmux/onboard.ts",
+    "demo:alice": "npm run script demo/tmux/node.ts -- --name alice",
+    "demo:bob": "npm run script demo/tmux/node.ts -- --name bob",
+    "demo:carol": "npm run script demo/tmux/node.ts -- --name carol"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.12",
@@ -85,11 +85,9 @@
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
     "@scure/base": "^1.2.1",
-    "@types/debug": "^4.1.12",
     "@vbyte/buff": "^1.0.4",
     "@vbyte/frost": "^1.1.5",
     "@vbyte/nostr-sdk": "^1.0.1",
-    "debug": "^4.4.3",
     "zod": "^4.3.6"
   }
 }

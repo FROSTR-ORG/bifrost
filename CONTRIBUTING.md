@@ -31,6 +31,8 @@ npm test
 
 ## Code Style
 
+See [docs/CONVENTIONS.md](./docs/CONVENTIONS.md) for complete coding standards. Quick summary:
+
 ### TypeScript
 
 - Strict mode enabled (`noImplicitAny`, `noUnusedLocals`, `noUnusedParameters`)

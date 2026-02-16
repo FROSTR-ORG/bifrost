@@ -10,12 +10,14 @@ In-depth technical documentation for developers who want to understand the inter
 | [API Reference](./API.md) | Full API documentation |
 | [Development](./DEVELOPMENT.md) | Build, test, debugging, and git workflow |
 | [Contributing](./CONTRIBUTING.md) | Code style, PR process, and testing guidelines |
+| [Conventions](./CONVENTIONS.md) | Naming, formatting, and code organization standards |
 | [Migration](./MIGRATION.md) | Version upgrade guides |
 | [Glossary](./GLOSSARY.md) | Definitions of protocol-specific terminology |
 | [Architecture](./ARCHITECTURE.md) | System components, data flow, and extension points |
 | [Protocol](./PROTOCOL.md) | Wire protocol specification and message formats |
 | [Cryptography](./CRYPTOGRAPHY.md) | Cryptographic primitives, FROST protocol, and security properties |
-| [Security](./SECURITY.md) | Threat model and deployment guidance |
+| [Security Model](./SECURITY-MODEL.md) | Threat model, trust assumptions, and deployment guidance |
+| [Security Policy](../SECURITY.md) | Reporting security vulnerabilities |
 
 ## Reading Order
 

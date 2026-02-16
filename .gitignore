@@ -48,6 +48,6 @@ repos/
 .dump
 local/
 test/data
-demo/data/
+demo/tmux/data/
 TODO.md
 NOTES.md
