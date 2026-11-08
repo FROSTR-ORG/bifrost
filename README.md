@@ -1,5 +1,12 @@
 # Bifrost
 
+> [!WARNING]
+> **Deprecated: legacy TypeScript SDK. Security issue in `@frostr/bifrost` 2.0.2.**
+> Version 2.0.2 reuses the same secret nonce pair across multiple hashes in a signing session. This can expose a signer's secret share and allow a malicious or compromised group member to recover the full signing key.
+> **Do not use multi-hash signing sessions.** Existing integrations must reject any session containing anything other than exactly one hash at every signer, before producing a partial signature. Keep Cinderella's `requested.length !== 1` guard in place.
+> New integrations should evaluate the successor, **[bifrost-rs](https://github.com/FROSTR-ORG/bifrost-rs)**. It is a separate Rust implementation with no legacy compatibility layer; migration is not a drop-in package upgrade.
+> See the [security notice](docs/SECURITY.md#known-issue-multi-hash-nonce-reuse-in-202) for scope and limitations.
+
 > Threshold signing SDK for FROSTR - Distributed key custody using Nostr relays
 
 [![npm version](https://img.shields.io/npm/v/@frostr/bifrost)](https://www.npmjs.com/package/@frostr/bifrost)
@@ -25,7 +32,9 @@
 - **BIP-340 Compatible**: Produces standard Schnorr signatures usable on Bitcoin and Nostr
 - **TypeScript First**: Full type safety with strict mode enabled
 
-## Installation
+## Legacy Installation (Deprecated)
+
+Do not start new deployments with this package. The following examples document the legacy API and remain subject to the security notice above.
 
 ```bash
 npm install @frostr/bifrost
@@ -62,7 +71,7 @@ See the [Guide](docs/GUIDE.md) for complete examples.
 | Method | Description |
 |--------|-------------|
 | `node.req.sign(message)` | Request threshold signature |
-| `node.req.sign_batch(messages)` | Request multiple threshold signatures |
+| `node.req.sign_batch(messages)` | **Unsafe for multi-hash sessions in 2.0.2** — see the [security notice](docs/SECURITY.md#known-issue-multi-hash-nonce-reuse-in-202) |
 | `node.req.ecdh(pubkey)` | Collaborative ECDH key exchange |
 | `node.req.ecdh_batch(pubkeys)` | Batch ECDH key exchange for multiple pubkeys |
 | `node.req.ping(peer)` | Ping peer and exchange nonces |
