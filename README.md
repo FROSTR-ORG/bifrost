@@ -1,6 +1,13 @@
 # Bifrost
 
+> [!WARNING]
+> **DEPRECATED & INSECURE — do not use `@frostr/bifrost` 2.0.2 (TypeScript).**
+> This library reuses the same nonce across multiple hashes in a sign session, which can leak a signer's secret share. A malicious member could recover other shares and rebuild the full key.
+> The TypeScript library is retired — use **[bifrost-rs](https://github.com/frostr-org/bifrost-rs)** (Rust) instead, which does not have this bug.
+> If you must use this package, never sign more than one hash per session and keep the `requested.length !== 1` guard in place.
+
 > Threshold signing SDK for FROSTR - Distributed key custody using Nostr relays
+
 
 [![npm version](https://img.shields.io/npm/v/@frostr/bifrost)](https://www.npmjs.com/package/@frostr/bifrost)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
