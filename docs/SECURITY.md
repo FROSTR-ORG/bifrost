@@ -1,5 +1,23 @@
 # Security Model
 
+> [!WARNING]
+> **The legacy TypeScript SDK is deprecated. `@frostr/bifrost` 2.0.2 has a known multi-hash nonce-reuse issue.**
+> The threshold-security and nonce-reuse protections described below do not hold for affected multi-hash signing sessions. Read this notice before relying on the historical security model.
+
+## Known Issue: Multi-hash Nonce Reuse in 2.0.2
+
+**Affected version covered by this notice: `@frostr/bifrost` 2.0.2.** Other versions have not been assessed by this notice; their omission is not a statement that they are safe.
+
+When a signing session contains multiple hashes, `create_psig_pkg` in `src/lib/sign.ts` passes the same secret nonce pair into each partial-signature operation. A malicious or compromised group member can use this nonce reuse to recover secret-share material, potentially reconstructing the full signing key. Marking the nonce spent after the session does not prevent reuse within that session.
+
+**Immediate mitigation:** every signer must reject a session unless it contains exactly one hash, before any partial signature is produced. Restricting only the requesting application is insufficient: another group member can construct a multi-hash request. Cinderella's `requested.length !== 1` middleware guard is an example of this check and must remain in place. Direct calls to the low-level signing API also need this restriction.
+
+This restriction addresses this specific multi-hash attack. It is not a library fix, a general security assurance, or a remedy for key material that may already have been exposed. This documentation update does not patch the published 2.0.2 package.
+
+The successor is [bifrost-rs](https://github.com/FROSTR-ORG/bifrost-rs), a separate Rust implementation. Its README currently labels it beta and states that it maintains no legacy compatibility layer. Evaluate its security, compatibility, and migration requirements before adoption; this notice does not certify that implementation.
+
+## Historical Security Model
+
 This document describes the security model, threat assumptions, and cryptographic guarantees of the FROSTR protocol and Bifrost SDK.
 
 ## Overview
